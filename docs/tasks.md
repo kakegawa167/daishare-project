@@ -1,6 +1,6 @@
 # ダイシェア モバイルアプリ 開発タスク
 
-> 最終更新: 2026-06-20  
+> 最終更新: 2026-06-20 (Phase 0-1〜0-2 進行中)  
 > ステータス凡例: `[ ]` 未着手 / `[→]` 進行中 / `[x]` 完了 / `[-]` スキップ
 
 ---
@@ -9,22 +9,22 @@
 > 目標: ローカルで FastAPI + Supabase CLI が動き、GitHub Actions が通る状態
 
 ### 0-1. リポジトリ・ブランチ設定
-- [ ] `develop` ブランチ作成
-- [ ] ブランチ保護ルール設定（main / develop への直接 push 禁止）
-- [ ] `.gitignore` 整備（Python / Node / Expo / 環境変数）
-- [ ] `CLAUDE.md` 作成（プロジェクト概要・開発ルール）
+- [ ] `develop` ブランチ作成 ※ GitHub リポジトリURL待ち
+- [ ] ブランチ保護ルール設定（main / develop への直接 push 禁止） ※ GitHub リポジトリURL待ち
+- [x] `.gitignore` 整備（Python / Node / Expo / 環境変数）
+- [x] `CLAUDE.md` 作成（プロジェクト概要・開発ルール）
 
 ### 0-2. バックエンド（FastAPI）初期設定
-- [ ] `backend/` ディレクトリ作成・構造構築
-- [ ] `Dockerfile` 作成（Python 3.12-slim ベース）
-- [ ] `docker-compose.yml` 作成（api サービス）
-- [ ] `requirements.txt` 作成（FastAPI / uvicorn / sqlalchemy / asyncpg / alembic / python-jose / pydantic 等）
-- [ ] `app/main.py` 作成（ヘルスチェックエンドポイント含む）
-- [ ] `app/core/config.py` 作成（環境変数管理）
-- [ ] `app/core/database.py` 作成（asyncpg 接続）
-- [ ] `app/core/auth.py` 作成（Supabase JWT 検証ミドルウェア）
-- [ ] `.env.example` 作成
-- [ ] `docker compose up` でサーバー起動確認
+- [x] `backend/` ディレクトリ作成・構造構築
+- [x] `Dockerfile` 作成（Python 3.12-slim ベース）
+- [x] `docker-compose.yml` 作成（api サービス）
+- [x] `requirements.txt` 作成（FastAPI / uvicorn / sqlalchemy / asyncpg / alembic / python-jose / pydantic 等）
+- [x] `app/main.py` 作成（ヘルスチェックエンドポイント含む）
+- [x] `app/core/config.py` 作成（環境変数管理）
+- [x] `app/core/database.py` 作成（asyncpg 接続）
+- [x] `app/core/auth.py` 作成（Supabase JWT 検証ミドルウェア）
+- [x] `.env.example` 作成
+- [ ] `docker compose up` でサーバー起動確認 ※ Supabase CLI 起動後に実施
 
 ### 0-3. Supabase ローカル環境
 - [ ] Supabase CLI インストール（`brew install supabase/tap/supabase`）
@@ -275,10 +275,10 @@
 
 | Phase | タスク数 | 完了 | 進行中 | 未着手 |
 |-------|---------|------|--------|--------|
-| Phase 0 — 環境構築 | 29 | 0 | 0 | 29 |
+| Phase 0 — 環境構築 | 29 | 10 | 0 | 19 |
 | Phase 1 — 認証・ユーザー | 22 | 0 | 0 | 22 |
 | Phase 2 — 台車・検索・リクエスト | 24 | 0 | 0 | 24 |
 | Phase 3 — メッセージ・予約管理 | 18 | 0 | 0 | 18 |
 | Phase 4 — レビュー・スケジュール・通知 | 22 | 0 | 0 | 22 |
 | Phase 5 — 仕上げ・リリース準備 | 14 | 0 | 0 | 14 |
-| **合計** | **129** | **0** | **0** | **129** |
+| **合計** | **129** | **10** | **0** | **119** |
