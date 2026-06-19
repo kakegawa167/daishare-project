@@ -1,0 +1,31 @@
+name: Backend Deploy
+
+on:
+  push:
+    branches:
+      - develop   # → staging
+      - main      # → production
+    paths:
+      - "backend/**"
+      - ".github/workflows/backend-deploy.yml"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy to Railway (staging)
+        if: github.ref == 'refs/heads/develop'
+        uses: bervProject/railway-deploy@main
+        with:
+          railway_token: ${{ secrets.RAILWAY_TOKEN }}
+          service: ${{ secrets.RAILWAY_SERVICE_STAGING }}
+
+      - name: Deploy to Railway (production)
+        if: github.ref == 'refs/heads/main'
+        uses: bervProject/railway-deploy@main
+        with:
+          railway_token: ${{ secrets.RAILWAY_TOKEN }}
+          service: ${{ secrets.RAILWAY_SERVICE_PROD }}

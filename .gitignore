@@ -1,41 +1,90 @@
-# Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
+# ===========================
+# 環境変数・シークレット
+# ===========================
+.env
+.env.local
+.env.staging
+.env.production
+.env.*.local
+*.pem
+*.key
+*.p8
+*.p12
+*.mobileprovision
+*.jks
 
-# dependencies
+# ===========================
+# Python / FastAPI
+# ===========================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+backend/venv/
+backend/.venv/
+backend/env/
+backend/.env
+backend/*.egg-info/
+backend/dist/
+backend/build/
+backend/.pytest_cache/
+backend/.mypy_cache/
+backend/.ruff_cache/
+backend/htmlcov/
+backend/.coverage
+backend/coverage.xml
+
+# ===========================
+# Node.js / Expo / React Native
+# ===========================
 node_modules/
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+*.tsbuildinfo
+.pnp
+.pnp.js
 
 # Expo
 .expo/
 dist/
 web-build/
 expo-env.d.ts
-
-# Native
+.metro-health-check*
 .kotlin/
 *.orig.*
-*.jks
-*.p8
-*.p12
-*.key
-*.mobileprovision
 
-# Metro
-.metro-health-check*
-
-# debug
-npm-debug.*
-yarn-debug.*
-yarn-error.*
-
-# macOS
-.DS_Store
-*.pem
-
-# local env files
-.env*.local
-
-# typescript
-*.tsbuildinfo
-
-# generated native folders
+# EAS / ネイティブ生成フォルダ
 /ios
 /android
+mobile/android/
+mobile/ios/
+mobile/eas-build-local-nodejs/
+
+# ===========================
+# Docker
+# ===========================
+docker-compose.override.yml
+
+# ===========================
+# OS
+# ===========================
+.DS_Store
+.DS_Store?
+._*
+Thumbs.db
+
+# ===========================
+# IDE
+# ===========================
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ===========================
+# ログ
+# ===========================
+*.log
+logs/
