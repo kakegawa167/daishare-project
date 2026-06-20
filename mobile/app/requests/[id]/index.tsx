@@ -1,5 +1,6 @@
 import { api } from '@/lib/api';
 import { Message, RentalRequest, Reservation } from '@/lib/types';
+import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/authStore';
 import { useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -163,6 +164,27 @@ export default function RequestChat() {
   useEffect(() => {
     fetchAll();
   }, [fetchAll]);
+
+  // Supabase Realtime でメッセージをリアルタイム受信（ISSUE-008の設定が必要）
+  useEffect(() => {
+    const channel = supabase
+      .channel(`messages:request:${id}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'messages', filter: `rental_request_id=eq.${id}` },
+        (payload) => {
+          const msg = payload.new as Message;
+          setMessages((prev) => {
+            if (prev.some((m) => m.id === msg.id)) return prev;
+            return [...prev, msg];
+          });
+          setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
+        }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [id]);
 
   const handleSend = async () => {
     const body = input.trim();

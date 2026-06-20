@@ -1,6 +1,7 @@
 import { api } from '@/lib/api';
 import { EmptyScreen, LoadingScreen } from '@/components/ScreenState';
 import { useCallback, useEffect, useState } from 'react';
+import { useBadgeStore } from '@/store/badgeStore';
 import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 
 interface Notification {
@@ -18,6 +19,7 @@ export default function Notifications() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const { clearNotifications, decrementNotification } = useBadgeStore();
 
   const fetchNotifications = useCallback(async () => {
     setError(false);
@@ -38,6 +40,7 @@ export default function Notifications() {
     try {
       await api.post('/notifications/read-all');
       setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
+      clearNotifications();
     } catch {}
   };
 
@@ -52,6 +55,7 @@ export default function Notifications() {
     if (!n.is_read) {
       await api.post(`/notifications/${n.id}/read`).catch(() => {});
       setNotifications((prev) => prev.map((x) => x.id === n.id ? { ...x, is_read: true } : x));
+      decrementNotification();
     }
   };
 

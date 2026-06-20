@@ -1,12 +1,28 @@
 import { SymbolView } from 'expo-symbols';
 import { Tabs } from 'expo-router';
+import { useEffect } from 'react';
+import { AppState } from 'react-native';
 
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { useClientOnlyValue } from '@/components/useClientOnlyValue';
+import { TabBarBadge } from '@/components/TabBarBadge';
+import { useBadgeStore } from '@/store/badgeStore';
+import { useAuthStore } from '@/store/authStore';
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
+  const { fetchUnread, unreadNotifications } = useBadgeStore();
+  const { session } = useAuthStore();
+
+  useEffect(() => {
+    if (!session) return;
+    fetchUnread();
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') fetchUnread();
+    });
+    return () => sub.remove();
+  }, [session]);
 
   return (
     <Tabs

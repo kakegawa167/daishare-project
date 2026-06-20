@@ -12,6 +12,7 @@ import {
 
 import { api } from '@/lib/api';
 import { AppUser, useAuthStore } from '@/store/authStore';
+import { StationPicker } from '@/components/StationPicker';
 
 type UserType = 'lender' | 'renter' | 'both';
 
@@ -21,15 +22,25 @@ const USER_TYPE_LABELS: Record<UserType, string> = {
   both: '両方',
 };
 
+interface StationInfo {
+  id: number;
+  name: string;
+  municipality: string;
+  line_id: number;
+}
+
 export default function ProfileScreen() {
   const { user, signOut, syncUser } = useAuthStore();
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [showStationPicker, setShowStationPicker] = useState(false);
+  const [selectedStation, setSelectedStation] = useState<StationInfo | null>(null);
   const [form, setForm] = useState({
     display_name: '',
     bio: '',
     lending_address: '',
     user_type: 'renter' as UserType,
+    base_station_id: null as number | null,
   });
 
   useEffect(() => {
@@ -39,6 +50,7 @@ export default function ProfileScreen() {
         bio: user.bio ?? '',
         lending_address: user.lending_address ?? '',
         user_type: user.user_type,
+        base_station_id: user.base_station_id,
       });
     }
   }, [user]);
@@ -51,6 +63,7 @@ export default function ProfileScreen() {
         bio: form.bio || null,
         lending_address: form.lending_address || null,
         user_type: form.user_type,
+        base_station_id: form.base_station_id,
       });
       await syncUser();
       setEditing(false);
@@ -92,6 +105,23 @@ export default function ProfileScreen() {
         />
       ) : (
         <Text style={styles.value}>{user.bio ?? '未設定'}</Text>
+      )}
+
+      <Text style={styles.label}>拠点駅</Text>
+      {editing ? (
+        <TouchableOpacity
+          style={styles.stationBtn}
+          onPress={() => setShowStationPicker(true)}
+          accessibilityRole="button"
+          accessibilityLabel="拠点駅を選択"
+        >
+          <Text style={selectedStation || form.base_station_id ? styles.stationBtnText : styles.stationBtnPlaceholder}>
+            {selectedStation ? `${selectedStation.name}駅（${selectedStation.municipality}）` : form.base_station_id ? '駅選択済み（名称読込中）' : '駅を選択してください'}
+          </Text>
+          <Text style={{ color: '#9ca3af' }}>›</Text>
+        </TouchableOpacity>
+      ) : (
+        <Text style={styles.value}>{user.base_station_id ? '設定済み' : '未設定'}</Text>
       )}
 
       <Text style={styles.label}>貸出場所詳細</Text>
@@ -143,6 +173,16 @@ export default function ProfileScreen() {
       <TouchableOpacity style={styles.btnLogout} onPress={signOut}>
         <Text style={styles.btnLogoutText}>ログアウト</Text>
       </TouchableOpacity>
+
+      <StationPicker
+        visible={showStationPicker}
+        onClose={() => setShowStationPicker(false)}
+        onSelect={(station) => {
+          setSelectedStation(station);
+          setForm((f) => ({ ...f, base_station_id: station.id }));
+        }}
+        currentStationId={form.base_station_id}
+      />
     </ScrollView>
   );
 }
@@ -201,4 +241,16 @@ const styles = StyleSheet.create({
     borderColor: '#fca5a5',
   },
   btnLogoutText: { color: '#ef4444', fontWeight: '600' },
+  stationBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    padding: 12,
+    minHeight: 48,
+  },
+  stationBtnText: { fontSize: 16, color: '#1f2937' },
+  stationBtnPlaceholder: { fontSize: 16, color: '#9ca3af' },
 });
