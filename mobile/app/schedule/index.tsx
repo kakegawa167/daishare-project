@@ -1,8 +1,9 @@
 import { api } from '@/lib/api';
 import { Reservation, ReservationStatus } from '@/lib/types';
+import { EmptyScreen, LoadingScreen } from '@/components/ScreenState';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 
 const STATUS_LABEL: Record<ReservationStatus, string> = {
   reserved: '予約確定',
@@ -45,14 +46,16 @@ function ReservationCard({ res }: { res: Reservation }) {
 export default function Schedule() {
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
   const fetchReservations = useCallback(async () => {
+    setError(false);
     try {
       const res = await api.get<Reservation[]>('/reservations');
       setReservations(res.data);
     } catch {
-      Alert.alert('エラー', '予約の取得に失敗しました');
+      setError(true);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -71,7 +74,8 @@ export default function Schedule() {
     ...(past.length > 0 ? [{ type: 'header', label: '過去の予約' }, ...past.map((r) => ({ type: 'item', data: r }))] : []),
   ];
 
-  if (loading) return <View style={styles.center}><ActivityIndicator size="large" /></View>;
+  if (loading) return <LoadingScreen />;
+  if (error) return <EmptyScreen icon="⚠️" message="予約の取得に失敗しました" action={{ label: '再試行', onPress: fetchReservations }} />;
 
   return (
     <FlatList
@@ -82,7 +86,7 @@ export default function Schedule() {
         return <ReservationCard res={item.data as Reservation} />;
       }}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchReservations(); }} />}
-      ListEmptyComponent={<View style={styles.center}><Text style={styles.emptyText}>予約がありません</Text></View>}
+      ListEmptyComponent={<EmptyScreen icon="📅" message="予約がありません" subMessage="台車をレンタルするとここに表示されます" />}
       contentContainerStyle={sections.length === 0 ? { flex: 1 } : { paddingBottom: 24 }}
       style={{ backgroundColor: '#f5f5f5' }}
     />

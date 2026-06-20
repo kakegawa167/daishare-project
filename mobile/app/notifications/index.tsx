@@ -1,6 +1,7 @@
 import { api } from '@/lib/api';
+import { EmptyScreen, LoadingScreen } from '@/components/ScreenState';
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 
 interface Notification {
   id: number;
@@ -15,14 +16,16 @@ interface Notification {
 export default function Notifications() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
   const fetchNotifications = useCallback(async () => {
+    setError(false);
     try {
       const res = await api.get<Notification[]>('/notifications');
       setNotifications(res.data);
     } catch {
-      Alert.alert('エラー', '通知の取得に失敗しました');
+      setError(true);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -54,7 +57,8 @@ export default function Notifications() {
 
   const unreadCount = notifications.filter((n) => !n.is_read).length;
 
-  if (loading) return <View style={styles.center}><ActivityIndicator size="large" /></View>;
+  if (loading) return <LoadingScreen />;
+  if (error) return <EmptyScreen icon="⚠️" message="通知の取得に失敗しました" action={{ label: '再試行', onPress: fetchNotifications }} />;
 
   return (
     <View style={{ flex: 1, backgroundColor: '#f5f5f5' }}>
@@ -82,7 +86,7 @@ export default function Notifications() {
           </Pressable>
         )}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchNotifications(); }} />}
-        ListEmptyComponent={<View style={styles.center}><Text style={styles.emptyText}>通知がありません</Text></View>}
+        ListEmptyComponent={<EmptyScreen icon="🔔" message="通知がありません" subMessage="リクエストやメッセージが届くとここに表示されます" />}
         contentContainerStyle={notifications.length === 0 ? { flex: 1 } : { paddingBottom: 24 }}
       />
     </View>

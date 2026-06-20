@@ -1,9 +1,9 @@
 import { api } from '@/lib/api';
 import { Cart } from '@/lib/types';
+import { EmptyScreen, LoadingScreen } from '@/components/ScreenState';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   FlatList,
   Image,
@@ -56,14 +56,16 @@ function CartCard({ cart, onDelete }: { cart: Cart; onDelete: (id: number) => vo
 export default function MyCarts() {
   const [carts, setCarts] = useState<Cart[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
   const fetchCarts = useCallback(async () => {
+    setError(false);
     try {
       const res = await api.get<Cart[]>('/carts/mine');
       setCarts(res.data);
     } catch {
-      Alert.alert('エラー', '台車一覧の取得に失敗しました');
+      setError(true);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -83,13 +85,8 @@ export default function MyCarts() {
     }
   };
 
-  if (loading) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" />
-      </View>
-    );
-  }
+  if (loading) return <LoadingScreen />;
+  if (error) return <EmptyScreen icon="⚠️" message="台車一覧の取得に失敗しました" action={{ label: '再試行', onPress: fetchCarts }} />;
 
   return (
     <View style={styles.container}>
@@ -99,9 +96,11 @@ export default function MyCarts() {
         renderItem={({ item }) => <CartCard cart={item} onDelete={handleDelete} />}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchCarts(); }} />}
         ListEmptyComponent={
-          <View style={styles.center}>
-            <Text style={styles.emptyText}>台車が登録されていません</Text>
-          </View>
+          <EmptyScreen
+            icon="🛒"
+            message="台車が登録されていません"
+            subMessage="「台車を登録」ボタンから追加しましょう"
+          />
         }
         contentContainerStyle={carts.length === 0 ? { flex: 1 } : { paddingBottom: 100 }}
       />

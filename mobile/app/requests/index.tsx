@@ -1,10 +1,10 @@
 import { api } from '@/lib/api';
 import { RentalRequest, RequestStatus } from '@/lib/types';
+import { EmptyScreen, LoadingScreen } from '@/components/ScreenState';
 import { useAuthStore } from '@/store/authStore';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   FlatList,
   Pressable,
@@ -88,14 +88,16 @@ export default function Requests() {
   const [tab, setTab] = useState<'received' | 'sent'>('received');
   const [requests, setRequests] = useState<RentalRequest[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
   const fetchRequests = useCallback(async () => {
+    setError(false);
     try {
       const res = await api.get<RentalRequest[]>('/rental-requests');
       setRequests(res.data);
     } catch {
-      Alert.alert('エラー', 'リクエスト一覧の取得に失敗しました');
+      setError(true);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -109,7 +111,8 @@ export default function Requests() {
     tab === 'received' ? r.renter_id !== userId : r.renter_id === userId
   );
 
-  if (loading) return <View style={styles.center}><ActivityIndicator size="large" /></View>;
+  if (loading) return <LoadingScreen />;
+  if (error) return <EmptyScreen icon="⚠️" message="リクエストの取得に失敗しました" action={{ label: '再試行', onPress: fetchRequests }} />;
 
   return (
     <View style={styles.container}>
@@ -126,7 +129,13 @@ export default function Requests() {
         keyExtractor={(item) => String(item.id)}
         renderItem={({ item }) => <RequestCard req={item} userId={userId} onAction={fetchRequests} />}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchRequests(); }} />}
-        ListEmptyComponent={<View style={styles.center}><Text style={styles.emptyText}>リクエストがありません</Text></View>}
+        ListEmptyComponent={
+          <EmptyScreen
+            icon={tab === 'received' ? '📨' : '📤'}
+            message="リクエストがありません"
+            subMessage={tab === 'received' ? '台車へのリクエストが届くとここに表示されます' : '台車を探して貸出申請してみましょう'}
+          />
+        }
         contentContainerStyle={filtered.length === 0 ? { flex: 1 } : { paddingBottom: 20 }}
       />
     </View>
