@@ -1,31 +1,57 @@
-import { StyleSheet } from 'react-native';
+import { router } from 'expo-router';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import EditScreenInfo from '@/components/EditScreenInfo';
-import { Text, View } from '@/components/Themed';
+interface MenuCard {
+  title: string;
+  description: string;
+  emoji: string;
+  href: string;
+}
 
-export default function TabOneScreen() {
+const MENUS: MenuCard[] = [
+  { title: '台車を探す', description: '近くの台車を検索してリクエストを送る', emoji: '🔍', href: '/search' },
+  { title: '自分の台車', description: '台車の登録・編集・削除', emoji: '🛒', href: '/carts' },
+  { title: 'リクエスト', description: '送受信したリクエストの確認・承認', emoji: '📩', href: '/requests' },
+];
+
+export default function Home() {
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Tab One</Text>
-      <View style={styles.separator} lightColor="#eee" darkColor="rgba(255,255,255,0.1)" />
-      <EditScreenInfo path="app/(tabs)/index.tsx" />
-    </View>
+    <ScrollView contentContainerStyle={styles.container}>
+      <Text style={styles.logo}>ダイシェア</Text>
+      <Text style={styles.subtitle}>台車の個人間レンタルマッチング</Text>
+      {MENUS.map((m) => (
+        <Pressable key={m.href} style={styles.card} onPress={() => router.push(m.href as any)}>
+          <Text style={styles.cardEmoji}>{m.emoji}</Text>
+          <View style={styles.cardText}>
+            <Text style={styles.cardTitle}>{m.title}</Text>
+            <Text style={styles.cardDesc}>{m.description}</Text>
+          </View>
+          <Text style={styles.arrow}>›</Text>
+        </Pressable>
+      ))}
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
+  container: { padding: 24, paddingTop: 48 },
+  logo: { fontSize: 32, fontWeight: '800', color: '#3b82f6', marginBottom: 4 },
+  subtitle: { fontSize: 14, color: '#6b7280', marginBottom: 32 },
+  card: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 14,
+    padding: 20,
+    marginBottom: 14,
+    shadowColor: '#000',
+    shadowOpacity: 0.07,
+    shadowRadius: 8,
+    elevation: 3,
   },
-  title: {
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
-  separator: {
-    marginVertical: 30,
-    height: 1,
-    width: '80%',
-  },
+  cardEmoji: { fontSize: 28, marginRight: 14 },
+  cardText: { flex: 1 },
+  cardTitle: { fontSize: 17, fontWeight: '700', marginBottom: 3 },
+  cardDesc: { fontSize: 13, color: '#6b7280' },
+  arrow: { fontSize: 22, color: '#d1d5db' },
 });
