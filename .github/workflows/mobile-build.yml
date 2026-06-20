@@ -3,8 +3,9 @@ name: Mobile Build (EAS)
 on:
   push:
     branches:
-      - develop   # → Preview ビルド → TestFlight / Internal Testing
       - main      # → Production ビルド → App Store / Play Store
+  # develop への push は EAS ビルドをスキップ（Apple Developer 登録後に有効化する）
+  workflow_dispatch:  # 手動実行は可能
 
 jobs:
   build:
