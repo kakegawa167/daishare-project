@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
-from app.routers import auth, users, stations
+from app.routers import auth, users, stations, carts, rental_requests
 
 app = FastAPI(title="DaiShare API", version="0.1.0")
 
@@ -17,6 +17,8 @@ app.add_middleware(
 app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(stations.router)
+app.include_router(carts.router)
+app.include_router(rental_requests.router)
 
 
 @app.get("/health")
