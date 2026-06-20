@@ -27,14 +27,14 @@
 - [x] `app/core/database.py` 作成（asyncpg 接続）
 - [x] `app/core/auth.py` 作成（Supabase JWT 検証ミドルウェア）
 - [x] `.env.example` 作成
-- [ ] `docker compose up` でサーバー起動確認 ※ Supabase CLI 起動後に実施
+- [x] `docker compose up` でサーバー起動確認
 
 ### 0-3. Supabase ローカル環境
 
 - [x] Supabase CLI インストール（`brew install supabase/tap/supabase`）
-- [ ] `supabase init`
-- [ ] `supabase start` で起動確認
-- [ ] FastAPI コンテナから Supabase CLI の PostgreSQL（port 54322）に接続確認
+- [x] `supabase init`
+- [x] `supabase start` で起動確認
+- [x] FastAPI コンテナから Supabase CLI の PostgreSQL（port 54322）に接続確認
 
 ### 0-4. Supabase クラウドプロジェクト作成
 
@@ -312,10 +312,10 @@
 
 | Phase                                  | タスク数 | 完了   | 進行中 | 未着手  |
 | -------------------------------------- | -------- | ------ | ------ | ------- |
-| Phase 0 — 環境構築                     | 29       | 24     | 0      | 5       |
+| Phase 0 — 環境構築                     | 29       | 29     | 0      | 0       |
 | Phase 1 — 認証・ユーザー               | 22       | 0      | 0      | 22      |
 | Phase 2 — 台車・検索・リクエスト       | 24       | 0      | 0      | 24      |
 | Phase 3 — メッセージ・予約管理         | 18       | 0      | 0      | 18      |
 | Phase 4 — レビュー・スケジュール・通知 | 22       | 0      | 0      | 22      |
 | Phase 5 — 仕上げ・リリース準備         | 14       | 0      | 0      | 14      |
-| **合計**                               | **129**  | **24** | **0**  | **105** |
+| **合計**                               | **129**  | **29** | **0**  | **100** |
