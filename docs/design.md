@@ -1,6 +1,6 @@
 # ダイシェア モバイルアプリ 設計書
 
-> バージョン: 1.2.0  
+> バージョン: 1.3.0  
 > 作成日: 2026-06-20  
 > 対象: MVP リリース
 
@@ -108,15 +108,16 @@
 
 | 項目                 | 採用技術                                           |
 | -------------------- | -------------------------------------------------- |
-| フレームワーク       | React Native 0.76 + Expo SDK 52                    |
+| フレームワーク       | React Native 0.76 + Expo SDK 56                    |
 | 言語                 | TypeScript 5.x                                     |
 | 状態管理             | Zustand                                            |
 | ナビゲーション       | Expo Router（File-based routing）                  |
 | HTTPクライアント     | Axios                                              |
 | Realtimeクライアント | Supabase JS SDK（Realtime・Storage・Auth専用）     |
 | 認証                 | Supabase Auth（Google OAuth）                      |
-| フォーム             | React Hook Form + Zod                              |
-| UIコンポーネント     | React Native Paper または NativeWind（Tailwind風） |
+| フォーム             | React Hook Form + Zod（予定）                      |
+| 日付ピッカー         | @react-native-community/datetimepicker             |
+| UIコンポーネント     | React Native 標準コンポーネント（StyleSheet）      |
 | 日付操作             | date-fns                                           |
 | プッシュ通知         | Expo Notifications                                 |
 
@@ -290,50 +291,35 @@ users ──────┬── carts
 
 #### carts
 
-| カラム              | 型          | 制約                   | 説明                |
-| ------------------- | ----------- | ---------------------- | ------------------- |
-| id                  | UUID        | PK                     |                     |
-| lender_id           | UUID        | FK(users), NOT NULL    |                     |
-| title               | TEXT        | NOT NULL               |                     |
-| station_id          | UUID        | FK(stations), NOT NULL |                     |
-| weight_kg           | INTEGER     | NOT NULL               | 重量（kg）          |
-| size_width          | INTEGER     | NOT NULL               | 幅（cm）            |
-| size_length         | INTEGER     | NOT NULL               | 奥行き（cm）        |
-| foldable            | BOOLEAN     | NOT NULL               | 折りたたみ可能      |
-| payload_capacity_kg | NUMERIC     | NOT NULL               | 積載量（kg）        |
-| price_per_day_jpy   | INTEGER     |                        | 日額（円）          |
-| price_per_week_jpy  | INTEGER     |                        | 週額（円）          |
-| price_per_lent      | INTEGER     |                        | 1レンタル額（円）   |
-| image_urls          | TEXT[]      | DEFAULT '{}'           |                     |
-| note                | TEXT        |                        | 備考（500文字以内） |
-| is_active           | BOOLEAN     | DEFAULT true           | 公開状態            |
-| created_at          | TIMESTAMPTZ | NOT NULL               |                     |
-| updated_at          | TIMESTAMPTZ | NOT NULL               |                     |
-| deleted_at          | TIMESTAMPTZ |                        | 論理削除            |
+| カラム      | 型          | 制約                | 説明                                       |
+| ----------- | ----------- | ------------------- | ------------------------------------------ |
+| id          | SERIAL      | PK                  |                                            |
+| owner_id    | UUID        | FK(users), NOT NULL | 貸主ユーザーID                             |
+| title       | VARCHAR(200)| NOT NULL            | 台車タイトル                               |
+| description | TEXT        |                     | 説明                                       |
+| daily_rate  | NUMERIC(10) | NOT NULL            | 日額（円）                                 |
+| quantity    | INTEGER     | DEFAULT 1, NOT NULL | 台数                                       |
+| image_urls  | TEXT[]      | DEFAULT '{}'        | 画像URL一覧                                |
+| station_id  | INTEGER     | FK(stations)        | 貸出拠点駅                                 |
+| status      | cart_status | DEFAULT 'active'    | active / inactive / deleted（論理削除）    |
 
-**制約:**
-
-- `(lender_id, title)` UNIQUE
-- 料金カラムは少なくとも1つが NOT NULL（アプリ層でバリデーション）
-- 料金は100円単位（アプリ層でバリデーション）
+**ステータス enum:** `active`（公開中）/ `inactive`（非公開）/ `deleted`（論理削除）
 
 #### rental_requests
 
-| カラム              | 型          | 制約                   | 説明                                      |
-| ------------------- | ----------- | ---------------------- | ----------------------------------------- |
-| id                  | UUID        | PK                     |                                           |
-| lender_id           | UUID        | FK(users), NOT NULL    |                                           |
-| renter_id           | UUID        | FK(users), NOT NULL    |                                           |
-| station_id          | UUID        | FK(stations), NOT NULL |                                           |
-| start_at            | TIMESTAMPTZ | NOT NULL               |                                           |
-| end_at              | TIMESTAMPTZ | NOT NULL               |                                           |
-| requested_count     | INTEGER     | DEFAULT 1, NOT NULL    | 希望台数                                  |
-| estimated_price_jpy | INTEGER     | NOT NULL               |                                           |
-| initial_message     | TEXT        |                        |                                           |
-| status              | TEXT        | DEFAULT 'REQUEST'      | REQUEST / ACCEPTED / REJECTED / CANCELLED |
-| cancel_reason       | TEXT        |                        |                                           |
-| requested_cart_ids  | UUID[]      | DEFAULT '{}'           |                                           |
-| created_at          | TIMESTAMPTZ | NOT NULL               |                                           |
+| カラム     | 型               | 制約                 | 説明                                          |
+| ---------- | ---------------- | -------------------- | --------------------------------------------- |
+| id         | SERIAL           | PK                   |                                               |
+| cart_id    | INTEGER          | FK(carts), NOT NULL  | 対象台車                                      |
+| renter_id  | UUID             | FK(users), NOT NULL  | 借主ユーザーID                                |
+| quantity   | INTEGER          | DEFAULT 1, NOT NULL  | 希望台数                                      |
+| start_date | TIMESTAMPTZ      | NOT NULL             | 貸出開始日時                                  |
+| end_date   | TIMESTAMPTZ      | NOT NULL             | 返却日時                                      |
+| message    | TEXT             |                      | 借主からのメッセージ                          |
+| status     | request_status   | DEFAULT 'pending'    | pending / accepted / rejected / cancelled     |
+| created_at | TIMESTAMPTZ      | server default now() |                                               |
+
+**ステータス enum:** `pending`（承認待ち）/ `accepted`（承認済み）/ `rejected`（拒否）/ `cancelled`（キャンセル）
 
 #### messages
 
@@ -592,18 +578,19 @@ reservations:
   └── /auth/login          Google ログイン画面
 
 (認証済み・Bottom Tab)
-  ├── /search              台車検索（借主）
-  ├── /carts               台車管理（貸主）
-  ├── /requests            リクエスト一覧
-  ├── /schedule            スケジュール
+  ├── / (index)            ホーム（ナビゲーションカード）
   └── /profile             プロフィール
 
-(スタック画面)
-  ├── /search/[lender_id]  貸主詳細・リクエスト送信
-  ├── /requests/[id]       メッセージ・取引詳細
-  ├── /carts/new           台車登録
-  ├── /carts/[id]/edit     台車編集
-  └── /notifications       通知一覧
+(スタック画面 ─ ホームから遷移)
+  ├── /search              台車検索（市区町村フィルタ）
+  ├── /search/[lender_id]  貸主詳細・台車一覧・リクエスト送信モーダル
+  ├── /carts               自分の台車一覧
+  ├── /carts/new           台車登録フォーム
+  ├── /carts/[id]/edit     台車編集フォーム
+  ├── /requests            リクエスト一覧（送信済み/受信済みタブ）
+  ├── /requests/[id]       メッセージ・取引詳細（Phase 3）
+  ├── /schedule            スケジュール（Phase 4）
+  └── /notifications       通知一覧（Phase 4）
 ```
 
 ### 7.2 画面一覧
@@ -636,19 +623,27 @@ cart-rental-ios/
 │   │   ├── (auth)/
 │   │   │   └── login.tsx
 │   │   ├── (tabs)/
-│   │   │   ├── search/
-│   │   │   ├── carts/
-│   │   │   ├── requests/
-│   │   │   ├── schedule/
-│   │   │   └── profile/
+│   │   │   ├── index.tsx       # ホーム（ナビゲーションカード）
+│   │   │   ├── profile.tsx     # プロフィール
+│   │   │   └── _layout.tsx
+│   │   ├── carts/
+│   │   │   ├── index.tsx       # 自分の台車一覧
+│   │   │   ├── new.tsx         # 台車登録
+│   │   │   └── [id]/edit.tsx   # 台車編集
+│   │   ├── search/
+│   │   │   ├── index.tsx       # 台車検索
+│   │   │   └── [lender_id].tsx # 貸主詳細・リクエスト送信
+│   │   ├── requests/
+│   │   │   └── index.tsx       # リクエスト一覧（送信/受信タブ）
 │   │   └── _layout.tsx
 │   ├── components/             # 共通コンポーネント
-│   ├── hooks/                  # カスタムフック
-│   ├── stores/                 # Zustand ストア
+│   │   └── CartForm.tsx        # 台車登録・編集フォーム
+│   ├── store/                  # Zustand ストア
+│   │   └── authStore.ts
 │   ├── lib/
 │   │   ├── api.ts              # Axios クライアント（FastAPI用）
-│   │   └── supabase.ts         # Supabase クライアント（Auth・Realtime・Storage用）
-│   ├── types/                  # 型定義
+│   │   ├── supabase.ts         # Supabase クライアント（Auth・Realtime・Storage用）
+│   │   └── types.ts            # 共通型定義（Cart / RentalRequest等）
 │   ├── .env.local
 │   ├── .env.staging
 │   ├── eas.json
