@@ -120,45 +120,45 @@
 
 ### 2-1. DBマイグレーション
 
-- [ ] `carts` テーブル作成マイグレーション
-- [ ] `rental_requests` テーブル作成マイグレーション
+- [x] `carts` テーブル作成マイグレーション
+- [x] `rental_requests` テーブル作成マイグレーション
 - [ ] Supabase Storage バケット作成（`cart-images` / `avatar-images`）
 - [ ] Storage RLS ポリシー設定
 
 ### 2-2. バックエンド（Carts API）
 
-- [ ] `GET /carts` — 台車検索（municipality / station_id フィルタ）
-- [ ] `GET /carts/mine` — 自分の台車一覧
-- [ ] `GET /carts/{cart_id}` — 台車詳細
-- [ ] `POST /carts` — 台車登録（貸主のみ）
-- [ ] `PUT /carts/{cart_id}` — 台車更新
-- [ ] `DELETE /carts/{cart_id}` — 台車削除（論理削除）
+- [x] `GET /carts` — 台車検索（municipality / station_id フィルタ）
+- [x] `GET /carts/mine` — 自分の台車一覧
+- [x] `GET /carts/{cart_id}` — 台車詳細
+- [x] `POST /carts` — 台車登録（貸主のみ）
+- [x] `PUT /carts/{cart_id}` — 台車更新
+- [x] `DELETE /carts/{cart_id}` — 台車削除（論理削除）
 - [ ] pytest でユニットテスト作成
 
 ### 2-3. バックエンド（Rental Requests API）
 
-- [ ] `GET /rental-requests` — リクエスト一覧
-- [ ] `GET /rental-requests/{id}` — リクエスト詳細
-- [ ] `POST /rental-requests` — リクエスト送信（借主のみ）
-- [ ] `POST /rental-requests/{id}/accept` — 承認 + 予約自動作成
-- [ ] `POST /rental-requests/{id}/reject` — 拒否
-- [ ] `POST /rental-requests/{id}/cancel` — キャンセル
+- [x] `GET /rental-requests` — リクエスト一覧
+- [x] `GET /rental-requests/{id}` — リクエスト詳細
+- [x] `POST /rental-requests` — リクエスト送信（借主のみ）
+- [x] `POST /rental-requests/{id}/accept` — 承認 + 予約自動作成
+- [x] `POST /rental-requests/{id}/reject` — 拒否
+- [x] `POST /rental-requests/{id}/cancel` — キャンセル
 - [ ] pytest でユニットテスト作成
 
 ### 2-4. モバイル（台車管理画面）
 
-- [ ] `/carts` 画面 — 自分の台車一覧（貸主）
-- [ ] `/carts/new` 画面 — 台車登録フォーム
-- [ ] `/carts/[id]/edit` 画面 — 台車編集フォーム
+- [x] `/carts` 画面 — 自分の台車一覧（貸主）
+- [x] `/carts/new` 画面 — 台車登録フォーム
+- [x] `/carts/[id]/edit` 画面 — 台車編集フォーム
 - [ ] 台車画像アップロード（Supabase Storage `cart-images`・複数枚）
-- [ ] 台車削除確認ダイアログ
+- [x] 台車削除確認ダイアログ
 
 ### 2-5. モバイル（台車検索・リクエスト画面）
 
-- [ ] `/search` 画面 — 市区町村・駅で検索、貸主カード一覧表示
-- [ ] `/search/[lender_id]` 画面 — 貸主詳細・台車一覧
-- [ ] リクエスト送信モーダル（日時 / 台数 / 希望価格 / メッセージ入力）
-- [ ] `/requests` 画面 — リクエスト一覧（送信済み・受信済みタブ）
+- [x] `/search` 画面 — 市区町村・駅で検索、貸主カード一覧表示
+- [x] `/search/[lender_id]` 画面 — 貸主詳細・台車一覧
+- [x] リクエスト送信モーダル（日時 / 台数 / 希望価格 / メッセージ入力）
+- [x] `/requests` 画面 — リクエスト一覧（送信済み・受信済みタブ）
 
 ---
 
