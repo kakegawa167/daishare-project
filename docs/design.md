@@ -1,7 +1,7 @@
 # ダイシェア モバイルアプリ 設計書
 
-> バージョン: 1.4.0  
-> 作成日: 2026-06-20  
+> バージョン: 1.5.0  
+> 作成日: 2026-06-21  
 > 対象: MVP リリース
 
 ---
@@ -637,7 +637,10 @@ cart-rental-ios/
 │   │   │   └── index.tsx       # リクエスト一覧（送信/受信タブ）
 │   │   └── _layout.tsx
 │   ├── components/             # 共通コンポーネント
-│   │   └── CartForm.tsx        # 台車登録・編集フォーム
+│   │   ├── CartForm.tsx        # 台車登録・編集フォーム（インラインバリデーション）
+│   │   └── ScreenState.tsx     # LoadingScreen / ErrorScreen / EmptyScreen
+│   ├── hooks/
+│   │   └── usePushNotifications.ts  # 権限リクエスト・プッシュトークン登録・タップ遷移
 │   ├── store/                  # Zustand ストア
 │   │   └── authStore.ts
 │   ├── lib/
@@ -668,12 +671,10 @@ cart-rental-ios/
 │   │   │   ├── reviews.py
 │   │   │   └── notifications.py
 │   │   └── services/           # ビジネスロジック
-│   │       ├── rental_request_service.py
-│   │       ├── reservation_service.py
-│   │       ├── review_service.py
-│   │       └── notification_service.py
+│   │       ├── notification_service.py  # 全イベント通知 + Expo Push
+│   │       └── reminder_service.py      # APScheduler: 貸出・返却60分前リマインド
 │   ├── alembic/                # DBマイグレーション
-│   ├── tests/
+│   ├── tests/                  # pytest (PostgreSQL test_daishare スキーマ)
 │   ├── Dockerfile
 │   ├── requirements.txt
 │   └── .env.example

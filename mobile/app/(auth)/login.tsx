@@ -39,8 +39,8 @@ export default function LoginScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>ダイシェア</Text>
+    <View style={styles.container} accessibilityLabel="ダイシェア ログイン画面">
+      <Text style={styles.title} accessibilityRole="header">ダイシェア</Text>
       <Text style={styles.subtitle}>台車のシェアリングサービス</Text>
       <GoogleSigninButton
         size={GoogleSigninButton.Size.Wide}
@@ -49,6 +49,7 @@ export default function LoginScreen() {
         disabled={loading}
         style={styles.button}
       />
+      {loading && <Text style={styles.loadingText} accessibilityLiveRegion="polite">ログイン中...</Text>}
     </View>
   );
 }
@@ -76,4 +77,5 @@ const styles = StyleSheet.create({
     width: 240,
     height: 48,
   },
+  loadingText: { marginTop: 16, fontSize: 14, color: '#6b7280' },
 });

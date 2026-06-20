@@ -47,13 +47,20 @@ function ReviewModal({ reservationId, visible, onClose }: { reservationId: numbe
   };
 
   return (
-    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
+    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose} accessibilityViewIsModal>
       <View style={styles.reviewModal}>
-        <Text style={styles.reviewTitle}>レビューを書く</Text>
-        <Text style={styles.reviewLabel}>評価</Text>
+        <Text style={styles.reviewTitle} accessibilityRole="header">レビューを書く</Text>
+        <Text style={styles.reviewLabel}>評価 <Text style={{ color: '#ef4444' }}>*</Text></Text>
         <View style={styles.ratingRow}>
           {[1, 2, 3].map((v) => (
-            <Pressable key={v} style={[styles.ratingBtn, rating === v && styles.ratingBtnActive]} onPress={() => setRating(v)}>
+            <Pressable
+              key={v}
+              style={[styles.ratingBtn, rating === v && styles.ratingBtnActive]}
+              onPress={() => setRating(v)}
+              accessibilityRole="radio"
+              accessibilityLabel={v === 1 ? '悪い' : v === 2 ? '普通' : '良い'}
+              accessibilityState={{ checked: rating === v }}
+            >
               <Text style={[styles.ratingBtnText, rating === v && styles.ratingBtnTextActive]}>
                 {v === 1 ? '😞 悪い' : v === 2 ? '😐 普通' : '😊 良い'}
               </Text>
@@ -61,11 +68,27 @@ function ReviewModal({ reservationId, visible, onClose }: { reservationId: numbe
           ))}
         </View>
         <Text style={styles.reviewLabel}>コメント（任意）</Text>
-        <TextInput style={[styles.reviewInput, { height: 80, textAlignVertical: 'top' }]} value={comment} onChangeText={setComment} multiline placeholder="取引の感想を書いてください" />
-        <Pressable style={[styles.reviewSubmit, submitting && { opacity: 0.6 }]} onPress={handleSubmit} disabled={submitting}>
+        <TextInput
+          style={[styles.reviewInput, { height: 80, textAlignVertical: 'top' }]}
+          value={comment}
+          onChangeText={setComment}
+          multiline
+          placeholder="取引の感想を書いてください"
+          accessibilityLabel="コメント（任意）"
+          maxLength={500}
+        />
+        <Text style={{ fontSize: 12, color: '#9ca3af', textAlign: 'right', marginTop: 2 }}>{comment.length}/500</Text>
+        <Pressable
+          style={[styles.reviewSubmit, submitting && { opacity: 0.6 }]}
+          onPress={handleSubmit}
+          disabled={submitting}
+          accessibilityRole="button"
+          accessibilityLabel="レビューを投稿する"
+          accessibilityState={{ disabled: submitting }}
+        >
           {submitting ? <ActivityIndicator color="#fff" /> : <Text style={styles.reviewSubmitText}>投稿する</Text>}
         </Pressable>
-        <Pressable style={styles.reviewCancel} onPress={onClose}>
+        <Pressable style={styles.reviewCancel} onPress={onClose} accessibilityRole="button" accessibilityLabel="キャンセル">
           <Text style={styles.reviewCancelText}>キャンセル</Text>
         </Pressable>
       </View>

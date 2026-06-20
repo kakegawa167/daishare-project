@@ -22,13 +22,19 @@ export default function Home() {
       <Text style={styles.logo}>ダイシェア</Text>
       <Text style={styles.subtitle}>台車の個人間レンタルマッチング</Text>
       {MENUS.map((m) => (
-        <Pressable key={m.href} style={styles.card} onPress={() => router.push(m.href as any)}>
-          <Text style={styles.cardEmoji}>{m.emoji}</Text>
+        <Pressable
+          key={m.href}
+          style={styles.card}
+          onPress={() => router.push(m.href as any)}
+          accessibilityRole="button"
+          accessibilityLabel={`${m.title}：${m.description}`}
+        >
+          <Text style={styles.cardEmoji} accessibilityElementsHidden>{m.emoji}</Text>
           <View style={styles.cardText}>
             <Text style={styles.cardTitle}>{m.title}</Text>
             <Text style={styles.cardDesc}>{m.description}</Text>
           </View>
-          <Text style={styles.arrow}>›</Text>
+          <Text style={styles.arrow} accessibilityElementsHidden>›</Text>
         </Pressable>
       ))}
     </ScrollView>
