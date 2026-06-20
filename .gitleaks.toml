@@ -6,4 +6,5 @@ description = "gitignore済みのローカル環境変数ファイルを除外"
 paths = [
     '''\.env$''',
     '''\.env\.local$''',
+    '''\.expo/''',
 ]
