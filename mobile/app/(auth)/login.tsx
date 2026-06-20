@@ -8,7 +8,7 @@ import { Alert, StyleSheet, Text, View } from 'react-native';
 
 import { supabase } from '@/lib/supabase';
 
-const IOS_CLIENT_ID = '651721992870-p9k17rgibo806ke47cm0q260l21ien8t.apps.googleusercontent.com';
+const IOS_CLIENT_ID = '651721992870-hisjdf2fvehs7r9n5utlru1r7nbhb8b7.apps.googleusercontent.com';
 
 export default function LoginScreen() {
   const [loading, setLoading] = useState(false);

@@ -8,6 +8,7 @@
 .env.*.local
 *.pem
 *.key
+mobile/GoogleService-Info.plist
 *.p8
 *.p12
 *.mobileprovision
