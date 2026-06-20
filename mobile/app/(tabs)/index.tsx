@@ -12,6 +12,8 @@ const MENUS: MenuCard[] = [
   { title: '台車を探す', description: '近くの台車を検索してリクエストを送る', emoji: '🔍', href: '/search' },
   { title: '自分の台車', description: '台車の登録・編集・削除', emoji: '🛒', href: '/carts' },
   { title: 'リクエスト', description: '送受信したリクエストの確認・承認', emoji: '📩', href: '/requests' },
+  { title: 'スケジュール', description: '予約の確認と貸出・返却管理', emoji: '📅', href: '/schedule' },
+  { title: '通知', description: 'リクエスト・メッセージの通知', emoji: '🔔', href: '/notifications' },
 ];
 
 export default function Home() {

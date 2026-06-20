@@ -8,6 +8,7 @@ import {
   Alert,
   FlatList,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -26,6 +27,51 @@ const STATUS_LABEL: Record<string, string> = {
   lent: '貸出中',
   returned: '返却済み',
 };
+
+function ReviewModal({ reservationId, visible, onClose }: { reservationId: number; visible: boolean; onClose: () => void }) {
+  const [rating, setRating] = useState(3);
+  const [comment, setComment] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async () => {
+    setSubmitting(true);
+    try {
+      await api.post(`/reservations/${reservationId}/reviews`, { rating, comment });
+      Alert.alert('完了', 'レビューを投稿しました');
+      onClose();
+    } catch {
+      Alert.alert('エラー', '投稿に失敗しました（既に投稿済みの可能性があります）');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
+      <View style={styles.reviewModal}>
+        <Text style={styles.reviewTitle}>レビューを書く</Text>
+        <Text style={styles.reviewLabel}>評価</Text>
+        <View style={styles.ratingRow}>
+          {[1, 2, 3].map((v) => (
+            <Pressable key={v} style={[styles.ratingBtn, rating === v && styles.ratingBtnActive]} onPress={() => setRating(v)}>
+              <Text style={[styles.ratingBtnText, rating === v && styles.ratingBtnTextActive]}>
+                {v === 1 ? '😞 悪い' : v === 2 ? '😐 普通' : '😊 良い'}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+        <Text style={styles.reviewLabel}>コメント（任意）</Text>
+        <TextInput style={[styles.reviewInput, { height: 80, textAlignVertical: 'top' }]} value={comment} onChangeText={setComment} multiline placeholder="取引の感想を書いてください" />
+        <Pressable style={[styles.reviewSubmit, submitting && { opacity: 0.6 }]} onPress={handleSubmit} disabled={submitting}>
+          {submitting ? <ActivityIndicator color="#fff" /> : <Text style={styles.reviewSubmitText}>投稿する</Text>}
+        </Pressable>
+        <Pressable style={styles.reviewCancel} onPress={onClose}>
+          <Text style={styles.reviewCancelText}>キャンセル</Text>
+        </Pressable>
+      </View>
+    </Modal>
+  );
+}
 
 function MessageBubble({ msg, myId }: { msg: Message; myId: string }) {
   const isMine = msg.sender_id === myId;
@@ -61,6 +107,7 @@ export default function RequestChat() {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [showReview, setShowReview] = useState(false);
   const listRef = useRef<FlatList>(null);
 
   const fetchAll = useCallback(async () => {
@@ -197,6 +244,13 @@ export default function RequestChat() {
           </Pressable>
         </View>
       )}
+      {res?.status === 'returned' && (
+        <View style={styles.actionRow}>
+          <Pressable style={[styles.actionBtn, { backgroundColor: '#fef3c7' }]} onPress={() => setShowReview(true)}>
+            <Text style={{ color: '#92400e', fontWeight: '700' }}>⭐ レビューを書く</Text>
+          </Pressable>
+        </View>
+      )}
 
       {/* メッセージ一覧 */}
       <FlatList
@@ -210,6 +264,9 @@ export default function RequestChat() {
           <View style={styles.center}><Text style={styles.emptyText}>まだメッセージがありません</Text></View>
         }
       />
+
+      {/* レビューモーダル */}
+      {res && <ReviewModal reservationId={res.id} visible={showReview} onClose={() => setShowReview(false)} />}
 
       {/* 入力欄 */}
       {['pending', 'accepted'].includes(request.status) && (
@@ -270,4 +327,17 @@ const styles = StyleSheet.create({
   sendBtn: { backgroundColor: '#3b82f6', paddingHorizontal: 16, borderRadius: 20, justifyContent: 'center' },
   sendBtnDisabled: { backgroundColor: '#93c5fd' },
   sendBtnText: { color: '#fff', fontWeight: '700' },
+  reviewModal: { flex: 1, padding: 24 },
+  reviewTitle: { fontSize: 20, fontWeight: '700', marginBottom: 20 },
+  reviewLabel: { fontSize: 14, fontWeight: '600', color: '#374151', marginTop: 16, marginBottom: 8 },
+  ratingRow: { flexDirection: 'row', gap: 8 },
+  ratingBtn: { flex: 1, padding: 10, borderRadius: 8, borderWidth: 1, borderColor: '#d1d5db', alignItems: 'center' },
+  ratingBtnActive: { backgroundColor: '#3b82f6', borderColor: '#3b82f6' },
+  ratingBtnText: { fontSize: 13, color: '#374151' },
+  ratingBtnTextActive: { color: '#fff', fontWeight: '700' },
+  reviewInput: { borderWidth: 1, borderColor: '#d1d5db', borderRadius: 8, padding: 12, fontSize: 15 },
+  reviewSubmit: { marginTop: 24, backgroundColor: '#3b82f6', padding: 16, borderRadius: 10, alignItems: 'center' },
+  reviewSubmitText: { color: '#fff', fontWeight: '700', fontSize: 16 },
+  reviewCancel: { marginTop: 12, padding: 12, alignItems: 'center' },
+  reviewCancelText: { color: '#6b7280', fontSize: 15 },
 });
