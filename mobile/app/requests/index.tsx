@@ -1,6 +1,7 @@
 import { api } from '@/lib/api';
 import { RentalRequest, RequestStatus } from '@/lib/types';
 import { useAuthStore } from '@/store/authStore';
+import { router } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -50,7 +51,7 @@ function RequestCard({ req, userId, onAction }: { req: RentalRequest; userId: st
   };
 
   return (
-    <View style={styles.card}>
+    <Pressable style={styles.card} onPress={() => router.push(`/requests/${req.id}` as any)}>
       <View style={styles.cardHeader}>
         <Text style={styles.cartTitle}>{req.cart_title}</Text>
         <View style={[styles.badge, { backgroundColor: STATUS_COLOR[req.status] + '22' }]}>
@@ -77,7 +78,8 @@ function RequestCard({ req, userId, onAction }: { req: RentalRequest; userId: st
           <Text style={styles.cancelBtnText}>キャンセル</Text>
         </Pressable>
       )}
-    </View>
+      <Text style={styles.tapHint}>タップしてメッセージを見る ›</Text>
+    </Pressable>
   );
 }
 
@@ -155,4 +157,5 @@ const styles = StyleSheet.create({
   rejectBtnText: { color: '#ef4444', fontWeight: '600' },
   cancelBtn: { marginTop: 10, padding: 10, borderRadius: 8, alignItems: 'center', backgroundColor: '#f3f4f6' },
   cancelBtnText: { color: '#6b7280', fontWeight: '500' },
+  tapHint: { fontSize: 12, color: '#d1d5db', textAlign: 'right', marginTop: 8 },
 });

@@ -8,7 +8,9 @@ from sqlalchemy.orm import selectinload
 from app.core.auth import get_current_user_id
 from app.core.database import get_db
 from app.models.cart import Cart
+from app.models.message import Message
 from app.models.rental_request import RentalRequest, RequestStatus
+from app.models.reservation import Reservation
 from app.schemas.cart import RentalRequestCreate, RentalRequestResponse
 
 router = APIRouter(prefix="/rental-requests", tags=["rental-requests"])
@@ -105,6 +107,24 @@ async def accept_request(
     if r.status != RequestStatus.pending:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Request is not pending")
     r.status = RequestStatus.accepted
+    # 予約を自動作成
+    reservation = Reservation(
+        rental_request_id=r.id,
+        lender_id=r.cart.owner_id,
+        renter_id=r.renter_id,
+        start_date=r.start_date,
+        end_date=r.end_date,
+        quantity=r.quantity,
+        daily_rate=r.cart.daily_rate,
+    )
+    db.add(reservation)
+    # システムメッセージを追加
+    db.add(Message(
+        rental_request_id=r.id,
+        sender_id=r.cart.owner_id,
+        body="リクエストが承認されました。",
+        is_system=True,
+    ))
     await db.commit()
     return _to_response(r)
 
