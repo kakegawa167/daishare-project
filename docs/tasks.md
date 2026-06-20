@@ -44,13 +44,13 @@
 
 ### 0-5. モバイル（Expo）初期設定
 
-- [ ] `mobile/` ディレクトリ作成
-- [ ] `npx create-expo-app mobile --template` で Expo Router + TypeScript テンプレート作成
-- [ ] `@supabase/supabase-js` インストール
-- [ ] `axios` / `zustand` / `react-hook-form` / `zod` / `date-fns` インストール
-- [ ] `lib/supabase.ts` 作成（Supabase クライアント初期化）
-- [ ] `lib/api.ts` 作成（Axios クライアント・JWT 付与インターセプター）
-- [ ] `.env.local` 作成・`EXPO_PUBLIC_*` 環境変数設定
+- [x] `mobile/` ディレクトリ作成
+- [x] `npx create-expo-app mobile --template` で Expo Router + TypeScript テンプレート作成
+- [x] `@supabase/supabase-js` インストール
+- [x] `axios` / `zustand` / `react-hook-form` / `zod` / `date-fns` インストール
+- [x] `lib/supabase.ts` 作成（Supabase クライアント初期化）
+- [x] `lib/api.ts` 作成（Axios クライアント・JWT 付与インターセプター）
+- [x] `.env.local` 作成・`EXPO_PUBLIC_*` 環境変数設定
 - [ ] `npx expo start` で起動確認
 
 ### 0-6. Railway 設定
@@ -312,10 +312,10 @@
 
 | Phase                                  | タスク数 | 完了   | 進行中 | 未着手  |
 | -------------------------------------- | -------- | ------ | ------ | ------- |
-| Phase 0 — 環境構築                     | 29       | 17     | 0      | 12      |
+| Phase 0 — 環境構築                     | 29       | 24     | 0      | 5       |
 | Phase 1 — 認証・ユーザー               | 22       | 0      | 0      | 22      |
 | Phase 2 — 台車・検索・リクエスト       | 24       | 0      | 0      | 24      |
 | Phase 3 — メッセージ・予約管理         | 18       | 0      | 0      | 18      |
 | Phase 4 — レビュー・スケジュール・通知 | 22       | 0      | 0      | 22      |
 | Phase 5 — 仕上げ・リリース準備         | 14       | 0      | 0      | 14      |
-| **合計**                               | **129**  | **17** | **0**  | **112** |
+| **合計**                               | **129**  | **24** | **0**  | **105** |
