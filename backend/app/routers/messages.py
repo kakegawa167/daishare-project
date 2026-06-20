@@ -9,7 +9,9 @@ from app.core.auth import get_current_user_id
 from app.core.database import get_db
 from app.models.message import Message
 from app.models.rental_request import RentalRequest
+from app.models.user import User
 from app.schemas.message import MessageCreate, MessageResponse
+from app.services import notification_service
 
 router = APIRouter(prefix="/rental-requests/{request_id}/messages", tags=["messages"])
 
@@ -78,6 +80,18 @@ async def send_message(
         select(Message).options(selectinload(Message.sender)).where(Message.id == msg.id)
     )
     msg = result.scalar_one()
+
+    # 相手方に通知
+    req = await _check_participant(request_id, user_id, db)
+    uid = uuid.UUID(user_id)
+    recipient_id = req.renter_id if req.cart.owner_id == uid else req.cart.owner_id
+    sender_result = await db.execute(select(User).where(User.id == uid))
+    sender = sender_result.scalar_one_or_none()
+    await notification_service.notify_message_received(
+        db, recipient_id, sender.display_name or "相手", request_id
+    )
+    await db.commit()
+
     return MessageResponse(
         id=msg.id,
         rental_request_id=msg.rental_request_id,

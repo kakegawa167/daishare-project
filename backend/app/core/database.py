@@ -7,6 +7,9 @@ engine = create_async_engine(settings.database_url, echo=settings.environment ==
 
 AsyncSessionLocal = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
+# リマインドバッチなどスタンドアロン処理用
+async_session_factory = AsyncSessionLocal
+
 
 class Base(DeclarativeBase):
     pass

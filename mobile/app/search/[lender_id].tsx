@@ -1,5 +1,15 @@
 import { api } from '@/lib/api';
 import { Cart, RentalRequest } from '@/lib/types';
+
+interface Review {
+  id: number;
+  rating: number;
+  comment: string;
+  created_at: string;
+  reviewer_name: string | null;
+}
+
+const RATING_LABEL = ['', '😞 悪い', '😐 普通', '😊 良い'];
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
@@ -78,15 +88,20 @@ function RequestModal({
 export default function LenderDetail() {
   const { lender_id } = useLocalSearchParams<{ lender_id: string }>();
   const [carts, setCarts] = useState<Cart[]>([]);
+  const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedCart, setSelectedCart] = useState<Cart | null>(null);
 
   const fetchCarts = useCallback(async () => {
     try {
-      const res = await api.get<Cart[]>('/carts');
-      setCarts(res.data.filter((c) => c.owner_id === lender_id));
+      const [cartsRes, reviewsRes] = await Promise.all([
+        api.get<Cart[]>('/carts'),
+        api.get<Review[]>(`/users/${lender_id}/reviews`),
+      ]);
+      setCarts(cartsRes.data.filter((c) => c.owner_id === lender_id));
+      setReviews(reviewsRes.data);
     } catch {
-      Alert.alert('エラー', '台車一覧の取得に失敗しました');
+      Alert.alert('エラー', '情報の取得に失敗しました');
     } finally {
       setLoading(false);
     }
@@ -111,13 +126,40 @@ export default function LenderDetail() {
   if (loading) return <View style={styles.center}><ActivityIndicator size="large" /></View>;
 
   const ownerName = carts[0]?.owner_name ?? '貸主';
+  const avgRating = reviews.length > 0
+    ? (reviews.reduce((s, r) => s + r.rating, 0) / reviews.length).toFixed(1)
+    : null;
+
+  const ListHeader = (
+    <View>
+      <View style={styles.profileHeader}>
+        <Text style={styles.header}>{ownerName}</Text>
+        {avgRating && (
+          <Text style={styles.rating}>⭐ {avgRating} ({reviews.length}件)</Text>
+        )}
+      </View>
+      {reviews.length > 0 && (
+        <View style={styles.reviewSection}>
+          <Text style={styles.reviewSectionTitle}>レビュー</Text>
+          {reviews.slice(0, 3).map((r) => (
+            <View key={r.id} style={styles.reviewCard}>
+              <Text style={styles.reviewRating}>{RATING_LABEL[r.rating]}</Text>
+              {r.comment ? <Text style={styles.reviewComment}>{r.comment}</Text> : null}
+              <Text style={styles.reviewAuthor}>{r.reviewer_name ?? '匿名'}</Text>
+            </View>
+          ))}
+        </View>
+      )}
+      <Text style={styles.cartsTitle}>台車一覧</Text>
+    </View>
+  );
 
   return (
     <View style={{ flex: 1 }}>
       <FlatList
         data={carts}
         keyExtractor={(item) => String(item.id)}
-        ListHeaderComponent={<Text style={styles.header}>{ownerName}の台車一覧</Text>}
+        ListHeaderComponent={ListHeader}
         renderItem={({ item }) => (
           <View style={styles.card}>
             {item.image_urls.length > 0 && <Image source={{ uri: item.image_urls[0] }} style={styles.cardImage} />}
@@ -149,7 +191,16 @@ export default function LenderDetail() {
 
 const styles = StyleSheet.create({
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  header: { fontSize: 18, fontWeight: '700', padding: 16 },
+  profileHeader: { flexDirection: 'row', alignItems: 'center', padding: 16, gap: 12 },
+  header: { fontSize: 20, fontWeight: '700' },
+  rating: { fontSize: 15, color: '#f59e0b', fontWeight: '600' },
+  reviewSection: { marginHorizontal: 16, marginBottom: 8 },
+  reviewSectionTitle: { fontSize: 14, fontWeight: '700', color: '#6b7280', marginBottom: 8 },
+  reviewCard: { backgroundColor: '#f9fafb', borderRadius: 8, padding: 10, marginBottom: 6 },
+  reviewRating: { fontSize: 13, fontWeight: '600', marginBottom: 2 },
+  reviewComment: { fontSize: 13, color: '#374151', marginBottom: 4 },
+  reviewAuthor: { fontSize: 12, color: '#9ca3af' },
+  cartsTitle: { fontSize: 15, fontWeight: '700', color: '#374151', paddingHorizontal: 16, paddingTop: 8, paddingBottom: 4 },
   card: { backgroundColor: '#fff', marginHorizontal: 16, marginBottom: 12, borderRadius: 12, overflow: 'hidden', elevation: 2, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 6 },
   cardImage: { width: '100%', height: 160, resizeMode: 'cover' },
   cardBody: { padding: 12 },

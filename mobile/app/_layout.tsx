@@ -6,6 +6,7 @@ import 'react-native-reanimated';
 
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/authStore';
+import { usePushNotifications } from '@/hooks/usePushNotifications';
 
 export { ErrorBoundary } from 'expo-router';
 
@@ -51,6 +52,7 @@ export default function RootLayout() {
 
 function RootLayoutNav() {
   const { session, loading } = useAuthStore();
+  usePushNotifications();
 
   if (loading) return null;
   if (!session) return <Redirect href="/(auth)/login" />;

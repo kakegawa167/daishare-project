@@ -11,6 +11,7 @@ from app.core.auth import get_current_user_id
 from app.core.database import get_db
 from app.models.reservation import Reservation, ReservationStatus
 from app.models.review import Review
+from app.services import notification_service
 
 router = APIRouter(tags=["reviews"])
 
@@ -81,6 +82,11 @@ async def create_review(
         comment=body.comment,
     )
     db.add(review)
+    await db.commit()
+
+    reviewer_result = await db.execute(select(Review).options(selectinload(Review.reviewer)).where(Review.id == review.id))
+    reviewer_name = reviewer_result.scalar_one().reviewer.display_name or "相手"
+    await notification_service.notify_review_received(db, reviewee_id, reviewer_name, reservation_id)
     await db.commit()
 
     result = await db.execute(

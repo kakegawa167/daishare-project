@@ -10,6 +10,7 @@ from app.core.auth import get_current_user_id
 from app.core.database import get_db
 from app.models.reservation import Reservation, ReservationStatus
 from app.schemas.message import ReservationResponse
+from app.services import notification_service
 
 router = APIRouter(prefix="/reservations", tags=["reservations"])
 
@@ -90,6 +91,7 @@ async def start_lend(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Reservation is not in reserved status")
     r.status = ReservationStatus.lent
     r.lent_at = datetime.now(timezone.utc)
+    await notification_service.notify_lend_started(db, r.renter_id, r.id)
     await db.commit()
     return _to_response(r)
 
@@ -107,6 +109,7 @@ async def complete_return(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Reservation is not in lent status")
     r.status = ReservationStatus.returned
     r.returned_at = datetime.now(timezone.utc)
+    await notification_service.notify_returned(db, r.lender_id, r.id)
     await db.commit()
     return _to_response(r)
 

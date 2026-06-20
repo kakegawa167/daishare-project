@@ -1,10 +1,25 @@
+from contextlib import asynccontextmanager
+
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
 from app.routers import auth, users, stations, carts, rental_requests, messages, reservations, reviews, notifications
+from app.services.reminder_service import run_reminders
 
-app = FastAPI(title="DaiShare API", version="0.1.0")
+scheduler = AsyncIOScheduler()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    scheduler.add_job(run_reminders, "interval", minutes=10, id="reminders")
+    scheduler.start()
+    yield
+    scheduler.shutdown()
+
+
+app = FastAPI(title="DaiShare API", version="0.1.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,

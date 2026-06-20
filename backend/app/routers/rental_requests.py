@@ -11,7 +11,9 @@ from app.models.cart import Cart
 from app.models.message import Message
 from app.models.rental_request import RentalRequest, RequestStatus
 from app.models.reservation import Reservation
+from app.models.user import User
 from app.schemas.cart import RentalRequestCreate, RentalRequestResponse
+from app.services import notification_service
 
 router = APIRouter(prefix="/rental-requests", tags=["rental-requests"])
 
@@ -92,6 +94,13 @@ async def create_request(
     db.add(r)
     await db.commit()
     r = await _get_request_or_404(r.id, db)
+    # 貸主へ通知
+    renter_result = await db.execute(select(User).where(User.id == uuid.UUID(user_id)))
+    renter = renter_result.scalar_one_or_none()
+    await notification_service.notify_request_received(
+        db, r.cart.owner_id, renter.display_name or "借主", r.id
+    )
+    await db.commit()
     return _to_response(r)
 
 
@@ -125,6 +134,12 @@ async def accept_request(
         body="リクエストが承認されました。",
         is_system=True,
     ))
+    # 借主へ承認通知
+    lender_result = await db.execute(select(User).where(User.id == uuid.UUID(user_id)))
+    lender = lender_result.scalar_one_or_none()
+    await notification_service.notify_request_accepted(
+        db, r.renter_id, lender.display_name or "貸主", r.id
+    )
     await db.commit()
     return _to_response(r)
 
@@ -141,6 +156,11 @@ async def reject_request(
     if r.status != RequestStatus.pending:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Request is not pending")
     r.status = RequestStatus.rejected
+    lender_result = await db.execute(select(User).where(User.id == uuid.UUID(user_id)))
+    lender = lender_result.scalar_one_or_none()
+    await notification_service.notify_request_rejected(
+        db, r.renter_id, lender.display_name or "貸主", r.id
+    )
     await db.commit()
     return _to_response(r)
 
@@ -157,5 +177,10 @@ async def cancel_request(
     if r.status not in (RequestStatus.pending, RequestStatus.accepted):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot cancel")
     r.status = RequestStatus.cancelled
+    renter_result = await db.execute(select(User).where(User.id == uuid.UUID(user_id)))
+    renter = renter_result.scalar_one_or_none()
+    await notification_service.notify_request_cancelled(
+        db, r.cart.owner_id, renter.display_name or "借主", r.id
+    )
     await db.commit()
     return _to_response(r)
