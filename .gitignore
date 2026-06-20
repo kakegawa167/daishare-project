@@ -88,3 +88,4 @@ Thumbs.db
 # ===========================
 *.log
 logs/
+mobile/.claude/
