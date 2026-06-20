@@ -82,22 +82,22 @@
 
 ### 1-1. DBマイグレーション（認証・ユーザー関連）
 
-- [ ] Alembic 初期化（`alembic init alembic`）
-- [ ] `lines` テーブル作成マイグレーション
-- [ ] `stations` テーブル作成マイグレーション
-- [ ] `users` テーブル作成マイグレーション
-- [ ] `alembic upgrade head` でローカル適用確認
-- [ ] 路線・駅のシードデータ作成・投入
+- [x] Alembic 初期化（`alembic init alembic`）
+- [x] `lines` テーブル作成マイグレーション
+- [x] `stations` テーブル作成マイグレーション
+- [x] `users` テーブル作成マイグレーション
+- [x] `alembic upgrade head` でローカル適用確認
+- [x] 路線・駅のシードデータ作成・投入
 
 ### 1-2. バックエンド（Auth / Users API）
 
-- [ ] `POST /auth/sync` — ログイン後のユーザー同期（初回登録含む）
-- [ ] `GET /users/me` — 自分のプロフィール取得
-- [ ] `PUT /users/me` — プロフィール更新（名前 / 自己紹介 / 拠点駅 / 貸出場所詳細 / ユーザータイプ）
-- [ ] `PUT /users/me/push-token` — Expo Push Token 保存
-- [ ] `GET /stations` — 駅一覧（municipality フィルタ）
-- [ ] `GET /stations/municipalities` — 市区町村一覧
-- [ ] `GET /lines` — 路線一覧
+- [x] `POST /auth/sync` — ログイン後のユーザー同期（初回登録含む）
+- [x] `GET /users/me` — 自分のプロフィール取得
+- [x] `PUT /users/me` — プロフィール更新（名前 / 自己紹介 / 拠点駅 / 貸出場所詳細 / ユーザータイプ）
+- [x] `PUT /users/me/push-token` — Expo Push Token 保存
+- [x] `GET /stations` — 駅一覧（municipality フィルタ）
+- [x] `GET /stations/municipalities` — 市区町村一覧
+- [x] `GET /lines` — 路線一覧
 - [ ] pytest でユニットテスト作成
 
 ### 1-3. モバイル（認証・プロフィール画面）
@@ -313,9 +313,9 @@
 | Phase                                  | タスク数 | 完了   | 進行中 | 未着手  |
 | -------------------------------------- | -------- | ------ | ------ | ------- |
 | Phase 0 — 環境構築                     | 29       | 29     | 0      | 0       |
-| Phase 1 — 認証・ユーザー               | 22       | 0      | 0      | 22      |
+| Phase 1 — 認証・ユーザー               | 22       | 13     | 0      | 9       |
 | Phase 2 — 台車・検索・リクエスト       | 24       | 0      | 0      | 24      |
 | Phase 3 — メッセージ・予約管理         | 18       | 0      | 0      | 18      |
 | Phase 4 — レビュー・スケジュール・通知 | 22       | 0      | 0      | 22      |
 | Phase 5 — 仕上げ・リリース準備         | 14       | 0      | 0      | 14      |
-| **合計**                               | **129**  | **29** | **0**  | **100** |
+| **合計**                               | **129**  | **42** | **0**  | **87**  |
