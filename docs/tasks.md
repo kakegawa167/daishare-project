@@ -1,6 +1,6 @@
 # ダイシェア モバイルアプリ 開発タスク
 
-> 最終更新: 2026-06-20 (Phase 0-1〜0-2 進行中)  
+> 最終更新: 2026-06-20  
 > ステータス凡例: `[ ]` 未着手 / `[→]` 進行中 / `[x]` 完了 / `[-]` スキップ
 
 ---
@@ -31,16 +31,16 @@
 
 ### 0-3. Supabase ローカル環境
 
-- [ ] Supabase CLI インストール（`brew install supabase/tap/supabase`）
+- [x] Supabase CLI インストール（`brew install supabase/tap/supabase`）
 - [ ] `supabase init`
 - [ ] `supabase start` で起動確認
 - [ ] FastAPI コンテナから Supabase CLI の PostgreSQL（port 54322）に接続確認
 
 ### 0-4. Supabase クラウドプロジェクト作成
 
-- [ ] staging プロジェクト作成（`daishere-staging`）
+- [x] staging プロジェクト作成（`daishare-staging`）
 - [ ] production プロジェクト作成（`daishere-prod`）
-- [ ] 各プロジェクトの URL / Anon Key / JWT Secret / Service Role Key を取得・保管
+- [x] staging の URL / Anon Key / JWT Secret / Service Role Key を取得・保管
 
 ### 0-5. モバイル（Expo）初期設定
 
@@ -68,9 +68,9 @@
 
 ### 0-8. CI/CD（GitHub Actions）設定
 
-- [ ] `.github/workflows/backend-ci.yml` 作成（pytest / ruff / mypy）
-- [ ] `.github/workflows/backend-deploy.yml` 作成（develop→staging, main→prod Railway デプロイ）
-- [ ] `.github/workflows/mobile-build.yml` 作成（EAS Build）
+- [x] `.github/workflows/backend-ci.yml` 作成（pytest / ruff / mypy）
+- [x] `.github/workflows/backend-deploy.yml` 作成（develop→staging, main→prod Railway デプロイ）
+- [x] `.github/workflows/mobile-build.yml` 作成（EAS Build）
 - [ ] GitHub Secrets に Railway Token / EAS Token / Supabase キー類を登録
 - [ ] PR 作成して CI が通ることを確認
 
@@ -312,10 +312,10 @@
 
 | Phase                                  | タスク数 | 完了   | 進行中 | 未着手  |
 | -------------------------------------- | -------- | ------ | ------ | ------- |
-| Phase 0 — 環境構築                     | 29       | 12     | 0      | 17      |
+| Phase 0 — 環境構築                     | 29       | 17     | 0      | 12      |
 | Phase 1 — 認証・ユーザー               | 22       | 0      | 0      | 22      |
 | Phase 2 — 台車・検索・リクエスト       | 24       | 0      | 0      | 24      |
 | Phase 3 — メッセージ・予約管理         | 18       | 0      | 0      | 18      |
 | Phase 4 — レビュー・スケジュール・通知 | 22       | 0      | 0      | 22      |
 | Phase 5 — 仕上げ・リリース準備         | 14       | 0      | 0      | 14      |
-| **合計**                               | **129**  | **12** | **0**  | **117** |
+| **合計**                               | **129**  | **17** | **0**  | **112** |
