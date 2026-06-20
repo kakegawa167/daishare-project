@@ -102,14 +102,14 @@
 
 ### 1-3. モバイル（認証・プロフィール画面）
 
-- [ ] `/auth/login` 画面 — Google ログインボタン
-- [ ] Supabase Auth Google OAuth 実装（`@react-native-google-signin/google-signin`）
-- [ ] ログイン後に `POST /auth/sync` を呼び出してユーザー登録
-- [ ] 認証状態グローバル管理（Zustand store）
-- [ ] 未認証時のリダイレクト処理（Expo Router の layout guard）
-- [ ] `/profile` 画面 — プロフィール表示・編集フォーム
+- [x] `/auth/login` 画面 — Google ログインボタン
+- [x] Supabase Auth Google OAuth 実装（`@react-native-google-signin/google-signin`）
+- [x] ログイン後に `POST /auth/sync` を呼び出してユーザー登録
+- [x] 認証状態グローバル管理（Zustand store）
+- [x] 未認証時のリダイレクト処理（Expo Router の layout guard）
+- [x] `/profile` 画面 — プロフィール表示・編集フォーム
 - [ ] プロフィール画像アップロード（Supabase Storage `avatar-images`）
-- [ ] ユーザータイプ切り替え（借主 / 貸主）
+- [x] ユーザータイプ切り替え（借主 / 貸主）
 - [ ] 拠点駅選択（路線→駅の2段階選択モーダル）
 
 ---
@@ -313,9 +313,9 @@
 | Phase                                  | タスク数 | 完了   | 進行中 | 未着手  |
 | -------------------------------------- | -------- | ------ | ------ | ------- |
 | Phase 0 — 環境構築                     | 29       | 29     | 0      | 0       |
-| Phase 1 — 認証・ユーザー               | 22       | 13     | 0      | 9       |
+| Phase 1 — 認証・ユーザー               | 22       | 20     | 0      | 2       |
 | Phase 2 — 台車・検索・リクエスト       | 24       | 0      | 0      | 24      |
 | Phase 3 — メッセージ・予約管理         | 18       | 0      | 0      | 18      |
 | Phase 4 — レビュー・スケジュール・通知 | 22       | 0      | 0      | 22      |
 | Phase 5 — 仕上げ・リリース準備         | 14       | 0      | 0      | 14      |
-| **合計**                               | **129**  | **42** | **0**  | **87**  |
+| **合計**                               | **129**  | **49** | **0**  | **80**  |
