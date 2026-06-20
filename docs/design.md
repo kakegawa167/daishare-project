@@ -1,6 +1,6 @@
 # ダイシェア モバイルアプリ 設計書
 
-> バージョン: 1.3.0  
+> バージョン: 1.4.0  
 > 作成日: 2026-06-20  
 > 対象: MVP リリース
 
@@ -588,9 +588,9 @@ reservations:
   ├── /carts/new           台車登録フォーム
   ├── /carts/[id]/edit     台車編集フォーム
   ├── /requests            リクエスト一覧（送信済み/受信済みタブ）
-  ├── /requests/[id]       メッセージ・取引詳細（Phase 3）
-  ├── /schedule            スケジュール（Phase 4）
-  └── /notifications       通知一覧（Phase 4）
+  ├── /requests/[id]       チャット・取引詳細（承認/拒否/貸出/返却/レビューボタン）
+  ├── /schedule            予約スケジュール一覧
+  └── /notifications       通知一覧・既読管理
 ```
 
 ### 7.2 画面一覧

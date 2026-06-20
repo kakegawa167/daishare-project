@@ -168,38 +168,38 @@
 
 ### 3-1. DBマイグレーション
 
-- [ ] `messages` テーブル作成マイグレーション
-- [ ] `reservations` テーブル作成マイグレーション
-- [ ] `reservation_carts` テーブル作成マイグレーション
+- [x] `messages` テーブル作成マイグレーション
+- [x] `reservations` テーブル作成マイグレーション
+- [x] `reservation_carts` テーブル作成マイグレーション
 - [ ] Supabase Realtime — `messages` テーブルの有効化
 - [ ] Supabase Realtime — `notifications` テーブルの有効化
 - [ ] Supabase RLS — messages（当事者のみ購読可）設定
 
 ### 3-2. バックエンド（Messages API）
 
-- [ ] `GET /rental-requests/{id}/messages` — メッセージ一覧
-- [ ] `POST /rental-requests/{id}/messages` — メッセージ送信
-- [ ] `POST /rental-requests/{id}/messages/read` — 既読更新
+- [x] `GET /rental-requests/{id}/messages` — メッセージ一覧
+- [x] `POST /rental-requests/{id}/messages` — メッセージ送信
+- [x] `POST /rental-requests/{id}/messages/read` — 既読更新
 - [ ] pytest でユニットテスト作成
 
 ### 3-3. バックエンド（Reservations API）
 
-- [ ] `GET /reservations` — 予約一覧
-- [ ] `GET /reservations/{id}` — 予約詳細
-- [ ] `POST /reservations/{id}/lend` — 貸出開始
-- [ ] `POST /reservations/{id}/return` — 返却完了
-- [ ] `POST /reservations/{id}/cancel` — キャンセル
+- [x] `GET /reservations` — 予約一覧
+- [x] `GET /reservations/{id}` — 予約詳細
+- [x] `POST /reservations/{id}/lend` — 貸出開始
+- [x] `POST /reservations/{id}/return` — 返却完了
+- [x] `POST /reservations/{id}/cancel` — キャンセル
 - [ ] pytest でユニットテスト作成
 
 ### 3-4. モバイル（メッセージ・取引画面）
 
-- [ ] `/requests/[id]` 画面 — チャット UI（Supabase Realtime で即時反映）
-- [ ] メッセージ送信フォーム
-- [ ] システムメッセージ表示（ステータス変更通知）
-- [ ] 承認・拒否ボタン（貸主）
-- [ ] キャンセルモーダル（理由入力）
-- [ ] 貸出ボタン（貸主 / RESERVED → LENT）
-- [ ] 返却ボタン（貸主 / LENT → RETURNED）
+- [x] `/requests/[id]` 画面 — チャット UI
+- [x] メッセージ送信フォーム
+- [x] システムメッセージ表示（ステータス変更通知）
+- [x] 承認・拒否ボタン（貸主）
+- [x] キャンセルモーダル（理由入力）
+- [x] 貸出ボタン（貸主 / RESERVED → LENT）
+- [x] 返却ボタン（貸主 / LENT → RETURNED）
 
 ---
 
@@ -209,34 +209,34 @@
 
 ### 4-1. DBマイグレーション
 
-- [ ] `reviews` テーブル作成マイグレーション
-- [ ] `notifications` テーブル作成マイグレーション
+- [x] `reviews` テーブル作成マイグレーション
+- [x] `notifications` テーブル作成マイグレーション
 
 ### 4-2. バックエンド（Reviews API）
 
-- [ ] `POST /reservations/{id}/reviews` — レビュー投稿
-- [ ] `GET /users/{user_id}/reviews` — ユーザーへのレビュー一覧
+- [x] `POST /reservations/{id}/reviews` — レビュー投稿
+- [x] `GET /users/{user_id}/reviews` — ユーザーへのレビュー一覧
 - [ ] pytest でユニットテスト作成
 
 ### 4-3. バックエンド（Notifications API）
 
-- [ ] `GET /notifications` — 通知一覧
-- [ ] `POST /notifications/{id}/read` — 既読
-- [ ] `POST /notifications/read-all` — 全件既読
-- [ ] `DELETE /notifications/{id}` — 通知削除
+- [x] `GET /notifications` — 通知一覧
+- [x] `POST /notifications/{id}/read` — 既読
+- [x] `POST /notifications/read-all` — 全件既読
+- [x] `DELETE /notifications/{id}` — 通知削除
 - [ ] `notification_service.py` — 各イベント時の通知作成・プッシュ送信ロジック
 - [ ] リマインドバッチ実装（APScheduler で貸出60分前・返却60分前）
 - [ ] pytest でユニットテスト作成
 
 ### 4-4. モバイル（スケジュール画面）
 
-- [ ] `/schedule` 画面 — 今後7日間の予定（日次ビュー）
-- [ ] 7日以降の予定一覧表示
-- [ ] 予定タップで該当メッセージ画面へ遷移
+- [x] `/schedule` 画面 — 予約一覧（今後・過去に分類）
+- [x] 7日以降の予定一覧表示
+- [x] 予定タップで該当メッセージ画面へ遷移
 
 ### 4-5. モバイル（通知画面）
 
-- [ ] `/notifications` 画面 — 通知一覧・既読管理
+- [x] `/notifications` 画面 — 通知一覧・既読管理
 - [ ] Supabase Realtime で通知をリアルタイム受信
 - [ ] 未読バッジ表示（タブアイコンに件数表示）
 
@@ -249,8 +249,8 @@
 
 ### 4-7. モバイル（レビュー）
 
-- [ ] 返却完了後にレビューモーダルを表示
-- [ ] 評価（1〜3）+ コメント入力
+- [x] 返却完了後にレビューモーダルを表示
+- [x] 評価（1〜3）+ コメント入力
 - [ ] 貸主詳細画面にレビュー一覧・平均評価を表示
 
 ---
@@ -310,12 +310,12 @@
 
 ## 進捗サマリー
 
-| Phase                                  | タスク数 | 完了   | 進行中 | 未着手 |
-| -------------------------------------- | -------- | ------ | ------ | ------ |
-| Phase 0 — 環境構築                     | 29       | 24     | 0      | 5      |
-| Phase 1 — 認証・ユーザー               | 22       | 19     | 0      | 3      |
-| Phase 2 — 台車・検索・リクエスト       | 24       | 19     | 0      | 5      |
-| Phase 3 — メッセージ・予約管理         | 18       | 0      | 0      | 18     |
-| Phase 4 — レビュー・スケジュール・通知 | 22       | 0      | 0      | 22     |
-| Phase 5 — 仕上げ・リリース準備         | 14       | 0      | 0      | 14     |
-| **合計**                               | **129**  | **62** | **0**  | **67** |
+| Phase                                  | タスク数 | 完了    | 進行中 | 未着手 |
+| -------------------------------------- | -------- | ------- | ------ | ------ |
+| Phase 0 — 環境構築                     | 29       | 24      | 0      | 5      |
+| Phase 1 — 認証・ユーザー               | 22       | 19      | 0      | 3      |
+| Phase 2 — 台車・検索・リクエスト       | 24       | 19      | 0      | 5      |
+| Phase 3 — メッセージ・予約管理         | 18       | 15      | 0      | 3      |
+| Phase 4 — レビュー・スケジュール・通知 | 22       | 14      | 0      | 8      |
+| Phase 5 — 仕上げ・リリース準備         | 14       | 0       | 0      | 14     |
+| **合計**                               | **129**  | **91**  | **0**  | **38** |
