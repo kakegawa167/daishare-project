@@ -180,7 +180,7 @@
 - [x] `GET /rental-requests/{id}/messages` — メッセージ一覧
 - [x] `POST /rental-requests/{id}/messages` — メッセージ送信
 - [x] `POST /rental-requests/{id}/messages/read` — 既読更新
-- [ ] pytest でユニットテスト作成
+- [x] pytest でユニットテスト作成
 
 ### 3-3. バックエンド（Reservations API）
 
@@ -189,7 +189,7 @@
 - [x] `POST /reservations/{id}/lend` — 貸出開始
 - [x] `POST /reservations/{id}/return` — 返却完了
 - [x] `POST /reservations/{id}/cancel` — キャンセル
-- [ ] pytest でユニットテスト作成
+- [x] pytest でユニットテスト作成
 
 ### 3-4. モバイル（メッセージ・取引画面）
 
@@ -216,7 +216,7 @@
 
 - [x] `POST /reservations/{id}/reviews` — レビュー投稿
 - [x] `GET /users/{user_id}/reviews` — ユーザーへのレビュー一覧
-- [ ] pytest でユニットテスト作成
+- [x] pytest でユニットテスト作成
 
 ### 4-3. バックエンド（Notifications API）
 
@@ -226,7 +226,7 @@
 - [x] `DELETE /notifications/{id}` — 通知削除
 - [x] `notification_service.py` — 各イベント時の通知作成・プッシュ送信ロジック
 - [x] リマインドバッチ実装（APScheduler で貸出60分前・返却60分前）
-- [ ] pytest でユニットテスト作成
+- [x] pytest でユニットテスト作成
 
 ### 4-4. モバイル（スケジュール画面）
 
@@ -315,7 +315,7 @@
 | Phase 0 — 環境構築                     | 29       | 24      | 0      | 5      |
 | Phase 1 — 認証・ユーザー               | 22       | 20      | 0      | 2      |
 | Phase 2 — 台車・検索・リクエスト       | 24       | 19      | 0      | 5      |
-| Phase 3 — メッセージ・予約管理         | 18       | 16      | 0      | 2      |
+| Phase 3 — メッセージ・予約管理         | 18       | 18      | 0      | 0      |
 | Phase 4 — レビュー・スケジュール・通知 | 22       | 22      | 0      | 0      |
 | Phase 5 — 仕上げ・リリース準備         | 14       | 9       | 0      | 5      |
-| **合計**                               | **129**  | **110** | **0**  | **19** |
+| **合計**                               | **129**  | **114** | **0**  | **15** |

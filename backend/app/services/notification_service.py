@@ -45,8 +45,8 @@ async def _create_notification(
     # push tokenを取得して送信
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
-    if user and user.push_token:
-        await _send_expo_push(user.push_token, title, body, {"related_id": related_id})
+    if user and user.expo_push_token:
+        await _send_expo_push(user.expo_push_token, title, body, {"related_id": related_id})
 
 
 async def notify_request_received(db: AsyncSession, lender_id: uuid.UUID, renter_name: str, request_id: int) -> None:
