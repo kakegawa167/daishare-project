@@ -24,7 +24,7 @@ function CartCard({ cart }: { cart: Cart }) {
       style={styles.card}
       onPress={() => router.push(`/search/${cart.owner_id}` as any)}
       accessibilityRole="button"
-      accessibilityLabel={`${cart.title}、${cart.daily_rate.toLocaleString()}円/日`}
+      accessibilityLabel={`${cart.title}、${cart.daily_rate != null ? `${cart.daily_rate.toLocaleString()}円/日` : '価格あり'}`}
     >
       <View style={styles.imageWrap}>
         {cart.image_urls.length > 0 ? (
@@ -42,7 +42,13 @@ function CartCard({ cart }: { cart: Cart }) {
             📍 {cart.municipality ?? ''} {cart.station_name}
           </Text>
         )}
-        <Text style={styles.cardPrice}>¥{cart.daily_rate.toLocaleString()}<Text style={styles.cardPriceSuffix}>/日</Text></Text>
+        <Text style={styles.cardPrice}>
+          {cart.daily_rate != null
+            ? <>¥{cart.daily_rate.toLocaleString()}<Text style={styles.cardPriceSuffix}>/日</Text></>
+            : cart.weekly_rate != null
+            ? <>¥{cart.weekly_rate.toLocaleString()}<Text style={styles.cardPriceSuffix}>/週</Text></>
+            : <>¥{(cart.per_rental_rate ?? 0).toLocaleString()}<Text style={styles.cardPriceSuffix}>/回</Text></>}
+        </Text>
       </View>
     </Pressable>
   );

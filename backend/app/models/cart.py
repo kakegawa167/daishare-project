@@ -15,14 +15,37 @@ class CartStatus(PyEnum):
     deleted = "deleted"
 
 
+class CartCategory(PyEnum):
+    hand_truck = "hand_truck"       # 手押し台車
+    flat_cart = "flat_cart"         # 平台車
+    hand_dolly = "hand_dolly"       # ハンドトラック
+    outdoor_wagon = "outdoor_wagon" # アウトドアワゴン
+    other = "other"                 # その他
+
+
 class Cart(Base):
     __tablename__ = "carts"
 
     id: Mapped[int] = mapped_column(primary_key=True)
     owner_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), nullable=False)
     title: Mapped[str] = mapped_column(String(200), nullable=False)
+    category: Mapped[CartCategory | None] = mapped_column(
+        SAEnum(CartCategory, name="cart_category"), nullable=True
+    )
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
-    daily_rate: Mapped[float] = mapped_column(Numeric(10, 0), nullable=False)
+
+    # スペック
+    weight_kg: Mapped[float | None] = mapped_column(Numeric(6, 1), nullable=True)
+    max_load_kg: Mapped[float | None] = mapped_column(Numeric(6, 1), nullable=True)
+    width_cm: Mapped[float | None] = mapped_column(Numeric(6, 1), nullable=True)
+    length_cm: Mapped[float | None] = mapped_column(Numeric(6, 1), nullable=True)
+    foldable: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+
+    # 価格（少なくとも1つ必須はアプリ側で制御）
+    daily_rate: Mapped[float | None] = mapped_column(Numeric(10, 0), nullable=True)
+    weekly_rate: Mapped[float | None] = mapped_column(Numeric(10, 0), nullable=True)
+    per_rental_rate: Mapped[float | None] = mapped_column(Numeric(10, 0), nullable=True)
+
     quantity: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     image_urls: Mapped[list[str]] = mapped_column(ARRAY(Text), nullable=False, default=list)
     station_id: Mapped[int | None] = mapped_column(ForeignKey("stations.id"), nullable=True)

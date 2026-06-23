@@ -1,4 +1,5 @@
 export type CartStatus = 'active' | 'inactive' | 'deleted';
+export type CartCategory = 'hand_truck' | 'flat_cart' | 'hand_dolly' | 'outdoor_wagon' | 'other';
 export type RequestStatus = 'pending' | 'accepted' | 'rejected' | 'cancelled';
 export type ReservationStatus = 'reserved' | 'lent' | 'returned' | 'cancelled';
 
@@ -6,8 +7,16 @@ export interface Cart {
   id: number;
   owner_id: string;
   title: string;
+  category: CartCategory | null;
   description: string | null;
-  daily_rate: number;
+  weight_kg: number | null;
+  max_load_kg: number | null;
+  width_cm: number | null;
+  length_cm: number | null;
+  foldable: boolean;
+  daily_rate: number | null;
+  weekly_rate: number | null;
+  per_rental_rate: number | null;
   quantity: number;
   image_urls: string[];
   station_id: number | null;
@@ -19,8 +28,16 @@ export interface Cart {
 
 export interface CartFormData {
   title: string;
+  category: CartCategory | null;
   description: string;
+  weight_kg: string;
+  max_load_kg: string;
+  width_cm: string;
+  length_cm: string;
+  foldable: boolean;
   daily_rate: string;
+  weekly_rate: string;
+  per_rental_rate: string;
   quantity: string;
   station_id: number | null;
   image_urls: string[];

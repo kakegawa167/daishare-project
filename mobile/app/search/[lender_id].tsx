@@ -201,7 +201,12 @@ export default function LenderDetail() {
             <View style={styles.cardBody}>
               <Text style={styles.cardTitle}>{item.title}</Text>
               {item.description && <Text style={styles.cardDesc}>{item.description}</Text>}
-              <Text style={styles.cardRate}>¥{item.daily_rate.toLocaleString()} / 日 ・ {item.quantity}台</Text>
+              <Text style={styles.cardRate}>
+                {item.daily_rate != null ? `¥${item.daily_rate.toLocaleString()} / 日`
+                  : item.weekly_rate != null ? `¥${item.weekly_rate.toLocaleString()} / 週`
+                  : `¥${(item.per_rental_rate ?? 0).toLocaleString()} / 回`}
+                {' ・ '}{item.quantity}台
+              </Text>
               {item.station_name && <Text style={styles.cardMeta}>📍 {item.municipality} / {item.station_name}</Text>}
               <Pressable style={styles.requestBtn} onPress={() => setSelectedCart(item)}>
                 <Text style={styles.requestBtnText}>リクエストを送る</Text>

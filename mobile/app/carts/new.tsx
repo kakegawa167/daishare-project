@@ -6,19 +6,37 @@ import { Alert } from 'react-native';
 
 const EMPTY: CartFormData = {
   title: '',
+  category: null,
   description: '',
+  weight_kg: '',
+  max_load_kg: '',
+  width_cm: '',
+  length_cm: '',
+  foldable: false,
   daily_rate: '',
+  weekly_rate: '',
+  per_rental_rate: '',
   quantity: '1',
   station_id: null,
   image_urls: [],
 };
 
+const toNum = (v: string) => (v ? Number(v) : null);
+
 export default function NewCart() {
   const handleSubmit = async (form: CartFormData) => {
     await api.post('/carts', {
-      title: form.title,
-      description: form.description || null,
-      daily_rate: Number(form.daily_rate),
+      title: form.title.trim(),
+      category: form.category,
+      description: form.description.trim() || null,
+      weight_kg: toNum(form.weight_kg),
+      max_load_kg: toNum(form.max_load_kg),
+      width_cm: toNum(form.width_cm),
+      length_cm: toNum(form.length_cm),
+      foldable: form.foldable,
+      daily_rate: toNum(form.daily_rate),
+      weekly_rate: toNum(form.weekly_rate),
+      per_rental_rate: toNum(form.per_rental_rate),
       quantity: Number(form.quantity) || 1,
       station_id: form.station_id,
       image_urls: form.image_urls,
@@ -28,5 +46,5 @@ export default function NewCart() {
     ]);
   };
 
-  return <CartForm initialData={EMPTY} onSubmit={handleSubmit} submitLabel="登録する" />;
+  return <CartForm initialData={EMPTY} onSubmit={handleSubmit} submitLabel="台車を登録する" />;
 }

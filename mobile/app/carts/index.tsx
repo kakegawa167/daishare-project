@@ -36,7 +36,10 @@ function CartCard({ cart, onDelete }: { cart: Cart; onDelete: (id: number) => vo
         {cart.station_name && (
           <Text style={styles.cardMeta}>📍 {cart.municipality} / {cart.station_name}</Text>
         )}
-        <Text style={styles.cardMeta}>¥{cart.daily_rate.toLocaleString()} / 日 ・ {cart.quantity}台</Text>
+        <Text style={styles.cardMeta}>
+          {cart.daily_rate != null ? `¥${cart.daily_rate.toLocaleString()} / 日` : cart.weekly_rate != null ? `¥${cart.weekly_rate.toLocaleString()} / 週` : `¥${(cart.per_rental_rate ?? 0).toLocaleString()} / 回`}
+          {' ・ '}{cart.quantity}台
+        </Text>
         <Text style={[styles.badge, cart.status === 'active' ? styles.badgeActive : styles.badgeInactive]}>
           {cart.status === 'active' ? '公開中' : '非公開'}
         </Text>

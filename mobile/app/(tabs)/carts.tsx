@@ -41,7 +41,11 @@ function CartCard({ cart, onDelete }: { cart: Cart; onDelete: (id: number) => vo
         {cart.station_name && (
           <Text style={styles.cardMeta}>📍 {cart.municipality} / {cart.station_name}</Text>
         )}
-        <Text style={styles.cardMeta}>¥{cart.daily_rate.toLocaleString()} / 日　{cart.quantity}台</Text>
+        <Text style={styles.cardMeta}>{[
+          cart.daily_rate != null && `¥${cart.daily_rate.toLocaleString()}/日`,
+          cart.weekly_rate != null && `¥${cart.weekly_rate.toLocaleString()}/週`,
+          cart.per_rental_rate != null && `¥${cart.per_rental_rate.toLocaleString()}/回`,
+        ].filter(Boolean).join('　')} · {cart.quantity}台</Text>
       </View>
       <View style={styles.actions}>
         <Pressable style={styles.editBtn} onPress={() => router.push(`/carts/${cart.id}/edit` as any)}>
