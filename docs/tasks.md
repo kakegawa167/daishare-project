@@ -1,6 +1,6 @@
 # ダイシェア モバイルアプリ 開発タスク
 
-> 最終更新: 2026-06-20  
+> 最終更新: 2026-06-23  
 > ステータス凡例: `[ ]` 未着手 / `[→]` 進行中 / `[x]` 完了 / `[-]` スキップ
 
 ---
@@ -31,7 +31,7 @@
 
 ### 0-3. Supabase ローカル環境
 
-- [x] Supabase CLI インストール（`brew install supabase/tap/supabase`）
+- [x] Supabase CLI インストール
 - [x] `supabase init`
 - [x] `supabase start` で起動確認
 - [x] FastAPI コンテナから Supabase CLI の PostgreSQL（port 54322）に接続確認
@@ -45,31 +45,30 @@
 ### 0-5. モバイル（Expo）初期設定
 
 - [x] `mobile/` ディレクトリ作成
-- [x] `npx create-expo-app mobile --template` で Expo Router + TypeScript テンプレート作成
-- [x] `@supabase/supabase-js` インストール
-- [x] `axios` / `zustand` / `react-hook-form` / `zod` / `date-fns` インストール
+- [x] Expo Router + TypeScript テンプレート作成
+- [x] `@supabase/supabase-js` / `axios` / `zustand` / `date-fns` インストール
 - [x] `lib/supabase.ts` 作成（Supabase クライアント初期化）
 - [x] `lib/api.ts` 作成（Axios クライアント・JWT 付与インターセプター）
 - [x] `.env.local` 作成・`EXPO_PUBLIC_*` 環境変数設定
-- [ ] `npx expo start` で起動確認
+- [x] `npx expo start` で起動確認
 
 ### 0-6. Railway 設定
 
-- [ ] Railway アカウント作成・プロジェクト作成（`daishere`）
+- [ ] Railway アカウント作成・プロジェクト作成
 - [ ] staging サービス作成（GitHub 連携 / `develop` ブランチ）
 - [ ] production サービス作成（GitHub 連携 / `main` ブランチ）
 - [ ] 各サービスに環境変数設定
 
 ### 0-7. EAS（Expo Application Services）設定
 
-- [ ] `eas-cli` インストール（`npm install -g eas-cli`）
-- [ ] `eas login` / `eas build:configure`
+- [ ] `eas-cli` インストール・ログイン
+- [ ] `eas build:configure`
 - [ ] `eas.json` 作成（development / staging / production プロファイル）
 
 ### 0-8. CI/CD（GitHub Actions）設定
 
 - [x] `.github/workflows/backend-ci.yml` 作成（pytest / ruff / mypy）
-- [x] `.github/workflows/backend-deploy.yml` 作成（develop→staging, main→prod Railway デプロイ）
+- [x] `.github/workflows/backend-deploy.yml` 作成（Railway デプロイ）
 - [x] `.github/workflows/mobile-build.yml` 作成（EAS Build）
 - [ ] GitHub Secrets に Railway Token / EAS Token / Supabase キー類を登録
 - [ ] PR 作成して CI が通ることを確認
@@ -82,35 +81,36 @@
 
 ### 1-1. DBマイグレーション（認証・ユーザー関連）
 
-- [x] Alembic 初期化（`alembic init alembic`）
+- [x] Alembic 初期化
 - [x] `lines` テーブル作成マイグレーション
 - [x] `stations` テーブル作成マイグレーション
-- [x] `users` テーブル作成マイグレーション
+- [x] `users` テーブル作成マイグレーション（display_name / bio / avatar_url / user_type 含む）
 - [x] `alembic upgrade head` でローカル適用確認
 - [x] 路線・駅のシードデータ作成・投入
 
 ### 1-2. バックエンド（Auth / Users API）
 
-- [x] `POST /auth/sync` — ログイン後のユーザー同期（初回登録含む）
+- [x] `POST /auth/sync` — ログイン後のユーザー同期
 - [x] `GET /users/me` — 自分のプロフィール取得
-- [x] `PUT /users/me` — プロフィール更新（名前 / 自己紹介 / 拠点駅 / 貸出場所詳細 / ユーザータイプ）
+- [x] `PUT /users/me` — プロフィール更新（display_name / bio / user_type / avatar_url）
 - [x] `PUT /users/me/push-token` — Expo Push Token 保存
 - [x] `GET /stations` — 駅一覧（municipality フィルタ）
 - [x] `GET /stations/municipalities` — 市区町村一覧
-- [x] `GET /lines` — 路線一覧
 - [ ] pytest でユニットテスト作成
 
 ### 1-3. モバイル（認証・プロフィール画面）
 
 - [x] `/auth/login` 画面 — Google ログインボタン
-- [x] Supabase Auth Google OAuth 実装（`@react-native-google-signin/google-signin`）
+- [x] 開発用メール/パスワードログインボタン（`__DEV__` 時のみ表示）
+- [x] Supabase Auth Google OAuth 実装
 - [x] ログイン後に `POST /auth/sync` を呼び出してユーザー登録
-- [x] 認証状態グローバル管理（Zustand store）
-- [x] 未認証時のリダイレクト処理（Expo Router の layout guard）
-- [x] `/profile` 画面 — プロフィール表示・編集フォーム
-- [ ] プロフィール画像アップロード（Supabase Storage `avatar-images`）
-- [x] ユーザータイプ切り替え（借主 / 貸主）
-- [x] 拠点駅選択（路線→駅の2段階選択モーダル）
+- [x] 認証状態グローバル管理（Zustand authStore）
+- [x] 未認証時のリダイレクト処理（Expo Router layout guard）
+- [x] `/profile` 画面 — プロフィール表示（名前・自己紹介・タイプ・通知設定）
+- [x] `/profile-edit` 画面 — プロフィール編集（名前・自己紹介・タイプ・アバター）
+- [x] プロフィールアイコン画像アップロード（Supabase Storage `avatars`）
+- [x] アバターアップロードは `expo-image-picker` を動的インポート（Expo Go 対応）
+- [x] 通知設定（AsyncStorage に保存・即時反映・`useFocusEffect` で再読込）
 
 ---
 
@@ -120,26 +120,27 @@
 
 ### 2-1. DBマイグレーション
 
-- [x] `carts` テーブル作成マイグレーション
+- [x] `carts` テーブル作成マイグレーション（category / weight / max_load / foldable / daily_rate / weekly_rate / per_rental_rate / status 含む）
 - [x] `rental_requests` テーブル作成マイグレーション
-- [ ] Supabase Storage バケット作成（`cart-images` / `avatar-images`）
-- [ ] Storage RLS ポリシー設定
+- [ ] Supabase Storage バケット作成（`cart-images` / `avatars`）
+- [ ] Storage RLS ポリシー設定（avatars: 閲覧全員・アップロード本人のみ）
 
 ### 2-2. バックエンド（Carts API）
 
-- [x] `GET /carts` — 台車検索（municipality / station_id フィルタ）
-- [x] `GET /carts/mine` — 自分の台車一覧
-- [x] `GET /carts/{cart_id}` — 台車詳細
-- [x] `POST /carts` — 台車登録（貸主のみ）
+- [x] `GET /carts` — 台車検索（municipality / station_id フィルタ、active のみ）
+- [x] `GET /carts/mine` — 自分の台車一覧（active/inactive 両方・id ASC 順）
+- [x] `GET /carts/{cart_id}` — 台車詳細（station_name / municipality 含む）
+- [x] `POST /carts` — 台車登録
 - [x] `PUT /carts/{cart_id}` — 台車更新
-- [x] `DELETE /carts/{cart_id}` — 台車削除（論理削除）
+- [x] `DELETE /carts/{cart_id}` — 台車削除（論理削除・status = deleted）
+- [x] `PATCH /carts/{cart_id}/status` — 公開/非公開トグル（active ↔ inactive）
 - [ ] pytest でユニットテスト作成
 
 ### 2-3. バックエンド（Rental Requests API）
 
 - [x] `GET /rental-requests` — リクエスト一覧
 - [x] `GET /rental-requests/{id}` — リクエスト詳細
-- [x] `POST /rental-requests` — リクエスト送信（借主のみ）
+- [x] `POST /rental-requests` — リクエスト送信
 - [x] `POST /rental-requests/{id}/accept` — 承認 + 予約自動作成
 - [x] `POST /rental-requests/{id}/reject` — 拒否
 - [x] `POST /rental-requests/{id}/cancel` — キャンセル
@@ -147,18 +148,31 @@
 
 ### 2-4. モバイル（台車管理画面）
 
-- [x] `/carts` 画面 — 自分の台車一覧（貸主）
-- [x] `/carts/new` 画面 — 台車登録フォーム
-- [x] `/carts/[id]/edit` 画面 — 台車編集フォーム
+- [x] `/carts` 画面 — 自分の台車一覧
+- [x] `useFocusEffect` による登録・編集後の自動再取得
+- [x] 公開/非公開トグル（Switch → `PATCH /carts/{id}/status`）
+- [x] 並び替えドロップダウン（登録順↑↓ / 価格安い順 / 高い順）
+- [x] カードタップで編集画面へ遷移（編集ボタン廃止）
+- [x] 🗑 削除ボタン（stopPropagation 付き）+ 確認ダイアログ
+- [x] FAB「台車を登録」ボタン（画面下部全幅）
 - [ ] 台車画像アップロード（Supabase Storage `cart-images`・複数枚）
-- [x] 台車削除確認ダイアログ
 
-### 2-5. モバイル（台車検索・リクエスト画面）
+### 2-5. モバイル（台車フォーム）
 
-- [x] `/search` 画面 — 市区町村・駅で検索、貸主カード一覧表示
+- [x] `CartForm` コンポーネント（新規・編集共用）
+- [x] カード別セクション（基本情報 / スペック / 価格 / 貸出場所 / 備考）
+- [x] カテゴリチップ選択（必須）
+- [x] 価格フィールド（日額 / 週額 / 1回あたり・いずれか1つ必須）
+- [x] 駅選択モーダル（市区町村→駅の2段階選択）
+- [x] 編集時に選択済み駅を事前表示（`initialStation` props）
+- [x] インラインバリデーション（タイトル / カテゴリ / 駅 / 価格）
+
+### 2-6. モバイル（台車検索・リクエスト画面）
+
+- [x] ホーム `/` 画面 — 台車グリッド（`useFocusEffect` で再取得）
 - [x] `/search/[lender_id]` 画面 — 貸主詳細・台車一覧
-- [x] リクエスト送信モーダル（日時 / 台数 / 希望価格 / メッセージ入力）
-- [x] `/requests` 画面 — リクエスト一覧（送信済み・受信済みタブ）
+- [x] リクエスト送信モーダル（日時 / 台数 / メッセージ入力）
+- [x] `/reservations` 画面 — リクエスト一覧（送信済み・受信済みタブ）
 
 ---
 
@@ -171,7 +185,7 @@
 - [x] `messages` テーブル作成マイグレーション
 - [x] `reservations` テーブル作成マイグレーション
 - [x] `reservation_carts` テーブル作成マイグレーション
-- [x] Supabase Realtime — `messages` テーブルの有効化（モバイル実装済・ISSUE-008でDB設定必要）
+- [x] Supabase Realtime — `messages` テーブルの有効化
 - [ ] Supabase Realtime — `notifications` テーブルの有効化
 - [ ] Supabase RLS — messages（当事者のみ購読可）設定
 
@@ -194,18 +208,16 @@
 ### 3-4. モバイル（メッセージ・取引画面）
 
 - [x] `/requests/[id]` 画面 — チャット UI
-- [x] メッセージ送信フォーム
+- [x] Supabase Realtime でメッセージをリアルタイム受信
 - [x] システムメッセージ表示（ステータス変更通知）
 - [x] 承認・拒否ボタン（貸主）
-- [x] キャンセルモーダル（理由入力）
-- [x] 貸出ボタン（貸主 / RESERVED → LENT）
-- [x] 返却ボタン（貸主 / LENT → RETURNED）
+- [x] キャンセルモーダル
+- [x] 貸出ボタン（RESERVED → LENT）
+- [x] 返却ボタン（LENT → RETURNED）
 
 ---
 
 ## Phase 4 — レビュー・スケジュール・通知
-
-> 目標: 評価・スケジュール確認・プッシュ通知が動く
 
 ### 4-1. DBマイグレーション
 
@@ -215,56 +227,54 @@
 ### 4-2. バックエンド（Reviews API）
 
 - [x] `POST /reservations/{id}/reviews` — レビュー投稿
-- [x] `GET /users/{user_id}/reviews` — ユーザーへのレビュー一覧
+- [x] `GET /users/{user_id}/reviews` — レビュー一覧
 - [x] pytest でユニットテスト作成
 
 ### 4-3. バックエンド（Notifications API）
 
-- [x] `GET /notifications` — 通知一覧
-- [x] `POST /notifications/{id}/read` — 既読
-- [x] `POST /notifications/read-all` — 全件既読
-- [x] `DELETE /notifications/{id}` — 通知削除
-- [x] `notification_service.py` — 各イベント時の通知作成・プッシュ送信ロジック
-- [x] リマインドバッチ実装（APScheduler で貸出60分前・返却60分前）
+- [x] `GET /notifications` / `POST /read` / `POST /read-all` / `DELETE /{id}`
+- [x] `notification_service.py` — 各イベント時の通知作成・プッシュ送信
+- [x] リマインドバッチ（APScheduler で貸出60分前・返却60分前）
 - [x] pytest でユニットテスト作成
 
 ### 4-4. モバイル（スケジュール画面）
 
 - [x] `/schedule` 画面 — 予約一覧（今後・過去に分類）
-- [x] 7日以降の予定一覧表示
-- [x] 予定タップで該当メッセージ画面へ遷移
+- [x] 予定タップで `/requests/[id]` へ遷移
 
-### 4-5. モバイル（通知画面）
+### 4-5. モバイル（通知画面・バッジ）
 
 - [x] `/notifications` 画面 — 通知一覧・既読管理
-- [ ] Supabase Realtime で通知をリアルタイム受信
-- [x] 未読バッジ表示（ホーム画面の通知カードに件数表示）
+- [x] 未読バッジ（Zustand badgeStore・ヘッダー通知アイコン）
+- [x] Supabase Realtime で未読バッジをリアルタイム更新
+- [ ] Supabase Realtime — `notifications` テーブルの購読実装
 
 ### 4-6. モバイル（プッシュ通知）
 
-- [x] `expo-notifications` 導入・権限リクエスト実装
-- [x] アプリ起動時に Push Token 取得 → `PUT /users/me/push-token`
-- [x] フォアグラウンド通知ハンドラー設定
-- [x] バックグラウンド通知タップ時の画面遷移設定
+- [x] `expo-notifications` 導入・権限リクエスト
+- [x] Push Token 取得 → `PUT /users/me/push-token`
+- [x] フォアグラウンド通知ハンドラー
+- [x] バックグラウンド通知タップ時の画面遷移
 
 ### 4-7. モバイル（レビュー）
 
-- [x] 返却完了後にレビューモーダルを表示
+- [x] 返却完了後にレビューモーダル表示
 - [x] 評価（1〜3）+ コメント入力
-- [x] 貸主詳細画面にレビュー一覧・平均評価を表示
+- [x] 貸主詳細画面にレビュー一覧・平均評価表示
 
 ---
 
 ## Phase 5 — 仕上げ・リリース準備
 
-> 目標: App Store / Play Store 申請できる品質にする
-
 ### 5-1. UI/UX 調整
 
-- [x] ローディング・エラー状態の UI 整備
-- [x] 空状態（データなし）の UI 整備
+- [x] ローディング・エラー状態の UI 整備（LoadingScreen / ErrorScreen / EmptyScreen）
+- [x] 空状態の UI 整備
 - [x] フォームバリデーションエラーメッセージ整備
 - [x] アクセシビリティ対応（フォントサイズ・コントラスト）
+- [x] プロフィール画面のモダンデザイン刷新
+- [x] 台車フォームのカード分割レイアウト
+- [x] 通知設定ドラムロールピッカー（iOSタイマー風）
 
 ### 5-2. テスト
 
@@ -276,8 +286,9 @@
 
 - [x] JWT 検証の網羅確認
 - [x] オーナーチェック漏れがないか確認
-- [ ] Supabase RLS ポリシーの動作確認（本番プロジェクト作成時に実施）
-- [x] 環境変数の本番設定確認（シークレットが .env に残っていないか）
+- [x] 環境変数の本番設定確認（`.env` が git 管理外であること）
+- [x] gitleaks によるシークレットスキャン運用確立
+- [ ] Supabase RLS ポリシーの動作確認（本番プロジェクト作成後）
 
 ### 5-4. App Store / Play Store 申請準備
 
@@ -291,31 +302,66 @@
 
 ---
 
-## バックログ（MVP後対応）
+## Phase 6 — 品質向上・追加機能（MVP後）
+
+> MVP 後に対応する機能・改善タスク
+
+### 6-1. 台車画像
+
+- [ ] Supabase Storage `cart-images` バケット作成・RLS 設定
+- [ ] 台車フォームへの複数枚画像アップロード追加
+- [ ] ホーム画面・貸主詳細画面への画像表示
+
+### 6-2. ユーザー体験向上
+
+- [ ] プロフィール画面から他ユーザーのプロフィールを閲覧できるようにする
+- [ ] 台車検索のフリーワード検索対応
+- [ ] お気に入り台車（ブックマーク）機能
+- [ ] メッセージ画面内での画像送受信
+- [ ] メッセージ既読表示（相手が読んだかどうか）
+
+### 6-3. スケジュール・カレンダー
+
+- [ ] カレンダービューでの空き状況確認
+- [ ] 複数予約の重複チェック（同一台車の二重予約防止）
+
+### 6-4. 通知強化
+
+- [ ] リマインド送信タイミングをサーバー側にも反映（現在はクライアントのみ）
+- [ ] Supabase Realtime — `notifications` テーブルの購読実装
+- [ ] 通知既読をサーバーリアルタイムで反映
+
+### 6-5. 管理・収益
 
 - [ ] 見積もり（Quote）機能
-- [ ] 外部予約管理
 - [ ] 売上管理・経費帳
 - [ ] 領収書発行
-- [ ] 決済（Stripe）
-- [ ] Apple Sign In
-- [ ] チャット画像送信
-- [ ] メッセージ既読表示
-- [ ] ユーザーお気に入り機能
-- [ ] カレンダー表示での空き状況確認
-- [ ] リマインド送信タイミングのユーザー設定
+- [ ] 決済（Stripe）連携
 - [ ] 管理者ダッシュボード
+
+### 6-6. 認証拡張
+
+- [ ] Apple Sign In 対応
+- [ ] 電話番号認証対応
+
+### 6-7. インフラ
+
+- [ ] Railway 本番環境構築
+- [ ] Supabase production プロジェクト作成
+- [ ] 本番 RLS ポリシー全設定
+- [ ] APM・ログ監視設定（Sentry など）
 
 ---
 
 ## 進捗サマリー
 
-| Phase                                  | タスク数 | 完了    | 進行中 | 未着手 |
-| -------------------------------------- | -------- | ------- | ------ | ------ |
-| Phase 0 — 環境構築                     | 29       | 24      | 0      | 5      |
-| Phase 1 — 認証・ユーザー               | 22       | 20      | 0      | 2      |
-| Phase 2 — 台車・検索・リクエスト       | 24       | 19      | 0      | 5      |
-| Phase 3 — メッセージ・予約管理         | 18       | 18      | 0      | 0      |
-| Phase 4 — レビュー・スケジュール・通知 | 22       | 22      | 0      | 0      |
-| Phase 5 — 仕上げ・リリース準備         | 14       | 9       | 0      | 5      |
-| **合計**                               | **129**  | **114** | **0**  | **15** |
+| Phase                                  | タスク数 | 完了    | 未着手  |
+| -------------------------------------- | -------- | ------- | ------- |
+| Phase 0 — 環境構築                     | 27       | 22      | 5       |
+| Phase 1 — 認証・ユーザー               | 19       | 19      | 0       |
+| Phase 2 — 台車・検索・リクエスト       | 31       | 28      | 3       |
+| Phase 3 — メッセージ・予約管理         | 18       | 16      | 2       |
+| Phase 4 — レビュー・スケジュール・通知 | 21       | 19      | 2       |
+| Phase 5 — 仕上げ・リリース準備         | 15       | 8       | 7       |
+| Phase 6 — 品質向上・追加機能（MVP後）  | 22       | 0       | 22      |
+| **合計**                               | **153**  | **112** | **41**  |
