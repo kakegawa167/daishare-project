@@ -18,28 +18,20 @@ import { useAuthStore } from '@/store/authStore';
 // ─── 通知設定の型 ────────────────────────────
 const NOTIF_KEY = '@daishare/notif_settings';
 
-type ReminderHour = 6 | 12 | 18 | 24;
 interface NotifSettings {
   enabled: boolean;
   request: boolean;
   message: boolean;
   reminder: boolean;
-  reminderHour: ReminderHour;
+  reminderHour: number; // 1〜24
 }
 const DEFAULT_NOTIF: NotifSettings = {
   enabled: true,
   request: true,
   message: true,
   reminder: true,
-  reminderHour: 18,
+  reminderHour: 12,
 };
-
-const REMINDER_OPTIONS: { value: ReminderHour; label: string }[] = [
-  { value: 6,  label: '6時間前' },
-  { value: 12, label: '12時間前' },
-  { value: 18, label: '18時間前' },
-  { value: 24, label: '24時間前' },
-];
 
 type UserType = 'lender' | 'renter' | 'both';
 const USER_TYPE_LABELS: Record<UserType, string> = { renter: '借主', lender: '貸主', both: '両方' };
@@ -160,12 +152,12 @@ export default function ProfileScreen() {
           </>
         )}
 
-        {!editing && user.bio ? (
+        {!editing && (
           <>
             <View style={s.divider} />
-            <Row label="自己紹介" value={user.bio} last />
+            <Row label="自己紹介" value={user.bio || '未設定'} last />
           </>
-        ) : null}
+        )}
       </Card>
 
       {/* ユーザータイプ */}
@@ -259,19 +251,25 @@ export default function ProfileScreen() {
                 <View style={s.divider} />
                 <View style={s.reminderSection}>
                   <Text style={s.reminderTitle}>リマインドタイミング</Text>
-                  <View style={s.reminderChips}>
-                    {REMINDER_OPTIONS.map((opt) => {
-                      const sel = notif.reminderHour === opt.value;
-                      return (
-                        <Pressable key={opt.value}
-                          style={[s.reminderChip, sel && s.reminderChipSel]}
-                          onPress={() => setN('reminderHour', opt.value)}>
-                          <Text style={[s.reminderChipText, sel && s.reminderChipTextSel]}>
-                            {opt.label}
-                          </Text>
-                        </Pressable>
-                      );
-                    })}
+                  <View style={s.stepper}>
+                    <Pressable
+                      style={[s.stepBtn, notif.reminderHour <= 1 && s.stepBtnOff]}
+                      onPress={() => setN('reminderHour', Math.max(1, notif.reminderHour - 1))}
+                      disabled={notif.reminderHour <= 1}
+                    >
+                      <Text style={s.stepBtnText}>−</Text>
+                    </Pressable>
+                    <View style={s.stepDisplay}>
+                      <Text style={s.stepValue}>{notif.reminderHour}</Text>
+                      <Text style={s.stepUnit}>時間前</Text>
+                    </View>
+                    <Pressable
+                      style={[s.stepBtn, notif.reminderHour >= 24 && s.stepBtnOff]}
+                      onPress={() => setN('reminderHour', Math.min(24, notif.reminderHour + 1))}
+                      disabled={notif.reminderHour >= 24}
+                    >
+                      <Text style={s.stepBtnText}>＋</Text>
+                    </Pressable>
                   </View>
                 </View>
               </>
@@ -355,16 +353,18 @@ const s = StyleSheet.create({
   },
   editBtnText: { fontSize: 15, fontWeight: '700', color: '#3b82f6' },
 
-  reminderSection: { paddingHorizontal: 16, paddingVertical: 12 },
-  reminderTitle: { fontSize: 13, fontWeight: '600', color: '#6b7280', marginBottom: 10 },
-  reminderChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  reminderChip: {
-    paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20,
-    borderWidth: 1.5, borderColor: '#e5e7eb', backgroundColor: '#fafafa',
+  reminderSection: { paddingHorizontal: 16, paddingVertical: 14 },
+  reminderTitle: { fontSize: 13, fontWeight: '600', color: '#6b7280', marginBottom: 12 },
+  stepper: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 0 },
+  stepBtn: {
+    width: 44, height: 44, borderRadius: 22,
+    backgroundColor: '#3b82f6', alignItems: 'center', justifyContent: 'center',
   },
-  reminderChipSel: { borderColor: '#3b82f6', backgroundColor: '#eff6ff' },
-  reminderChipText: { fontSize: 13, fontWeight: '600', color: '#9ca3af' },
-  reminderChipTextSel: { color: '#3b82f6' },
+  stepBtnOff: { backgroundColor: '#e5e7eb' },
+  stepBtnText: { color: '#fff', fontSize: 20, fontWeight: '600', lineHeight: 24 },
+  stepDisplay: { minWidth: 100, alignItems: 'center', paddingHorizontal: 12 },
+  stepValue: { fontSize: 32, fontWeight: '800', color: '#111827', lineHeight: 38 },
+  stepUnit: { fontSize: 13, color: '#6b7280', marginTop: 2 },
 
   logoutBtn: {
     marginTop: 24, padding: 15, alignItems: 'center', borderRadius: 12,
