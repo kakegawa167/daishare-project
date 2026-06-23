@@ -10,10 +10,14 @@ const toStr = (v: number | null | undefined) => (v != null ? String(v) : '');
 export default function EditCart() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [initialData, setInitialData] = useState<CartFormData | null>(null);
+  const [initialStation, setInitialStation] = useState<{ id: number; name: string; municipality: string; line_id: number } | null>(null);
 
   useEffect(() => {
     api.get<Cart>(`/carts/${id}`).then((r) => {
       const c = r.data;
+      if (c.station_id && c.station_name) {
+        setInitialStation({ id: c.station_id, name: c.station_name, municipality: c.municipality ?? '', line_id: 0 });
+      }
       setInitialData({
         title: c.title,
         category: c.category,
@@ -63,5 +67,5 @@ export default function EditCart() {
     return <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}><ActivityIndicator size="large" color="#3b82f6" /></View>;
   }
 
-  return <CartForm initialData={initialData} onSubmit={handleSubmit} submitLabel="更新する" />;
+  return <CartForm initialData={initialData} initialStation={initialStation} onSubmit={handleSubmit} submitLabel="更新する" />;
 }

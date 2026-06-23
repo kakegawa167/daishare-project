@@ -27,6 +27,7 @@ const CATEGORIES: { value: CartCategory; label: string }[] = [
 interface StationInfo { id: number; name: string; municipality: string; line_id: number }
 interface Props {
   initialData: CartFormData;
+  initialStation?: StationInfo | null;
   onSubmit: (data: CartFormData) => Promise<void>;
   submitLabel: string;
 }
@@ -106,9 +107,9 @@ function NumIn({ value, onChange, placeholder, unit }: {
 }
 
 // ─── メイン ───────────────────────────────────
-export default function CartForm({ initialData, onSubmit, submitLabel }: Props) {
+export default function CartForm({ initialData, initialStation = null, onSubmit, submitLabel }: Props) {
   const [form, setForm] = useState<CartFormData>(initialData);
-  const [stationInfo, setStationInfo] = useState<StationInfo | null>(null);
+  const [stationInfo, setStationInfo] = useState<StationInfo | null>(initialStation);
   const [pickerVisible, setPickerVisible] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<Errors>({});
