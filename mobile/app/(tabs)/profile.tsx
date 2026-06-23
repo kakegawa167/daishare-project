@@ -1,5 +1,4 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as ImagePicker from 'expo-image-picker';
 import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -186,6 +185,15 @@ export default function ProfileScreen() {
   const setReminderM = (m: number) => setN('reminderMinutes', partsToMinutes(remH, m));
 
   const handlePickAvatar = async () => {
+    // expo-image-picker はDev Build必須のため、Expo Go環境では動的インポートで対応
+    let ImagePicker: typeof import('expo-image-picker');
+    try {
+      ImagePicker = await import('expo-image-picker');
+    } catch {
+      Alert.alert('非対応', 'この機能はDev Buildが必要です。\nExpo Go では利用できません。');
+      return;
+    }
+
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
       Alert.alert('権限が必要', '写真へのアクセスを許可してください');
@@ -221,7 +229,7 @@ export default function ProfileScreen() {
       const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(path);
       await api.put('/users/me', { avatar_url: publicUrl });
       await syncUser();
-    } catch (e) {
+    } catch {
       Alert.alert('エラー', 'アイコンのアップロードに失敗しました');
       setAvatarUri(null);
     } finally {
