@@ -17,7 +17,6 @@ import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/authStore';
 
 type UserType = 'lender' | 'renter' | 'both';
-const USER_TYPE_LABELS: Record<UserType, string> = { renter: '借主', lender: '貸主', both: '両方' };
 
 function SectionTitle({ label }: { label: string }) {
   return <View style={s.secTitle}><Text style={s.secLabel}>{label}</Text></View>;
@@ -141,19 +140,23 @@ export default function ProfileEditScreen() {
 
       {/* 利用タイプ */}
       <SectionTitle label="利用タイプ" />
-      <Card>
-        <View style={s.typeWrap}>
-          {(['renter', 'lender', 'both'] as UserType[]).map((t) => {
-            const sel = form.user_type === t;
-            return (
-              <Pressable key={t} style={[s.typeChip, sel && s.typeChipSel]}
-                onPress={() => setForm((f) => ({ ...f, user_type: t }))}>
-                <Text style={[s.typeChipText, sel && s.typeChipTextSel]}>{USER_TYPE_LABELS[t]}</Text>
-              </Pressable>
-            );
-          })}
-        </View>
-      </Card>
+      <View style={s.typeCards}>
+        {([
+          { value: 'renter', emoji: '📦', label: '借りる', desc: '台車を借りてお得に活用' },
+          { value: 'lender', emoji: '🏷️', label: '貸す',   desc: '台車を貸して副収入を獲得' },
+        ] as { value: UserType; emoji: string; label: string; desc: string }[]).map(({ value, emoji, label, desc }) => {
+          const sel = form.user_type === value;
+          return (
+            <Pressable key={value} style={[s.typeCard, sel && s.typeCardSel]}
+              onPress={() => setForm((f) => ({ ...f, user_type: value }))}>
+              <Text style={s.typeCardEmoji}>{emoji}</Text>
+              <Text style={[s.typeCardLabel, sel && s.typeCardLabelSel]}>{label}</Text>
+              <Text style={[s.typeCardDesc, sel && s.typeCardDescSel]}>{desc}</Text>
+              {sel && <View style={s.typeCardCheck}><Text style={s.typeCardCheckText}>✓</Text></View>}
+            </Pressable>
+          );
+        })}
+      </View>
 
       {/* 保存 */}
       <Pressable style={[s.saveBtn, saving && s.saveBtnOff]} onPress={handleSave} disabled={saving}>
@@ -194,12 +197,25 @@ const s = StyleSheet.create({
     backgroundColor: '#fafafa', color: '#111827' },
   textarea: { height: 100, textAlignVertical: 'top' },
 
-  typeWrap: { flexDirection: 'row', gap: 8, padding: 16 },
-  typeChip: { flex: 1, paddingVertical: 10, borderRadius: 10,
-    borderWidth: 1.5, borderColor: '#e5e7eb', backgroundColor: '#fafafa', alignItems: 'center' },
-  typeChipSel: { borderColor: '#3b82f6', backgroundColor: '#eff6ff' },
-  typeChipText: { fontSize: 14, fontWeight: '600', color: '#9ca3af' },
-  typeChipTextSel: { color: '#3b82f6' },
+  typeCards: { flexDirection: 'row', gap: 12 },
+  typeCard: {
+    flex: 1, borderRadius: 16, borderWidth: 2, borderColor: '#e5e7eb',
+    backgroundColor: '#fff', padding: 16, alignItems: 'center', gap: 4,
+    shadowColor: '#000', shadowOpacity: 0.03, shadowRadius: 4, elevation: 1,
+    position: 'relative',
+  },
+  typeCardSel: { borderColor: '#3b82f6', backgroundColor: '#eff6ff' },
+  typeCardEmoji: { fontSize: 28, marginBottom: 4 },
+  typeCardLabel: { fontSize: 17, fontWeight: '800', color: '#374151' },
+  typeCardLabelSel: { color: '#1d4ed8' },
+  typeCardDesc: { fontSize: 11, color: '#9ca3af', textAlign: 'center', lineHeight: 15 },
+  typeCardDescSel: { color: '#3b82f6' },
+  typeCardCheck: {
+    position: 'absolute', top: 8, right: 10,
+    width: 20, height: 20, borderRadius: 10,
+    backgroundColor: '#3b82f6', alignItems: 'center', justifyContent: 'center',
+  },
+  typeCardCheckText: { fontSize: 11, color: '#fff', fontWeight: '700' },
 
   saveBtn: { marginTop: 28, backgroundColor: '#3b82f6', borderRadius: 14, padding: 16, alignItems: 'center',
     shadowColor: '#3b82f6', shadowOpacity: 0.3, shadowRadius: 8, elevation: 4 },

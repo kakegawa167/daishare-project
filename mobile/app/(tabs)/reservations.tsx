@@ -2,8 +2,8 @@ import { api } from '@/lib/api';
 import { RentalRequest, RequestStatus } from '@/lib/types';
 import { EmptyScreen, LoadingScreen } from '@/components/ScreenState';
 import { useAuthStore } from '@/store/authStore';
-import { router } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { router, useFocusEffect } from 'expo-router';
+import { useCallback, useMemo, useState } from 'react';
 import {
   Alert,
   FlatList,
@@ -14,23 +14,45 @@ import {
   View,
 } from 'react-native';
 
+// ─── ステータス定義 ───────────────────────────────
 const STATUS_LABEL: Record<RequestStatus, string> = {
-  pending: '承認待ち',
-  accepted: '承認済み',
-  rejected: '拒否',
+  pending:   '承認待ち',
+  accepted:  '予約中',
+  rejected:  '拒否',
   cancelled: 'キャンセル',
 };
 const STATUS_COLOR: Record<RequestStatus, string> = {
-  pending: '#f59e0b',
-  accepted: '#10b981',
-  rejected: '#ef4444',
+  pending:   '#f59e0b',
+  accepted:  '#10b981',
+  rejected:  '#ef4444',
   cancelled: '#9ca3af',
 };
 
-function RequestCard({ req, userId, onAction }: { req: RentalRequest; userId: string; onAction: () => void }) {
-  const isOwner = req.renter_id !== userId;
-  const start = new Date(req.start_date).toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric' });
-  const end = new Date(req.end_date).toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric' });
+type RoleTab = 'renter' | 'lender'; // both の場合に上部で切り替え
+type ContentTab = 'request' | 'booked' | 'history';
+
+const RENTER_TABS: { key: ContentTab; label: string }[] = [
+  { key: 'request', label: 'リクエスト送信' },
+  { key: 'booked',  label: '予約中' },
+  { key: 'history', label: '履歴' },
+];
+const LENDER_TABS: { key: ContentTab; label: string }[] = [
+  { key: 'request', label: 'リクエスト受信' },
+  { key: 'booked',  label: '予約中' },
+  { key: 'history', label: '履歴' },
+];
+
+// ─── リクエストカード ─────────────────────────────
+function RequestCard({
+  req, userId, isLenderView, onAction,
+}: {
+  req: RentalRequest;
+  userId: string;
+  isLenderView: boolean;
+  onAction: () => void;
+}) {
+  const fmt = (d: string) =>
+    new Date(d).toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric' });
 
   const handleAccept = async () => {
     try { await api.post(`/rental-requests/${req.id}/accept`); onAction(); }
@@ -51,50 +73,119 @@ function RequestCard({ req, userId, onAction }: { req: RentalRequest; userId: st
   };
 
   return (
-    <Pressable style={styles.card} onPress={() => router.push(`/requests/${req.id}` as any)}>
-      <View style={styles.cardTop}>
-        <Text style={styles.cartTitle} numberOfLines={1}>{req.cart_title ?? '台車'}</Text>
-        <View style={[styles.badge, { backgroundColor: STATUS_COLOR[req.status] + '20' }]}>
-          <Text style={[styles.badgeText, { color: STATUS_COLOR[req.status] }]}>{STATUS_LABEL[req.status]}</Text>
+    <Pressable style={c.card} onPress={() => router.push(`/requests/${req.id}` as any)}>
+      <View style={c.cardTop}>
+        <Text style={c.cartTitle} numberOfLines={1}>{req.cart_title ?? '台車'}</Text>
+        <View style={[c.badge, { backgroundColor: STATUS_COLOR[req.status] + '20' }]}>
+          <Text style={[c.badgeText, { color: STATUS_COLOR[req.status] }]}>
+            {STATUS_LABEL[req.status]}
+          </Text>
         </View>
       </View>
-      <Text style={styles.meta}>
-        {isOwner ? `借主: ${req.renter_name ?? '不明'}` : '自分のリクエスト'}
-      </Text>
-      <Text style={styles.meta}>📅 {start} 〜 {end}　{req.quantity}台</Text>
+
+      {/* 相手方表示 */}
+      {isLenderView && req.renter_name && (
+        <Text style={c.meta}>👤 借主: {req.renter_name}</Text>
+      )}
+
+      <Text style={c.meta}>📅 {fmt(req.start_date)} 〜 {fmt(req.end_date)}　{req.quantity}台</Text>
+
       {req.message ? (
-        <Text style={styles.msgPreview} numberOfLines={1}>"{req.message}"</Text>
+        <Text style={c.msgPreview} numberOfLines={1}>"{req.message}"</Text>
       ) : null}
 
-      {req.status === 'pending' && isOwner && (
-        <View style={styles.actions}>
-          <Pressable style={[styles.btn, styles.btnAccept]} onPress={handleAccept}>
-            <Text style={styles.btnAcceptText}>承認</Text>
+      {/* 貸主アクション: pending のとき承認/拒否 */}
+      {req.status === 'pending' && isLenderView && (
+        <View style={c.actions}>
+          <Pressable style={[c.btn, c.btnAccept]} onPress={handleAccept}>
+            <Text style={c.btnAcceptText}>承認</Text>
           </Pressable>
-          <Pressable style={[styles.btn, styles.btnReject]} onPress={handleReject}>
-            <Text style={styles.btnRejectText}>拒否</Text>
+          <Pressable style={[c.btn, c.btnReject]} onPress={handleReject}>
+            <Text style={c.btnRejectText}>拒否</Text>
           </Pressable>
         </View>
       )}
-      {req.status === 'pending' && !isOwner && (
-        <Pressable style={[styles.btn, styles.btnCancel]} onPress={handleCancel}>
-          <Text style={styles.btnCancelText}>キャンセル</Text>
+
+      {/* 借主アクション: pending のときキャンセル */}
+      {req.status === 'pending' && !isLenderView && (
+        <Pressable style={[c.btn, c.btnCancel]} onPress={handleCancel}>
+          <Text style={c.btnCancelText}>キャンセル</Text>
         </Pressable>
       )}
-      <Text style={styles.tapHint}>タップしてメッセージを確認 ›</Text>
+
+      <Text style={c.tapHint}>タップして詳細を確認 ›</Text>
     </Pressable>
   );
 }
 
+// ─── リスト ───────────────────────────────────────
+function RequestList({
+  requests, userId, isLenderView, onAction, refreshing, onRefresh,
+  emptyIcon, emptyMessage, emptySubMessage,
+}: {
+  requests: RentalRequest[];
+  userId: string;
+  isLenderView: boolean;
+  onAction: () => void;
+  refreshing: boolean;
+  onRefresh: () => void;
+  emptyIcon: string;
+  emptyMessage: string;
+  emptySubMessage: string;
+}) {
+  return (
+    <FlatList
+      data={requests}
+      keyExtractor={item => String(item.id)}
+      renderItem={({ item }) => (
+        <RequestCard req={item} userId={userId} isLenderView={isLenderView} onAction={onAction} />
+      )}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#3b82f6" />}
+      contentContainerStyle={requests.length === 0 ? s.emptyWrap : s.list}
+      ListEmptyComponent={
+        <EmptyScreen icon={emptyIcon} message={emptyMessage} subMessage={emptySubMessage} />
+      }
+    />
+  );
+}
+
+// ─── タブバー ─────────────────────────────────────
+function TabBar({
+  tabs, active, onChange,
+}: { tabs: { key: ContentTab; label: string }[]; active: ContentTab; onChange: (t: ContentTab) => void }) {
+  return (
+    <View style={s.tabRow}>
+      {tabs.map(tab => (
+        <Pressable
+          key={tab.key}
+          style={[s.tabBtn, active === tab.key && s.tabBtnActive]}
+          onPress={() => onChange(tab.key)}
+        >
+          <Text style={[s.tabBtnText, active === tab.key && s.tabBtnTextActive]}>
+            {tab.label}
+          </Text>
+        </Pressable>
+      ))}
+    </View>
+  );
+}
+
+// ─── メイン ───────────────────────────────────────
 export default function Reservations() {
   const { user } = useAuthStore();
-  const [tab, setTab] = useState<'received' | 'sent'>('received');
   const [requests, setRequests] = useState<RentalRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [contentTab, setContentTab] = useState<ContentTab>('request');
 
-  const fetchRequests = useCallback(async () => {
+  // both の場合に上部ロール切り替えに使う
+  const userType = user?.user_type ?? 'renter';
+  const [roleTab, setRoleTab] = useState<RoleTab>(
+    userType === 'lender' ? 'lender' : 'renter'
+  );
+
+  const fetch = useCallback(async () => {
     setError(false);
     try {
       const res = await api.get<RentalRequest[]>('/rental-requests');
@@ -107,68 +198,121 @@ export default function Reservations() {
     }
   }, []);
 
-  useEffect(() => { fetchRequests(); }, [fetchRequests]);
+  useFocusEffect(useCallback(() => { fetch(); }, []));
 
-  const userId = user?.id ?? '';
-  const filtered = requests.filter((r) =>
-    tab === 'received' ? r.renter_id !== userId : r.renter_id === userId
-  );
+  const userId  = user?.id ?? '';
+  const now     = new Date();
+
+  // 自分が借主のリクエスト
+  const asRenter = requests.filter(r => r.renter_id === userId);
+  // 自分が貸主のリクエスト（自分の台車へのリクエスト）
+  const asLender = requests.filter(r => r.renter_id !== userId);
+
+  // タブごとに振り分け（履歴：cancelled / rejected / accepted で期限切れ）
+  const classify = (list: RentalRequest[], tab: ContentTab): RentalRequest[] => {
+    if (tab === 'request') return list.filter(r => r.status === 'pending');
+    if (tab === 'booked')  return list.filter(r => r.status === 'accepted' && new Date(r.end_date) >= now);
+    // history: cancelled, rejected, accepted で返却期限切れ
+    return list.filter(r =>
+      r.status === 'cancelled' || r.status === 'rejected' ||
+      (r.status === 'accepted' && new Date(r.end_date) < now)
+    );
+  };
+
+  const isLenderView = userType === 'lender' || (userType === 'both' && roleTab === 'lender');
+  const baseList     = isLenderView ? asLender : asRenter;
+  const displayList  = useMemo(() => classify(baseList, contentTab), [baseList, contentTab, requests]);
+
+  const tabs         = isLenderView ? LENDER_TABS : RENTER_TABS;
+
+  const emptyConfig: Record<ContentTab, { icon: string; message: string; sub: string }> = {
+    request: isLenderView
+      ? { icon: '📨', message: '受信リクエストはありません', sub: '台車へのリクエストが届くとここに表示されます' }
+      : { icon: '📤', message: '送信済みリクエストはありません', sub: 'ホームから台車を探してリクエストしてみましょう' },
+    booked: { icon: '📋', message: '予約中の台車はありません', sub: '' },
+    history: { icon: '📁', message: '履歴はありません', sub: '' },
+  };
+
+  const handleRefresh = () => { setRefreshing(true); fetch(); };
 
   if (loading) return <LoadingScreen />;
   if (error) return (
-    <EmptyScreen icon="⚠️" message="取得に失敗しました" action={{ label: '再試行', onPress: fetchRequests }} />
+    <EmptyScreen icon="⚠️" message="取得に失敗しました" action={{ label: '再試行', onPress: fetch }} />
   );
 
   return (
-    <View style={styles.container}>
-      <View style={styles.tabRow}>
-        <Pressable style={[styles.tabBtn, tab === 'received' && styles.tabBtnActive]} onPress={() => setTab('received')}>
-          <Text style={[styles.tabBtnText, tab === 'received' && styles.tabBtnTextActive]}>受信</Text>
-        </Pressable>
-        <Pressable style={[styles.tabBtn, tab === 'sent' && styles.tabBtnActive]} onPress={() => setTab('sent')}>
-          <Text style={[styles.tabBtnText, tab === 'sent' && styles.tabBtnTextActive]}>送信済み</Text>
-        </Pressable>
-      </View>
-      <FlatList
-        data={filtered}
-        keyExtractor={(item) => String(item.id)}
-        renderItem={({ item }) => <RequestCard req={item} userId={userId} onAction={fetchRequests} />}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchRequests(); }} tintColor="#3b82f6" />
-        }
-        contentContainerStyle={filtered.length === 0 ? styles.empty : styles.list}
-        ListEmptyComponent={
-          <EmptyScreen
-            icon={tab === 'received' ? '📨' : '📤'}
-            message="リクエストがありません"
-            subMessage={tab === 'received'
-              ? '台車へのリクエストが届くとここに表示されます'
-              : 'ホームから台車を探して申請してみましょう'}
-          />
-        }
+    <View style={s.container}>
+
+      {/* both の場合のみ 貸主/借主 切り替えバー */}
+      {userType === 'both' && (
+        <View style={s.roleRow}>
+          {(['renter', 'lender'] as RoleTab[]).map(role => (
+            <Pressable
+              key={role}
+              style={[s.roleBtn, roleTab === role && s.roleBtnActive]}
+              onPress={() => { setRoleTab(role); setContentTab('request'); }}
+            >
+              <Text style={[s.roleBtnText, roleTab === role && s.roleBtnTextActive]}>
+                {role === 'renter' ? '借りる' : '貸す'}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+      )}
+
+      {/* コンテンツタブ */}
+      <TabBar tabs={tabs} active={contentTab} onChange={t => setContentTab(t)} />
+
+      <RequestList
+        requests={displayList}
+        userId={userId}
+        isLenderView={isLenderView}
+        onAction={fetch}
+        refreshing={refreshing}
+        onRefresh={handleRefresh}
+        emptyIcon={emptyConfig[contentTab].icon}
+        emptyMessage={emptyConfig[contentTab].message}
+        emptySubMessage={emptyConfig[contentTab].sub}
       />
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+// ─── スタイル ─────────────────────────────────────
+const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f9fafb' },
-  tabRow: { flexDirection: 'row', backgroundColor: '#fff', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#e5e7eb' },
-  tabBtn: { flex: 1, paddingVertical: 14, alignItems: 'center' },
-  tabBtnActive: { borderBottomWidth: 2, borderBottomColor: '#3b82f6' },
-  tabBtnText: { fontSize: 15, color: '#6b7280', fontWeight: '500' },
-  tabBtnTextActive: { color: '#3b82f6', fontWeight: '700' },
+  emptyWrap: { flex: 1 },
   list: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 24 },
-  empty: { flex: 1 },
-  card: {
+
+  roleRow: {
+    flexDirection: 'row',
     backgroundColor: '#fff',
-    borderRadius: 14,
-    padding: 16,
-    marginBottom: 10,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    elevation: 2,
+    paddingHorizontal: 16, paddingVertical: 10,
+    gap: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#e5e7eb',
+  },
+  roleBtn: {
+    flex: 1, paddingVertical: 8, borderRadius: 20,
+    borderWidth: 1.5, borderColor: '#e5e7eb', backgroundColor: '#f9fafb', alignItems: 'center',
+  },
+  roleBtnActive: { borderColor: '#3b82f6', backgroundColor: '#eff6ff' },
+  roleBtnText: { fontSize: 14, fontWeight: '600', color: '#9ca3af' },
+  roleBtnTextActive: { color: '#3b82f6' },
+
+  tabRow: {
+    flexDirection: 'row', backgroundColor: '#fff',
+    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#e5e7eb',
+  },
+  tabBtn: { flex: 1, paddingVertical: 13, alignItems: 'center' },
+  tabBtnActive: { borderBottomWidth: 2, borderBottomColor: '#3b82f6' },
+  tabBtnText: { fontSize: 13, color: '#9ca3af', fontWeight: '500' },
+  tabBtnTextActive: { color: '#3b82f6', fontWeight: '700' },
+});
+
+const c = StyleSheet.create({
+  card: {
+    backgroundColor: '#fff', borderRadius: 14, padding: 16, marginBottom: 10,
+    shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 6, elevation: 2,
   },
   cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
   cartTitle: { fontSize: 16, fontWeight: '700', flex: 1, marginRight: 8, color: '#1a1a1a' },
