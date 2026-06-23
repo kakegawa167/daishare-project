@@ -38,7 +38,7 @@ async function registerPushToken(): Promise<void> {
 
     // シミュレーターではプッシュトークン取得不可のため try-catch
     const token = (await Notifications.getExpoPushTokenAsync()).data;
-    await api.put('/users/me/push-token', { push_token: token }).catch(() => {});
+    await api.put('/users/me/push-token', { expo_push_token: token }).catch(() => {});
   } catch {
     // シミュレーター・権限なし等では無視
   }

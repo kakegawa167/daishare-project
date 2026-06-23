@@ -39,10 +39,13 @@ export default function TabLayout() {
   useEffect(() => {
     if (!session) return;
     fetchUnread();
-    const sub = AppState.addEventListener('change', (state) => {
+    // アプリ復帰時に即時更新
+    const appSub = AppState.addEventListener('change', (state) => {
       if (state === 'active') fetchUnread();
     });
-    return () => sub.remove();
+    // 30秒ポーリング（Realtime未設定環境でもバッジを更新）
+    const timer = setInterval(fetchUnread, 30_000);
+    return () => { appSub.remove(); clearInterval(timer); };
   }, [session]);
 
   const headerRight = () => <HeaderRight />;

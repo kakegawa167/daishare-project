@@ -73,7 +73,7 @@ function RequestCard({
   };
 
   return (
-    <Pressable style={c.card} onPress={() => router.push(`/requests/${req.id}` as any)}>
+    <View style={c.card}>
       <View style={c.cardTop}>
         <Text style={c.cartTitle} numberOfLines={1}>{req.cart_title ?? '台車'}</Text>
         <View style={[c.badge, { backgroundColor: STATUS_COLOR[req.status] + '20' }]}>
@@ -97,10 +97,10 @@ function RequestCard({
       {/* 貸主アクション: pending のとき承認/拒否 */}
       {req.status === 'pending' && isLenderView && (
         <View style={c.actions}>
-          <Pressable style={[c.btn, c.btnAccept]} onPress={handleAccept}>
+          <Pressable style={[c.btn, c.btnAccept]} onPress={(e) => { e.stopPropagation?.(); handleAccept(); }}>
             <Text style={c.btnAcceptText}>承認</Text>
           </Pressable>
-          <Pressable style={[c.btn, c.btnReject]} onPress={handleReject}>
+          <Pressable style={[c.btn, c.btnReject]} onPress={(e) => { e.stopPropagation?.(); handleReject(); }}>
             <Text style={c.btnRejectText}>拒否</Text>
           </Pressable>
         </View>
@@ -108,13 +108,18 @@ function RequestCard({
 
       {/* 借主アクション: pending のときキャンセル */}
       {req.status === 'pending' && !isLenderView && (
-        <Pressable style={[c.btn, c.btnCancel]} onPress={handleCancel}>
+        <Pressable style={[c.btn, c.btnCancel]} onPress={(e) => { e.stopPropagation?.(); handleCancel(); }}>
           <Text style={c.btnCancelText}>キャンセル</Text>
         </Pressable>
       )}
 
-      <Text style={c.tapHint}>タップして詳細を確認 ›</Text>
-    </Pressable>
+      {/* 予約中・履歴はチャットへのリンクを強調 */}
+      <View style={c.footer}>
+        <Pressable style={c.chatBtn} onPress={() => router.push(`/requests/${req.id}` as any)}>
+          <Text style={c.chatBtnText}>💬 チャット・詳細を開く</Text>
+        </Pressable>
+      </View>
+    </View>
   );
 }
 
@@ -328,5 +333,10 @@ const c = StyleSheet.create({
   btnRejectText: { color: '#ef4444', fontWeight: '700', fontSize: 14 },
   btnCancel: { marginTop: 10, backgroundColor: '#f3f4f6' },
   btnCancelText: { color: '#6b7280', fontWeight: '500', fontSize: 14 },
-  tapHint: { fontSize: 11, color: '#d1d5db', textAlign: 'right', marginTop: 8 },
+  footer: { marginTop: 10, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: '#f3f4f6', paddingTop: 10 },
+  chatBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    backgroundColor: '#eff6ff', borderRadius: 10, paddingVertical: 9,
+  },
+  chatBtnText: { fontSize: 14, color: '#3b82f6', fontWeight: '700' },
 });
