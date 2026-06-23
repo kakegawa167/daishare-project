@@ -49,34 +49,45 @@ function formatReminder(total: number): string {
 }
 
 // ─── ドラムロール ────────────────────────────
-const ITEM_H = 44;
-const VISIBLE = 5;
+const ITEM_H = 48;
+const VISIBLE = 5;                    // 表示行数（奇数推奨）
+const PAD = Math.floor(VISIBLE / 2); // 上下の余白行数 = 2
 const DRUM_H = ITEM_H * VISIBLE;
 
 function DrumRoll({
   items, value, onChange,
 }: { items: { label: string; value: number }[]; value: number; onChange: (v: number) => void }) {
   const ref = useRef<ScrollView>(null);
-  const idx = items.findIndex((it) => it.value === value);
+  const idx = Math.max(0, items.findIndex((it) => it.value === value));
 
-  // 初期スクロール
+  // 初期・value変化時にスクロール位置を合わせる
   useEffect(() => {
-    setTimeout(() => {
+    const timer = setTimeout(() => {
       ref.current?.scrollTo({ y: idx * ITEM_H, animated: false });
-    }, 50);
-  }, []);
+    }, 80);
+    return () => clearTimeout(timer);
+  }, [idx]);
 
   const onMomentumEnd = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     const y = e.nativeEvent.contentOffset.y;
-    const i = Math.round(y / ITEM_H);
-    const clamped = Math.max(0, Math.min(items.length - 1, i));
-    onChange(items[clamped].value);
-    ref.current?.scrollTo({ y: clamped * ITEM_H, animated: true });
+    const i = Math.max(0, Math.min(items.length - 1, Math.round(y / ITEM_H)));
+    onChange(items[i].value);
   };
+
+  const onScrollEnd = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    // snapToInterval が止まった後も呼ぶ（drag後に止まるケース）
+    onMomentumEnd(e);
+  };
+
+  // 上下にPAD個の空白行を追加してスクロールで端まで中央表示できるようにする
+  const padItems = [
+    ...Array(PAD).fill(null).map((_, i) => ({ label: '', value: -(i + 1) })),
+    ...items,
+    ...Array(PAD).fill(null).map((_, i) => ({ label: '', value: -(i + 100) })),
+  ];
 
   return (
     <View style={dr.wrap}>
-      {/* 選択中ハイライト */}
       <View style={dr.highlight} pointerEvents="none" />
       <ScrollView
         ref={ref}
@@ -84,12 +95,14 @@ function DrumRoll({
         snapToInterval={ITEM_H}
         decelerationRate="fast"
         onMomentumScrollEnd={onMomentumEnd}
-        contentContainerStyle={{ paddingVertical: ITEM_H * 2 }}
+        onScrollEndDrag={onScrollEnd}
         style={{ height: DRUM_H }}
       >
-        {items.map((it) => (
-          <View key={it.value} style={dr.item}>
-            <Text style={[dr.label, it.value === value && dr.labelSel]}>{it.label}</Text>
+        {padItems.map((it, i) => (
+          <View key={i} style={dr.item}>
+            {it.label !== '' && (
+              <Text style={[dr.label, it.value === value && dr.labelSel]}>{it.label}</Text>
+            )}
           </View>
         ))}
       </ScrollView>
@@ -98,17 +111,17 @@ function DrumRoll({
 }
 
 const dr = StyleSheet.create({
-  wrap: { flex: 1, position: 'relative', overflow: 'hidden' },
+  wrap: { flex: 1, overflow: 'hidden', position: 'relative' },
   highlight: {
-    position: 'absolute', left: 0, right: 0,
-    top: ITEM_H * 2, height: ITEM_H,
-    backgroundColor: '#f0f4ff',
-    borderTopWidth: 1, borderBottomWidth: 1, borderColor: '#bfdbfe',
-    borderRadius: 8, zIndex: 1,
+    position: 'absolute', left: 6, right: 6,
+    top: ITEM_H * PAD, height: ITEM_H,
+    backgroundColor: '#eff6ff',
+    borderTopWidth: 1.5, borderBottomWidth: 1.5, borderColor: '#bfdbfe',
+    borderRadius: 10, zIndex: 0,
   },
   item: { height: ITEM_H, justifyContent: 'center', alignItems: 'center' },
-  label: { fontSize: 18, color: '#9ca3af', fontWeight: '500' },
-  labelSel: { fontSize: 22, color: '#111827', fontWeight: '700' },
+  label: { fontSize: 17, color: '#c4c4c4', fontWeight: '500' },
+  labelSel: { fontSize: 21, color: '#111827', fontWeight: '700' },
 });
 
 // ─────────────────────────────────────────────
@@ -334,25 +347,27 @@ export default function ProfileScreen() {
                 <View style={s.divider} />
                 <View style={s.reminderSection}>
                   <Text style={s.reminderTitle}>リマインドタイミング</Text>
+                  <Text style={s.reminderSummary}>{formatReminder(notif.reminderMinutes)}前に通知</Text>
                   <View style={s.drumWrap}>
                     <DrumRoll
                       value={remH}
-                      onChange={setReminderH}
-                      items={Array.from({ length: 24 }, (_, i) => ({ label: `${i}時間`, value: i }))}
+                      onChange={(h) => {
+                        // 24時間のとき分は0固定
+                        if (h === 24) setN('reminderMinutes', 1440);
+                        else setReminderH(h);
+                      }}
+                      items={Array.from({ length: 25 }, (_, i) => ({ label: `${i}時間`, value: i }))}
                     />
                     <Text style={s.drumSep}>:</Text>
                     <DrumRoll
-                      value={remM}
-                      onChange={setReminderM}
+                      value={remH === 24 ? 0 : remM}
+                      onChange={(m) => { if (remH < 24) setReminderM(m); }}
                       items={[0, 10, 20, 30, 40, 50].map((m) => ({
                         label: `${String(m).padStart(2, '0')}分`,
                         value: m,
                       }))}
                     />
                   </View>
-                  <Text style={s.reminderSummary}>
-                    {formatReminder(notif.reminderMinutes)}に通知
-                  </Text>
                 </View>
               </>
             )}
@@ -386,7 +401,6 @@ const s = StyleSheet.create({
   card: {
     backgroundColor: '#fff', borderRadius: 16,
     shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 8, elevation: 2,
-    overflow: 'hidden',
   },
   divider: { height: StyleSheet.hairlineWidth, backgroundColor: '#f0f0f0', marginLeft: 16 },
 
@@ -435,12 +449,9 @@ const s = StyleSheet.create({
   },
   editBtnText: { fontSize: 15, fontWeight: '700', color: '#3b82f6' },
 
-  reminderSection: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 4 },
-  reminderTitle: { fontSize: 13, fontWeight: '600', color: '#6b7280', marginBottom: 8 },
-  reminderSummary: {
-    fontSize: 13, fontWeight: '600', color: '#3b82f6',
-    textAlign: 'center', marginBottom: 10,
-  },
+  reminderSection: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 16 },
+  reminderTitle: { fontSize: 13, fontWeight: '600', color: '#6b7280', marginBottom: 4 },
+  reminderSummary: { fontSize: 17, fontWeight: '700', color: '#3b82f6', marginBottom: 12 },
   drumWrap: { flexDirection: 'row', alignItems: 'center', gap: 4, marginVertical: 4 },
   drumSep: { fontSize: 22, fontWeight: '700', color: '#9ca3af', paddingBottom: 4 },
 
