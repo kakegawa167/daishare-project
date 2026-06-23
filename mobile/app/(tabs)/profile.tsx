@@ -1,10 +1,10 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Picker } from '@react-native-picker/picker';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Platform,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -48,6 +48,70 @@ function formatReminder(total: number): string {
   return `${h}時間${m}分前`;
 }
 
+// ─── ドラムロール ────────────────────────────
+const ITEM_H = 44;
+const VISIBLE = 5;
+const DRUM_H = ITEM_H * VISIBLE;
+
+function DrumRoll({
+  items, value, onChange,
+}: { items: { label: string; value: number }[]; value: number; onChange: (v: number) => void }) {
+  const ref = useRef<ScrollView>(null);
+  const idx = items.findIndex((it) => it.value === value);
+
+  // 初期スクロール
+  useEffect(() => {
+    setTimeout(() => {
+      ref.current?.scrollTo({ y: idx * ITEM_H, animated: false });
+    }, 50);
+  }, []);
+
+  const onMomentumEnd = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const y = e.nativeEvent.contentOffset.y;
+    const i = Math.round(y / ITEM_H);
+    const clamped = Math.max(0, Math.min(items.length - 1, i));
+    onChange(items[clamped].value);
+    ref.current?.scrollTo({ y: clamped * ITEM_H, animated: true });
+  };
+
+  return (
+    <View style={dr.wrap}>
+      {/* 選択中ハイライト */}
+      <View style={dr.highlight} pointerEvents="none" />
+      <ScrollView
+        ref={ref}
+        showsVerticalScrollIndicator={false}
+        snapToInterval={ITEM_H}
+        decelerationRate="fast"
+        onMomentumScrollEnd={onMomentumEnd}
+        contentContainerStyle={{ paddingVertical: ITEM_H * 2 }}
+        style={{ height: DRUM_H }}
+      >
+        {items.map((it) => (
+          <View key={it.value} style={dr.item}>
+            <Text style={[dr.label, it.value === value && dr.labelSel]}>{it.label}</Text>
+          </View>
+        ))}
+      </ScrollView>
+    </View>
+  );
+}
+
+const dr = StyleSheet.create({
+  wrap: { flex: 1, position: 'relative', overflow: 'hidden' },
+  highlight: {
+    position: 'absolute', left: 0, right: 0,
+    top: ITEM_H * 2, height: ITEM_H,
+    backgroundColor: '#f0f4ff',
+    borderTopWidth: 1, borderBottomWidth: 1, borderColor: '#bfdbfe',
+    borderRadius: 8, zIndex: 1,
+  },
+  item: { height: ITEM_H, justifyContent: 'center', alignItems: 'center' },
+  label: { fontSize: 18, color: '#9ca3af', fontWeight: '500' },
+  labelSel: { fontSize: 22, color: '#111827', fontWeight: '700' },
+});
+
+// ─────────────────────────────────────────────
 type UserType = 'lender' | 'renter' | 'both';
 const USER_TYPE_LABELS: Record<UserType, string> = { renter: '借主', lender: '貸主', both: '両方' };
 
@@ -271,35 +335,20 @@ export default function ProfileScreen() {
                 <View style={s.reminderSection}>
                   <Text style={s.reminderTitle}>リマインドタイミング</Text>
                   <View style={s.drumWrap}>
-                    {/* 時間ドラム */}
-                    <View style={s.drumCol}>
-                      <Picker
-                        selectedValue={remH}
-                        onValueChange={(v) => setReminderH(v as number)}
-                        style={s.drum}
-                        itemStyle={s.drumItem}
-                      >
-                        {Array.from({ length: 24 }, (_, i) => (
-                          <Picker.Item key={i} label={`${i}時間`} value={i} />
-                        ))}
-                      </Picker>
-                    </View>
-
+                    <DrumRoll
+                      value={remH}
+                      onChange={setReminderH}
+                      items={Array.from({ length: 24 }, (_, i) => ({ label: `${i}時間`, value: i }))}
+                    />
                     <Text style={s.drumSep}>:</Text>
-
-                    {/* 分ドラム */}
-                    <View style={s.drumCol}>
-                      <Picker
-                        selectedValue={remM}
-                        onValueChange={(v) => setReminderM(v as number)}
-                        style={s.drum}
-                        itemStyle={s.drumItem}
-                      >
-                        {[0, 10, 20, 30, 40, 50].map((m) => (
-                          <Picker.Item key={m} label={`${String(m).padStart(2, '0')}分`} value={m} />
-                        ))}
-                      </Picker>
-                    </View>
+                    <DrumRoll
+                      value={remM}
+                      onChange={setReminderM}
+                      items={[0, 10, 20, 30, 40, 50].map((m) => ({
+                        label: `${String(m).padStart(2, '0')}分`,
+                        value: m,
+                      }))}
+                    />
                   </View>
                   <Text style={s.reminderSummary}>
                     {formatReminder(notif.reminderMinutes)}に通知
@@ -392,11 +441,8 @@ const s = StyleSheet.create({
     fontSize: 13, fontWeight: '600', color: '#3b82f6',
     textAlign: 'center', marginBottom: 10,
   },
-  drumWrap: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
-  drumCol: { flex: 1 },
-  drum: { height: Platform.OS === 'ios' ? 160 : 180 },
-  drumItem: { fontSize: 20, fontWeight: '600', color: '#111827' },
-  drumSep: { fontSize: 22, fontWeight: '700', color: '#9ca3af', paddingHorizontal: 4, marginBottom: 8 },
+  drumWrap: { flexDirection: 'row', alignItems: 'center', gap: 4, marginVertical: 4 },
+  drumSep: { fontSize: 22, fontWeight: '700', color: '#9ca3af', paddingBottom: 4 },
 
   logoutBtn: {
     marginTop: 24, padding: 15, alignItems: 'center', borderRadius: 12,
