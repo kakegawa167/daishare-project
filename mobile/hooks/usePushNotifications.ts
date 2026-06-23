@@ -16,27 +16,32 @@ Notifications.setNotificationHandler({
 });
 
 async function registerPushToken(): Promise<void> {
-  const { status: existingStatus } = await Notifications.getPermissionsAsync();
-  let finalStatus = existingStatus;
+  try {
+    const { status: existingStatus } = await Notifications.getPermissionsAsync();
+    let finalStatus = existingStatus;
 
-  if (existingStatus !== 'granted') {
-    const { status } = await Notifications.requestPermissionsAsync();
-    finalStatus = status;
+    if (existingStatus !== 'granted') {
+      const { status } = await Notifications.requestPermissionsAsync();
+      finalStatus = status;
+    }
+
+    if (finalStatus !== 'granted') return;
+
+    // Android チャンネル設定
+    if (Platform.OS === 'android') {
+      await Notifications.setNotificationChannelAsync('default', {
+        name: 'default',
+        importance: Notifications.AndroidImportance.MAX,
+        vibrationPattern: [0, 250, 250, 250],
+      });
+    }
+
+    // シミュレーターではプッシュトークン取得不可のため try-catch
+    const token = (await Notifications.getExpoPushTokenAsync()).data;
+    await api.put('/users/me/push-token', { push_token: token }).catch(() => {});
+  } catch {
+    // シミュレーター・権限なし等では無視
   }
-
-  if (finalStatus !== 'granted') return;
-
-  // Android チャンネル設定
-  if (Platform.OS === 'android') {
-    await Notifications.setNotificationChannelAsync('default', {
-      name: 'default',
-      importance: Notifications.AndroidImportance.MAX,
-      vibrationPattern: [0, 250, 250, 250],
-    });
-  }
-
-  const token = (await Notifications.getExpoPushTokenAsync()).data;
-  await api.put('/users/me/push-token', { push_token: token }).catch(() => {});
 }
 
 export function usePushNotifications() {

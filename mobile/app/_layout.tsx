@@ -1,5 +1,5 @@
 import { useFonts } from 'expo-font';
-import { Redirect, Stack } from 'expo-router';
+import { Stack, router } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import 'react-native-reanimated';
@@ -54,8 +54,14 @@ function RootLayoutNav() {
   const { session, loading } = useAuthStore();
   usePushNotifications();
 
+  useEffect(() => {
+    if (loading) return;
+    if (!session) {
+      router.replace('/(auth)/login');
+    }
+  }, [session, loading]);
+
   if (loading) return null;
-  if (!session) return <Redirect href="/(auth)/login" />;
 
   return (
     <Stack>

@@ -6,13 +6,12 @@ import { AppState } from 'react-native';
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { useClientOnlyValue } from '@/components/useClientOnlyValue';
-import { TabBarBadge } from '@/components/TabBarBadge';
 import { useBadgeStore } from '@/store/badgeStore';
 import { useAuthStore } from '@/store/authStore';
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
-  const { fetchUnread, unreadNotifications } = useBadgeStore();
+  const fetchUnread = useBadgeStore((s) => s.fetchUnread);
   const { session } = useAuthStore();
 
   useEffect(() => {
