@@ -1,6 +1,6 @@
 import { CartCategory, CartFormData } from '@/lib/types';
 import { api } from '@/lib/api';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
   AccessibilityInfo,
   ActivityIndicator,
@@ -12,8 +12,9 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { StationPicker } from '@/components/StationPicker';
 
-// ─── カテゴリ ────────────────────────────────
+// ─── カテゴリ ─────────────────────────────────
 const CATEGORIES: { value: CartCategory; label: string }[] = [
   { value: 'hand_truck',    label: '手押し台車' },
   { value: 'flat_cart',     label: '平台車' },
@@ -23,8 +24,7 @@ const CATEGORIES: { value: CartCategory; label: string }[] = [
 ];
 
 // ─── 型 ──────────────────────────────────────
-interface Line { id: number; name: string; stations: Station[] }
-interface Station { id: number; name: string; municipality: string }
+interface StationInfo { id: number; name: string; municipality: string; line_id: number }
 interface Props {
   initialData: CartFormData;
   onSubmit: (data: CartFormData) => Promise<void>;
@@ -40,32 +40,37 @@ interface Errors {
   per_rental_rate?: string;
 }
 
-// ─── 小コンポーネント ─────────────────────────
-function Section({ label, note, children }: { label: string; note?: string; children: React.ReactNode }) {
+// ─── サブコンポーネント ───────────────────────
+function Card({ children }: { children: React.ReactNode }) {
+  return <View style={s.card}>{children}</View>;
+}
+function SectionTitle({ icon, label, note }: { icon: string; label: string; note?: string }) {
   return (
-    <View style={s.section}>
-      <View style={s.sectionHead}>
-        <Text style={s.sectionLabel}>{label}</Text>
-        {note && <Text style={s.sectionNote}>{note}</Text>}
-      </View>
-      <View style={s.sectionBody}>{children}</View>
+    <View style={s.secTitle}>
+      <Text style={s.secIcon}>{icon}</Text>
+      <Text style={s.secLabel}>{label}</Text>
+      {note && <View style={s.secNotePill}><Text style={s.secNoteText}>{note}</Text></View>}
     </View>
   );
 }
-function Field({ label, required, error, children }: {
-  label: string; required?: boolean; error?: string; children: React.ReactNode;
-}) {
+function FieldLabel({ children, required }: { children: string; required?: boolean }) {
   return (
-    <View style={s.field}>
-      <Text style={s.fieldLabel}>{label}{required && <Text style={s.req}> *</Text>}</Text>
-      {children}
-      {error && <Text style={s.errText}>{error}</Text>}
+    <Text style={s.fLabel}>
+      {children}{required && <Text style={s.req}> *</Text>}
+    </Text>
+  );
+}
+function Err({ msg }: { msg?: string }) {
+  if (!msg) return null;
+  return (
+    <View style={s.errRow}>
+      <Text style={s.errIcon}>!</Text>
+      <Text style={s.errMsg}>{msg}</Text>
     </View>
   );
 }
-function Inp({ value, onChange, placeholder, multiline, keyboardType }: {
-  value: string; onChange: (v: string) => void; placeholder?: string;
-  multiline?: boolean; keyboardType?: 'default' | 'decimal-pad';
+function TextIn({ value, onChange, placeholder, multiline }: {
+  value: string; onChange: (v: string) => void; placeholder?: string; multiline?: boolean;
 }) {
   return (
     <TextInput
@@ -73,26 +78,25 @@ function Inp({ value, onChange, placeholder, multiline, keyboardType }: {
       value={value}
       onChangeText={onChange}
       placeholder={placeholder}
-      placeholderTextColor="#9ca3af"
+      placeholderTextColor="#c4c4c4"
       multiline={multiline}
       numberOfLines={multiline ? 4 : 1}
       textAlignVertical={multiline ? 'top' : 'center'}
-      keyboardType={keyboardType ?? 'default'}
       returnKeyType={multiline ? 'default' : 'next'}
     />
   );
 }
-function NumRow({ value, onChange, placeholder, unit }: {
+function NumIn({ value, onChange, placeholder, unit }: {
   value: string; onChange: (v: string) => void; placeholder: string; unit: string;
 }) {
   return (
-    <View style={s.numRow}>
+    <View style={s.numWrap}>
       <TextInput
-        style={[s.input, s.numInput]}
+        style={[s.input, s.numIn]}
         value={value}
         onChangeText={onChange}
         placeholder={placeholder}
-        placeholderTextColor="#9ca3af"
+        placeholderTextColor="#c4c4c4"
         keyboardType="decimal-pad"
         returnKeyType="next"
       />
@@ -101,28 +105,23 @@ function NumRow({ value, onChange, placeholder, unit }: {
   );
 }
 
-// ─── メインフォーム ───────────────────────────
+// ─── メイン ───────────────────────────────────
 export default function CartForm({ initialData, onSubmit, submitLabel }: Props) {
   const [form, setForm] = useState<CartFormData>(initialData);
-  const [lines, setLines] = useState<Line[]>([]);
-  const [stations, setStations] = useState<Station[]>([]);
-  const [selectedLine, setSelectedLine] = useState<number | null>(null);
+  const [stationInfo, setStationInfo] = useState<StationInfo | null>(null);
+  const [pickerVisible, setPickerVisible] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<Errors>({});
 
-  useEffect(() => {
-    api.get<Line[]>('/lines').then((r) => setLines(r.data)).catch(() => {});
-  }, []);
-
-  const set = <K extends keyof CartFormData>(key: K, val: CartFormData[K]) =>
-    setForm((f) => ({ ...f, [key]: val }));
-  const clearErr = (...keys: (keyof Errors)[]) =>
+  const set = <K extends keyof CartFormData>(k: K, v: CartFormData[K]) =>
+    setForm((f) => ({ ...f, [k]: v }));
+  const clr = (...keys: (keyof Errors)[]) =>
     setErrors((e) => { const n = { ...e }; keys.forEach((k) => delete n[k]); return n; });
 
-  const handleLineSelect = (id: number) => {
-    setSelectedLine(id);
-    setStations(lines.find((l) => l.id === id)?.stations ?? []);
-    set('station_id', null);
+  const handleStationSelect = (st: StationInfo) => {
+    set('station_id', st.id);
+    setStationInfo(st);
+    clr('station_id');
   };
 
   const validate = (): boolean => {
@@ -148,69 +147,73 @@ export default function CartForm({ initialData, onSubmit, submitLabel }: Props) 
   };
 
   return (
-    <ScrollView contentContainerStyle={s.container} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+    <ScrollView style={s.page} contentContainerStyle={s.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
 
       {/* ── 基本情報 ── */}
-      <Section label="基本情報">
-        <Field label="台車名" required error={errors.title}>
-          <Inp
-            value={form.title}
-            onChange={(v) => { set('title', v); clearErr('title'); }}
-            placeholder="例: 折りたたみ平台車（大）"
-          />
-        </Field>
+      <SectionTitle icon="📋" label="基本情報" />
+      <Card>
+        <FieldLabel required>台車名</FieldLabel>
+        <TextIn
+          value={form.title}
+          onChange={(v) => { set('title', v); clr('title'); }}
+          placeholder="例: 折りたたみ平台車（大）"
+        />
+        <Err msg={errors.title} />
 
-        <Field label="カテゴリ" required error={errors.category}>
-          <View style={s.categoryRow}>
-            {CATEGORIES.map((c) => {
-              const sel = form.category === c.value;
-              return (
-                <Pressable
-                  key={c.value}
-                  style={[s.catChip, sel && s.catChipSel]}
-                  onPress={() => { set('category', sel ? null : c.value); clearErr('category'); }}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: sel }}
-                >
-                  <Text style={[s.catText, sel && s.catTextSel]}>{c.label}</Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        </Field>
+        <View style={s.divider} />
 
-        <Field label="写真">
-          <View style={s.photoBox}>
-            <Text style={s.photoIcon}>📷</Text>
-            <Text style={s.photoText}>写真を追加（準備中）</Text>
-          </View>
-        </Field>
-      </Section>
+        <FieldLabel required>カテゴリ</FieldLabel>
+        <View style={s.catWrap}>
+          {CATEGORIES.map((c) => {
+            const sel = form.category === c.value;
+            return (
+              <Pressable
+                key={c.value}
+                style={[s.catChip, sel && s.catChipSel]}
+                onPress={() => { set('category', sel ? null : c.value); clr('category'); }}
+                accessibilityRole="button"
+                accessibilityState={{ selected: sel }}
+              >
+                <Text style={[s.catText, sel && s.catTextSel]}>{c.label}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+        <Err msg={errors.category} />
+
+        <View style={s.divider} />
+
+        <FieldLabel>写真</FieldLabel>
+        <Pressable style={s.photoBtn} disabled>
+          <Text style={s.photoBtnIcon}>＋</Text>
+          <Text style={s.photoBtnText}>写真を追加</Text>
+          <Text style={s.photoBtnSub}>準備中</Text>
+        </Pressable>
+      </Card>
 
       {/* ── スペック ── */}
-      <Section label="スペック" note="任意">
+      <SectionTitle icon="📐" label="スペック" note="任意" />
+      <Card>
         <View style={s.specGrid}>
-          <View style={s.specHalf}>
-            <Field label="重量">
-              <NumRow value={form.weight_kg} onChange={(v) => set('weight_kg', v)} placeholder="10" unit="kg" />
-            </Field>
+          <View style={s.specCell}>
+            <FieldLabel>重量</FieldLabel>
+            <NumIn value={form.weight_kg} onChange={(v) => set('weight_kg', v)} placeholder="10.0" unit="kg" />
           </View>
-          <View style={s.specHalf}>
-            <Field label="耐荷重">
-              <NumRow value={form.max_load_kg} onChange={(v) => set('max_load_kg', v)} placeholder="100" unit="kg" />
-            </Field>
+          <View style={s.specCell}>
+            <FieldLabel>耐荷重</FieldLabel>
+            <NumIn value={form.max_load_kg} onChange={(v) => set('max_load_kg', v)} placeholder="100" unit="kg" />
           </View>
-          <View style={s.specHalf}>
-            <Field label="横サイズ">
-              <NumRow value={form.width_cm} onChange={(v) => set('width_cm', v)} placeholder="60" unit="cm" />
-            </Field>
+          <View style={s.specCell}>
+            <FieldLabel>横サイズ</FieldLabel>
+            <NumIn value={form.width_cm} onChange={(v) => set('width_cm', v)} placeholder="60" unit="cm" />
           </View>
-          <View style={s.specHalf}>
-            <Field label="縦サイズ">
-              <NumRow value={form.length_cm} onChange={(v) => set('length_cm', v)} placeholder="90" unit="cm" />
-            </Field>
+          <View style={s.specCell}>
+            <FieldLabel>縦サイズ</FieldLabel>
+            <NumIn value={form.length_cm} onChange={(v) => set('length_cm', v)} placeholder="90" unit="cm" />
           </View>
         </View>
+
+        <View style={s.divider} />
 
         <View style={s.toggleRow}>
           <View>
@@ -220,220 +223,243 @@ export default function CartForm({ initialData, onSubmit, submitLabel }: Props) 
           <Switch
             value={form.foldable}
             onValueChange={(v) => set('foldable', v)}
-            trackColor={{ false: '#d1d5db', true: '#93c5fd' }}
+            trackColor={{ false: '#e5e7eb', true: '#bfdbfe' }}
             thumbColor={form.foldable ? '#3b82f6' : '#fff'}
+            ios_backgroundColor="#e5e7eb"
           />
         </View>
-      </Section>
+      </Card>
 
       {/* ── 価格 ── */}
-      <Section label="価格" note="いずれか必須">
+      <SectionTitle icon="💴" label="価格" note="いずれか必須" />
+      <Card>
         {errors.price && (
-          <View style={s.priceErrBox}>
-            <Text style={s.priceErrText}>⚠️ {errors.price}</Text>
+          <View style={s.priceAlert}>
+            <Text style={s.priceAlertText}>⚠️ {errors.price}</Text>
           </View>
         )}
-        <View style={s.priceGrid}>
-          <View style={s.priceHalf}>
-            <Field label="日額" error={errors.daily_rate}>
-              <NumRow
-                value={form.daily_rate}
-                onChange={(v) => { set('daily_rate', v); clearErr('price', 'daily_rate'); }}
-                placeholder="500"
-                unit="円/日"
-              />
-            </Field>
+        <View style={s.priceRow}>
+          <View style={s.priceCell}>
+            <FieldLabel>日額</FieldLabel>
+            <NumIn
+              value={form.daily_rate}
+              onChange={(v) => { set('daily_rate', v); clr('price', 'daily_rate'); }}
+              placeholder="500"
+              unit="円/日"
+            />
+            <Err msg={errors.daily_rate} />
           </View>
-          <View style={s.priceHalf}>
-            <Field label="週額" error={errors.weekly_rate}>
-              <NumRow
-                value={form.weekly_rate}
-                onChange={(v) => { set('weekly_rate', v); clearErr('price', 'weekly_rate'); }}
-                placeholder="2500"
-                unit="円/週"
-              />
-            </Field>
-          </View>
-          <View style={s.priceFull}>
-            <Field label="1レンタル" error={errors.per_rental_rate}>
-              <NumRow
-                value={form.per_rental_rate}
-                onChange={(v) => { set('per_rental_rate', v); clearErr('price', 'per_rental_rate'); }}
-                placeholder="1000"
-                unit="円/回"
-              />
-            </Field>
+          <View style={s.priceDividerV} />
+          <View style={s.priceCell}>
+            <FieldLabel>週額</FieldLabel>
+            <NumIn
+              value={form.weekly_rate}
+              onChange={(v) => { set('weekly_rate', v); clr('price', 'weekly_rate'); }}
+              placeholder="2500"
+              unit="円/週"
+            />
+            <Err msg={errors.weekly_rate} />
           </View>
         </View>
-      </Section>
+        <View style={s.divider} />
+        <FieldLabel>1レンタル</FieldLabel>
+        <NumIn
+          value={form.per_rental_rate}
+          onChange={(v) => { set('per_rental_rate', v); clr('price', 'per_rental_rate'); }}
+          placeholder="1000"
+          unit="円/回"
+        />
+        <Err msg={errors.per_rental_rate} />
+      </Card>
 
       {/* ── 貸出場所 ── */}
-      <Section label="貸出場所">
-        <Field label="路線 / 駅" required error={errors.station_id}>
-          {lines.length > 0 ? (
-            <>
-              <Text style={s.subLabel}>路線</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.chipScroll}>
-                {lines.map((l) => {
-                  const sel = selectedLine === l.id;
-                  return (
-                    <Pressable key={l.id} style={[s.chip, sel && s.chipSel]}
-                      onPress={() => { handleLineSelect(l.id); clearErr('station_id'); }}>
-                      <Text style={[s.chipText, sel && s.chipTextSel]}>{l.name}</Text>
-                    </Pressable>
-                  );
-                })}
-              </ScrollView>
-              {stations.length > 0 && (
-                <>
-                  <Text style={[s.subLabel, { marginTop: 10 }]}>駅</Text>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.chipScroll}>
-                    {stations.map((st) => {
-                      const sel = form.station_id === st.id;
-                      return (
-                        <Pressable key={st.id} style={[s.chip, sel && s.chipSel]}
-                          onPress={() => { set('station_id', st.id); clearErr('station_id'); }}
-                          accessibilityState={{ selected: sel }}>
-                          <Text style={[s.chipText, sel && s.chipTextSel]}>{st.name}</Text>
-                        </Pressable>
-                      );
-                    })}
-                  </ScrollView>
-                </>
-              )}
-            </>
+      <SectionTitle icon="📍" label="貸出場所" />
+      <Card>
+        <FieldLabel required>路線 / 駅</FieldLabel>
+        <Pressable
+          style={[s.stationBtn, errors.station_id && s.stationBtnErr]}
+          onPress={() => setPickerVisible(true)}
+          accessibilityRole="button"
+          accessibilityLabel="路線と駅を選択"
+        >
+          {stationInfo ? (
+            <View style={s.stationSelected}>
+              <Text style={s.stationName}>{stationInfo.name}駅</Text>
+              <Text style={s.stationMeta}>{stationInfo.municipality}</Text>
+            </View>
           ) : (
-            <Text style={s.loadingText}>路線データを読み込み中...</Text>
+            <Text style={s.stationPlaceholder}>路線・駅を選択する</Text>
           )}
-        </Field>
+          <Text style={s.stationArrow}>›</Text>
+        </Pressable>
+        <Err msg={errors.station_id} />
 
-        <Field label="貸出場所詳細">
-          <Inp
-            value={form.lending_address}
-            onChange={(v) => set('lending_address', v)}
-            placeholder="例: 渋谷駅 南口 徒歩3分、○○倉庫前"
-          />
-        </Field>
-      </Section>
+        <View style={s.divider} />
+
+        <FieldLabel>貸出場所の詳細</FieldLabel>
+        <TextIn
+          value={form.lending_address}
+          onChange={(v) => set('lending_address', v)}
+          placeholder="例: 南口から徒歩3分、○○倉庫前"
+        />
+      </Card>
 
       {/* ── 備考 ── */}
-      <Section label="備考" note="任意">
-        <Inp
+      <SectionTitle icon="📝" label="備考" note="任意" />
+      <Card>
+        <TextIn
           value={form.description}
           onChange={(v) => set('description', v)}
-          placeholder="台車の状態・特徴・注意点など"
+          placeholder="台車の状態・特徴・注意点など自由に記載してください"
           multiline
         />
-      </Section>
+      </Card>
 
-      {/* 送信 */}
-      <View style={s.submitWrap}>
-        <Pressable style={[s.submitBtn, submitting && s.submitBtnOff]} onPress={handleSubmit} disabled={submitting}>
-          {submitting
-            ? <ActivityIndicator color="#fff" />
-            : <Text style={s.submitText}>{submitLabel}</Text>}
-        </Pressable>
-      </View>
+      {/* 送信ボタン */}
+      <Pressable
+        style={[s.submitBtn, submitting && s.submitOff]}
+        onPress={handleSubmit}
+        disabled={submitting}
+        accessibilityRole="button"
+      >
+        {submitting
+          ? <ActivityIndicator color="#fff" size="small" />
+          : <Text style={s.submitText}>{submitLabel}</Text>}
+      </Pressable>
+
+      {/* 駅選択モーダル */}
+      <StationPicker
+        visible={pickerVisible}
+        onClose={() => setPickerVisible(false)}
+        onSelect={handleStationSelect}
+        currentStationId={form.station_id}
+      />
     </ScrollView>
   );
 }
 
 // ─── スタイル ─────────────────────────────────
-const s = StyleSheet.create({
-  container: { paddingBottom: 40, backgroundColor: '#f9fafb' },
+const BLUE = '#3b82f6';
+const BLUE_LIGHT = '#eff6ff';
+const GRAY = '#6b7280';
+const BORDER = '#f0f0f0';
 
-  // セクション
-  section: { marginTop: 20 },
-  sectionHead: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    paddingHorizontal: 16, paddingVertical: 10,
-    backgroundColor: '#f3f4f6',
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderColor: '#e5e7eb',
+const s = StyleSheet.create({
+  page: { flex: 1, backgroundColor: '#f5f6f8' },
+  content: { paddingHorizontal: 16, paddingTop: 20, paddingBottom: 48 },
+
+  // セクションタイトル
+  secTitle: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10, marginTop: 24 },
+  secIcon: { fontSize: 18 },
+  secLabel: { fontSize: 16, fontWeight: '700', color: '#111827', flex: 1 },
+  secNotePill: {
+    backgroundColor: '#fef3c7', borderRadius: 10,
+    paddingHorizontal: 8, paddingVertical: 2,
   },
-  sectionLabel: { fontSize: 14, fontWeight: '700', color: '#374151', letterSpacing: 0.3 },
-  sectionNote: { fontSize: 12, color: '#9ca3af' },
-  sectionBody: { paddingTop: 4, paddingBottom: 8 },
+  secNoteText: { fontSize: 11, fontWeight: '600', color: '#d97706' },
+
+  // カード
+  card: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+  },
 
   // フィールド
-  field: { paddingHorizontal: 16, paddingTop: 14 },
-  fieldLabel: { fontSize: 13, fontWeight: '600', color: '#374151', marginBottom: 6 },
+  fLabel: { fontSize: 13, fontWeight: '600', color: GRAY, marginBottom: 8, marginTop: 4 },
   req: { color: '#ef4444' },
-  errText: { color: '#ef4444', fontSize: 12, marginTop: 4 },
+  divider: { height: 1, backgroundColor: BORDER, marginVertical: 14 },
+
+  // エラー
+  errRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 5 },
+  errIcon: {
+    width: 16, height: 16, borderRadius: 8, backgroundColor: '#ef4444',
+    color: '#fff', fontSize: 11, fontWeight: '800', textAlign: 'center', lineHeight: 16,
+  },
+  errMsg: { fontSize: 12, color: '#ef4444', flex: 1 },
 
   // テキスト入力
   input: {
-    borderWidth: 1, borderColor: '#d1d5db', borderRadius: 10,
+    borderWidth: 1.5, borderColor: '#e5e7eb', borderRadius: 10,
     paddingHorizontal: 12, paddingVertical: 11, fontSize: 15,
-    backgroundColor: '#fff', color: '#1a1a1a', minHeight: 46,
+    backgroundColor: '#fafafa', color: '#111827',
   },
-  textarea: { height: 96, textAlignVertical: 'top' },
+  textarea: { height: 100, textAlignVertical: 'top' },
 
   // カテゴリ
-  categoryRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 2 },
+  catWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   catChip: {
-    paddingHorizontal: 14, paddingVertical: 9, borderRadius: 8,
-    borderWidth: 1.5, borderColor: '#d1d5db', backgroundColor: '#fff',
+    paddingHorizontal: 14, paddingVertical: 8,
+    borderRadius: 20, borderWidth: 1.5, borderColor: '#e5e7eb',
+    backgroundColor: '#fafafa',
   },
-  catChipSel: { borderColor: '#3b82f6', backgroundColor: '#eff6ff' },
-  catText: { fontSize: 13, fontWeight: '600', color: '#6b7280' },
-  catTextSel: { color: '#3b82f6' },
+  catChipSel: { borderColor: BLUE, backgroundColor: BLUE_LIGHT },
+  catText: { fontSize: 13, fontWeight: '600', color: '#9ca3af' },
+  catTextSel: { color: BLUE },
 
   // 写真
-  photoBox: {
+  photoBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
-    padding: 16, borderRadius: 10, borderWidth: 1.5,
-    borderColor: '#d1d5db', borderStyle: 'dashed', backgroundColor: '#f9fafb',
+    padding: 14, borderRadius: 10, borderWidth: 1.5,
+    borderColor: '#e5e7eb', borderStyle: 'dashed', backgroundColor: '#fafafa',
   },
-  photoIcon: { fontSize: 24 },
-  photoText: { fontSize: 14, color: '#9ca3af', fontWeight: '500' },
+  photoBtnIcon: { fontSize: 22, color: '#d1d5db', fontWeight: '300' },
+  photoBtnText: { fontSize: 14, fontWeight: '600', color: '#9ca3af', flex: 1 },
+  photoBtnSub: {
+    fontSize: 11, color: '#d1d5db', backgroundColor: '#f3f4f6',
+    paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4,
+  },
 
-  // スペックグリッド
-  specGrid: { flexDirection: 'row', flexWrap: 'wrap' },
-  specHalf: { width: '50%' },
-  numRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  numInput: { flex: 1 },
-  unit: { fontSize: 13, color: '#6b7280', minWidth: 40 },
+  // スペック
+  specGrid: { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -6 },
+  specCell: { width: '50%', paddingHorizontal: 6 },
+  numWrap: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  numIn: { flex: 1 },
+  unit: { fontSize: 12, color: GRAY, minWidth: 36 },
 
   // トグル
   toggleRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    marginHorizontal: 16, marginTop: 14, padding: 14, backgroundColor: '#fff',
-    borderRadius: 10, borderWidth: 1, borderColor: '#e5e7eb',
   },
-  toggleLabel: { fontSize: 14, fontWeight: '600', color: '#1a1a1a', marginBottom: 2 },
+  toggleLabel: { fontSize: 15, fontWeight: '600', color: '#111827', marginBottom: 2 },
   toggleSub: { fontSize: 12, color: '#9ca3af' },
 
   // 価格
-  priceErrBox: {
-    marginHorizontal: 16, marginTop: 10, padding: 10,
-    backgroundColor: '#fef2f2', borderRadius: 8, borderWidth: 1, borderColor: '#fecaca',
+  priceAlert: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    padding: 10, backgroundColor: '#fef2f2', borderRadius: 8,
+    borderWidth: 1, borderColor: '#fecaca', marginBottom: 12,
   },
-  priceErrText: { color: '#ef4444', fontSize: 13, fontWeight: '600' },
-  priceGrid: { flexDirection: 'row', flexWrap: 'wrap' },
-  priceHalf: { width: '50%' },
-  priceFull: { width: '100%' },
+  priceAlertText: { fontSize: 13, color: '#ef4444', fontWeight: '600' },
+  priceRow: { flexDirection: 'row', gap: 0 },
+  priceCell: { flex: 1 },
+  priceDividerV: { width: 1, backgroundColor: BORDER, marginHorizontal: 12, marginTop: 28 },
 
-  // チップ
-  subLabel: { fontSize: 12, fontWeight: '600', color: '#6b7280', marginBottom: 6 },
-  chipScroll: { marginBottom: 2 },
-  chip: {
-    paddingHorizontal: 14, paddingVertical: 9, borderRadius: 20, borderWidth: 1,
-    borderColor: '#d1d5db', marginRight: 8, backgroundColor: '#fff', minHeight: 42, justifyContent: 'center',
+  // 駅選択
+  stationBtn: {
+    flexDirection: 'row', alignItems: 'center',
+    borderWidth: 1.5, borderColor: '#e5e7eb', borderRadius: 10,
+    paddingHorizontal: 14, paddingVertical: 13, backgroundColor: '#fafafa',
   },
-  chipSel: { backgroundColor: '#3b82f6', borderColor: '#3b82f6' },
-  chipText: { fontSize: 13, color: '#374151' },
-  chipTextSel: { color: '#fff', fontWeight: '600' },
-
-  loadingText: { fontSize: 13, color: '#9ca3af', paddingVertical: 8 },
+  stationBtnErr: { borderColor: '#ef4444' },
+  stationSelected: { flex: 1 },
+  stationName: { fontSize: 15, fontWeight: '700', color: '#111827' },
+  stationMeta: { fontSize: 12, color: GRAY, marginTop: 1 },
+  stationPlaceholder: { flex: 1, fontSize: 15, color: '#c4c4c4' },
+  stationArrow: { fontSize: 20, color: '#d1d5db', marginLeft: 8 },
 
   // 送信
-  submitWrap: { paddingHorizontal: 16, paddingTop: 28, paddingBottom: 16 },
   submitBtn: {
-    backgroundColor: '#3b82f6', padding: 16, borderRadius: 12,
-    alignItems: 'center', minHeight: 54, justifyContent: 'center',
+    marginTop: 32, backgroundColor: BLUE, borderRadius: 14,
+    padding: 17, alignItems: 'center', justifyContent: 'center',
+    shadowColor: BLUE, shadowOpacity: 0.35, shadowRadius: 10, shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
   },
-  submitBtnOff: { backgroundColor: '#93c5fd' },
-  submitText: { color: '#fff', fontSize: 16, fontWeight: '800' },
+  submitOff: { backgroundColor: '#93c5fd', shadowOpacity: 0 },
+  submitText: { color: '#fff', fontSize: 16, fontWeight: '800', letterSpacing: 0.3 },
 });
