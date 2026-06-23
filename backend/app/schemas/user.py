@@ -12,6 +12,7 @@ class UserSyncRequest(BaseModel):
 class UserUpdateRequest(BaseModel):
     display_name: str | None = None
     bio: str | None = None
+    avatar_url: str | None = None
     base_station_id: int | None = None
     lending_address: str | None = None
     user_type: UserType | None = None

@@ -1,8 +1,10 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as ImagePicker from 'expo-image-picker';
 import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Image,
   NativeScrollEvent,
   NativeSyntheticEvent,
   Pressable,
@@ -15,6 +17,7 @@ import {
 } from 'react-native';
 
 import { api } from '@/lib/api';
+import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/authStore';
 
 // ─── 通知設定の型 ────────────────────────────
@@ -155,6 +158,8 @@ export default function ProfileScreen() {
   const { user, signOut, syncUser } = useAuthStore();
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [avatarUri, setAvatarUri] = useState<string | null>(null); // ローカルプレビュー用
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [form, setForm] = useState({ display_name: '', bio: '', user_type: 'renter' as UserType });
   // draft: 保存ボタンを押すまで反映しないnotif一時状態
   const [draft, setDraft] = useState<NotifSettings>(DEFAULT_NOTIF);
@@ -179,6 +184,50 @@ export default function ProfileScreen() {
   const { h: remH, m: remM } = minutesToParts(draft.reminderMinutes);
   const setReminderH = (h: number) => setN('reminderMinutes', partsToMinutes(h, remM));
   const setReminderM = (m: number) => setN('reminderMinutes', partsToMinutes(remH, m));
+
+  const handlePickAvatar = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('権限が必要', '写真へのアクセスを許可してください');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.7,
+    });
+    if (result.canceled || !result.assets[0]) return;
+
+    const asset = result.assets[0];
+    setAvatarUri(asset.uri);
+    setUploadingAvatar(true);
+    try {
+      const ext = asset.uri.split('.').pop()?.toLowerCase() ?? 'jpg';
+      const { data: { session } } = await supabase.auth.getSession();
+      const userId = session?.user?.id;
+      if (!userId) throw new Error('not authenticated');
+
+      const path = `avatars/${userId}.${ext}`;
+      const response = await fetch(asset.uri);
+      const blob = await response.blob();
+      const arrayBuffer = await blob.arrayBuffer();
+
+      const { error } = await supabase.storage
+        .from('avatars')
+        .upload(path, arrayBuffer, { contentType: `image/${ext}`, upsert: true });
+      if (error) throw error;
+
+      const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(path);
+      await api.put('/users/me', { avatar_url: publicUrl });
+      await syncUser();
+    } catch (e) {
+      Alert.alert('エラー', 'アイコンのアップロードに失敗しました');
+      setAvatarUri(null);
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
 
   const handleSave = async () => {
     if (!form.display_name.trim()) {
@@ -207,6 +256,29 @@ export default function ProfileScreen() {
 
   return (
     <ScrollView style={s.page} contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
+
+      {/* ── アバター ── */}
+      <View style={s.avatarSection}>
+        <Pressable onPress={handlePickAvatar} disabled={uploadingAvatar} style={s.avatarWrap}>
+          {uploadingAvatar ? (
+            <View style={s.avatarImg}>
+              <ActivityIndicator color="#3b82f6" />
+            </View>
+          ) : (avatarUri ?? user.avatar_url) ? (
+            <Image source={{ uri: avatarUri ?? user.avatar_url! }} style={s.avatarImg} />
+          ) : (
+            <View style={[s.avatarImg, s.avatarPlaceholder]}>
+              <Text style={s.avatarInitial}>
+                {user.display_name.charAt(0).toUpperCase()}
+              </Text>
+            </View>
+          )}
+          <View style={s.avatarBadge}>
+            <Text style={s.avatarBadgeText}>📷</Text>
+          </View>
+        </Pressable>
+        <Text style={s.avatarHint}>タップして変更</Text>
+      </View>
 
       {/* ── プロフィール情報 ── */}
       <SectionTitle label="プロフィール" />
@@ -368,6 +440,27 @@ export default function ProfileScreen() {
 const s = StyleSheet.create({
   page: { flex: 1, backgroundColor: '#f5f6f8' },
   content: { paddingHorizontal: 16, paddingTop: 20, paddingBottom: 48 },
+
+  avatarSection: { alignItems: 'center', paddingTop: 8, paddingBottom: 4 },
+  avatarWrap: { position: 'relative' },
+  avatarImg: {
+    width: 88, height: 88, borderRadius: 44,
+    backgroundColor: '#e0e7ff',
+    alignItems: 'center', justifyContent: 'center',
+    borderWidth: 3, borderColor: '#fff',
+    shadowColor: '#000', shadowOpacity: 0.12, shadowRadius: 8, elevation: 4,
+  },
+  avatarPlaceholder: { backgroundColor: '#3b82f6' },
+  avatarInitial: { fontSize: 36, fontWeight: '700', color: '#fff' },
+  avatarBadge: {
+    position: 'absolute', bottom: 0, right: 0,
+    width: 28, height: 28, borderRadius: 14,
+    backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1.5, borderColor: '#e5e7eb',
+    shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 4, elevation: 2,
+  },
+  avatarBadgeText: { fontSize: 14 },
+  avatarHint: { marginTop: 8, fontSize: 12, color: '#9ca3af', fontWeight: '500' },
 
   secTitle: { marginTop: 24, marginBottom: 10 },
   secLabel: { fontSize: 13, fontWeight: '700', color: '#6b7280', letterSpacing: 0.5, textTransform: 'uppercase' },
