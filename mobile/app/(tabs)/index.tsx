@@ -1,94 +1,177 @@
+import { api } from '@/lib/api';
+import { Cart } from '@/lib/types';
+import { EmptyScreen, LoadingScreen } from '@/components/ScreenState';
 import { router } from 'expo-router';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useEffect, useState } from 'react';
+import {
+  Dimensions,
+  FlatList,
+  Image,
+  Pressable,
+  RefreshControl,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 
-import { useBadgeStore } from '@/store/badgeStore';
+const { width } = Dimensions.get('window');
+const CARD_WIDTH = (width - 48) / 2;
 
-interface MenuCard {
-  title: string;
-  description: string;
-  emoji: string;
-  href: string;
-  badgeKey?: 'unreadNotifications';
+function CartCard({ cart }: { cart: Cart }) {
+  return (
+    <Pressable
+      style={styles.card}
+      onPress={() => router.push(`/search/${cart.owner_id}` as any)}
+      accessibilityRole="button"
+      accessibilityLabel={`${cart.title}、${cart.daily_rate.toLocaleString()}円/日`}
+    >
+      <View style={styles.imageWrap}>
+        {cart.image_urls.length > 0 ? (
+          <Image source={{ uri: cart.image_urls[0] }} style={styles.image} resizeMode="cover" />
+        ) : (
+          <View style={styles.imagePlaceholder}>
+            <Text style={styles.imagePlaceholderIcon}>🛒</Text>
+          </View>
+        )}
+      </View>
+      <View style={styles.cardBody}>
+        <Text style={styles.cardTitle} numberOfLines={2}>{cart.title}</Text>
+        {cart.station_name && (
+          <Text style={styles.cardMeta} numberOfLines={1}>
+            📍 {cart.municipality ?? ''} {cart.station_name}
+          </Text>
+        )}
+        <Text style={styles.cardPrice}>¥{cart.daily_rate.toLocaleString()}<Text style={styles.cardPriceSuffix}>/日</Text></Text>
+      </View>
+    </Pressable>
+  );
 }
 
-const MENUS: MenuCard[] = [
-  { title: '台車を探す', description: '近くの台車を検索してリクエストを送る', emoji: '🔍', href: '/search' },
-  { title: '自分の台車', description: '台車の登録・編集・削除', emoji: '🛒', href: '/carts' },
-  { title: 'リクエスト', description: '送受信したリクエストの確認・承認', emoji: '📩', href: '/requests' },
-  { title: 'スケジュール', description: '予約の確認と貸出・返却管理', emoji: '📅', href: '/schedule' },
-  { title: '通知', description: 'リクエスト・メッセージの通知', emoji: '🔔', href: '/notifications', badgeKey: 'unreadNotifications' },
-];
-
 export default function Home() {
-  const badges = useBadgeStore();
+  const [query, setQuery] = useState('');
+  const [carts, setCarts] = useState<Cart[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const fetchCarts = useCallback(async (municipality?: string) => {
+    setError(false);
+    try {
+      const params = municipality ? { municipality } : {};
+      const res = await api.get<Cart[]>('/carts', { params });
+      setCarts(res.data);
+    } catch {
+      setError(true);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchCarts(); }, [fetchCarts]);
+
+  const handleSearch = () => fetchCarts(query.trim() || undefined);
+  const handleRefresh = () => { setRefreshing(true); fetchCarts(query.trim() || undefined); };
+
+  if (loading) return <LoadingScreen />;
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.logo}>ダイシェア</Text>
-      <Text style={styles.subtitle}>台車の個人間レンタルマッチング</Text>
-      {MENUS.map((m) => {
-        const count = m.badgeKey ? badges[m.badgeKey] : 0;
-        return (
-          <Pressable
-            key={m.href}
-            style={styles.card}
-            onPress={() => router.push(m.href as any)}
-            accessibilityRole="button"
-            accessibilityLabel={`${m.title}：${m.description}${count > 0 ? `、未読${count}件` : ''}`}
-          >
-            <View style={styles.emojiWrap}>
-              <Text style={styles.cardEmoji} accessibilityElementsHidden>{m.emoji}</Text>
-              {count > 0 && (
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>{count > 99 ? '99+' : count}</Text>
-                </View>
-              )}
+    <View style={styles.container}>
+      {/* 検索バー */}
+      <View style={styles.searchBar}>
+        <TextInput
+          style={styles.searchInput}
+          value={query}
+          onChangeText={setQuery}
+          placeholder="市区町村で検索（例: 渋谷区）"
+          returnKeyType="search"
+          onSubmitEditing={handleSearch}
+          clearButtonMode="while-editing"
+        />
+        <Pressable style={styles.searchBtn} onPress={handleSearch}>
+          <Text style={styles.searchBtnText}>検索</Text>
+        </Pressable>
+      </View>
+
+      {error ? (
+        <View style={styles.fill}>
+          <EmptyScreen icon="⚠️" message="台車の取得に失敗しました" action={{ label: '再試行', onPress: () => fetchCarts() }} />
+        </View>
+      ) : (
+        <FlatList
+          data={carts}
+          keyExtractor={(item) => String(item.id)}
+          numColumns={2}
+          columnWrapperStyle={styles.row}
+          contentContainerStyle={carts.length === 0 ? styles.emptyContainer : styles.listContent}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#3b82f6" />}
+          renderItem={({ item }) => <CartCard cart={item} />}
+          ListEmptyComponent={
+            <View style={styles.fill}>
+              <EmptyScreen
+                icon="🔍"
+                message="台車が見つかりませんでした"
+                subMessage={query ? `「${query}」での検索結果はありません` : 'まだ台車が登録されていません'}
+              />
             </View>
-            <View style={styles.cardText}>
-              <Text style={styles.cardTitle}>{m.title}</Text>
-              <Text style={styles.cardDesc}>{m.description}</Text>
-            </View>
-            <Text style={styles.arrow} accessibilityElementsHidden>›</Text>
-          </Pressable>
-        );
-      })}
-    </ScrollView>
+          }
+        />
+      )}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { padding: 24, paddingTop: 48 },
-  logo: { fontSize: 32, fontWeight: '800', color: '#3b82f6', marginBottom: 4 },
-  subtitle: { fontSize: 14, color: '#6b7280', marginBottom: 32 },
-  card: {
+  container: { flex: 1, backgroundColor: '#f9fafb' },
+  fill: { flex: 1 },
+  searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#fff',
-    borderRadius: 14,
-    padding: 20,
-    marginBottom: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#e5e7eb',
+    gap: 8,
+  },
+  searchInput: {
+    flex: 1,
+    height: 40,
+    backgroundColor: '#f3f4f6',
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    fontSize: 14,
+    color: '#1a1a1a',
+  },
+  searchBtn: {
+    backgroundColor: '#3b82f6',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  searchBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+  listContent: { padding: 16, gap: 12 },
+  emptyContainer: { flexGrow: 1, padding: 16 },
+  row: { gap: 12, justifyContent: 'space-between' },
+  card: {
+    width: CARD_WIDTH,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    overflow: 'hidden',
     shadowColor: '#000',
-    shadowOpacity: 0.07,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 2,
+    marginBottom: 4,
   },
-  emojiWrap: { position: 'relative', marginRight: 14 },
-  cardEmoji: { fontSize: 28 },
-  badge: {
-    position: 'absolute',
-    top: -6,
-    right: -10,
-    minWidth: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: '#ef4444',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 4,
-  },
-  badgeText: { color: '#fff', fontSize: 10, fontWeight: '700' },
-  cardText: { flex: 1 },
-  cardTitle: { fontSize: 17, fontWeight: '700', marginBottom: 3 },
-  cardDesc: { fontSize: 13, color: '#6b7280' },
-  arrow: { fontSize: 22, color: '#d1d5db' },
+  imageWrap: { width: '100%', aspectRatio: 1, backgroundColor: '#f3f4f6' },
+  image: { width: '100%', height: '100%' },
+  imagePlaceholder: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#f0f0f0' },
+  imagePlaceholderIcon: { fontSize: 40 },
+  cardBody: { padding: 10 },
+  cardTitle: { fontSize: 13, fontWeight: '600', color: '#1a1a1a', marginBottom: 4, lineHeight: 18 },
+  cardMeta: { fontSize: 11, color: '#6b7280', marginBottom: 6 },
+  cardPrice: { fontSize: 15, fontWeight: '800', color: '#1a1a1a' },
+  cardPriceSuffix: { fontSize: 11, fontWeight: '400', color: '#6b7280' },
 });

@@ -1,6 +1,6 @@
 # ダイシェア モバイルアプリ 設計書
 
-> バージョン: 1.5.0  
+> バージョン: 1.6.0  
 > 作成日: 2026-06-21  
 > 対象: MVP リリース
 
@@ -577,20 +577,24 @@ reservations:
 (未認証)
   └── /auth/login          Google ログイン画面
 
-(認証済み・Bottom Tab)
-  ├── / (index)            ホーム（ナビゲーションカード）
-  └── /profile             プロフィール
+(認証済み・Bottom Tab 5タブ)
+  ├── / (index)            ホーム（メルカリ風 台車グリッド一覧 + 検索バー）
+  ├── /reservations        予約一覧（受信/送信タブ、リクエスト承認・拒否）
+  ├── /messages            メッセージ（進行中スレッド一覧）
+  ├── /schedule            スケジュール（今後/過去の予約一覧）
+  └── /carts               台車管理（自分の台車一覧・登録FAB）
 
-(スタック画面 ─ ホームから遷移)
-  ├── /search              台車検索（市区町村フィルタ）
-  ├── /search/[lender_id]  貸主詳細・台車一覧・リクエスト送信モーダル
-  ├── /carts               自分の台車一覧
+  ヘッダー右アイコン（全タブ共通）
+  ├── 🔔 通知アイコン（未読バッジ付き） → /notifications
+  └── 👤 プロフィールアイコン          → /profile（モーダル）
+
+(スタック画面)
+  ├── /search/[lender_id]  貸主詳細・台車一覧・リクエスト送信
   ├── /carts/new           台車登録フォーム
   ├── /carts/[id]/edit     台車編集フォーム
-  ├── /requests            リクエスト一覧（送信済み/受信済みタブ）
   ├── /requests/[id]       チャット・取引詳細（承認/拒否/貸出/返却/レビューボタン）
-  ├── /schedule            予約スケジュール一覧
-  └── /notifications       通知一覧・既読管理
+  ├── /notifications       通知一覧・既読管理
+  └── /profile             プロフィール編集（モーダル）
 ```
 
 ### 7.2 画面一覧
@@ -623,8 +627,12 @@ cart-rental-ios/
 │   │   ├── (auth)/
 │   │   │   └── login.tsx
 │   │   ├── (tabs)/
-│   │   │   ├── index.tsx       # ホーム（ナビゲーションカード）
-│   │   │   ├── profile.tsx     # プロフィール
+│   │   │   ├── index.tsx          # ホーム（メルカリ風グリッド）
+│   │   │   ├── reservations.tsx   # 予約一覧（リクエスト受信/送信）
+│   │   │   ├── messages.tsx       # メッセージスレッド一覧
+│   │   │   ├── schedule.tsx       # スケジュール（確定予約）
+│   │   │   ├── carts.tsx          # 台車管理
+│   │   │   ├── profile.tsx        # プロフィール（非表示・/profileへ移動）
 │   │   │   └── _layout.tsx
 │   │   ├── carts/
 │   │   │   ├── index.tsx       # 自分の台車一覧
