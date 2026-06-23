@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useEffect, useRef, useState } from 'react';
+import { router, useFocusEffect } from 'expo-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -11,39 +12,32 @@ import {
   StyleSheet,
   Switch,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 
-import { api } from '@/lib/api';
-import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/authStore';
 
-// ─── 通知設定の型 ────────────────────────────
-const NOTIF_KEY = '@daishare/notif_settings';
+// ─── 通知設定 ────────────────────────────────
+export const NOTIF_KEY = '@daishare/notif_settings';
 
-interface NotifSettings {
+export interface NotifSettings {
   enabled: boolean;
   request: boolean;
   message: boolean;
   reminder: boolean;
-  reminderMinutes: number; // 合計分 (最小10, 最大1440)
+  reminderMinutes: number;
 }
-const DEFAULT_NOTIF: NotifSettings = {
-  enabled: true,
-  request: true,
-  message: true,
-  reminder: true,
-  reminderMinutes: 720, // 12時間前
+export const DEFAULT_NOTIF: NotifSettings = {
+  enabled: true, request: true, message: true, reminder: true, reminderMinutes: 720,
 };
 
-function minutesToParts(total: number): { h: number; m: number } {
+export function minutesToParts(total: number) {
   return { h: Math.floor(total / 60), m: total % 60 };
 }
-function partsToMinutes(h: number, m: number): number {
+export function partsToMinutes(h: number, m: number) {
   return Math.max(10, Math.min(1440, h * 60 + m));
 }
-function formatReminder(total: number): string {
+export function formatReminder(total: number): string {
   const { h, m } = minutesToParts(total);
   if (h === 0) return `${m}分`;
   if (m === 0) return `${h}時間`;
@@ -52,36 +46,27 @@ function formatReminder(total: number): string {
 
 // ─── ドラムロール ────────────────────────────
 const ITEM_H = 48;
-const VISIBLE = 5;                    // 表示行数（奇数推奨）
-const PAD = Math.floor(VISIBLE / 2); // 上下の余白行数 = 2
+const VISIBLE = 5;
+const PAD = Math.floor(VISIBLE / 2);
 const DRUM_H = ITEM_H * VISIBLE;
 
-function DrumRoll({
+export function DrumRoll({
   items, value, onChange,
 }: { items: { label: string; value: number }[]; value: number; onChange: (v: number) => void }) {
   const ref = useRef<ScrollView>(null);
   const idx = Math.max(0, items.findIndex((it) => it.value === value));
 
-  // 初期・value変化時にスクロール位置を合わせる
   useEffect(() => {
-    const timer = setTimeout(() => {
-      ref.current?.scrollTo({ y: idx * ITEM_H, animated: false });
-    }, 80);
-    return () => clearTimeout(timer);
+    const t = setTimeout(() => ref.current?.scrollTo({ y: idx * ITEM_H, animated: false }), 80);
+    return () => clearTimeout(t);
   }, [idx]);
 
-  const onMomentumEnd = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+  const snap = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     const y = e.nativeEvent.contentOffset.y;
     const i = Math.max(0, Math.min(items.length - 1, Math.round(y / ITEM_H)));
     onChange(items[i].value);
   };
 
-  const onScrollEnd = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    // snapToInterval が止まった後も呼ぶ（drag後に止まるケース）
-    onMomentumEnd(e);
-  };
-
-  // 上下にPAD個の空白行を追加してスクロールで端まで中央表示できるようにする
   const padItems = [
     ...Array(PAD).fill(null).map((_, i) => ({ label: '', value: -(i + 1) })),
     ...items,
@@ -91,15 +76,10 @@ function DrumRoll({
   return (
     <View style={dr.wrap}>
       <View style={dr.highlight} pointerEvents="none" />
-      <ScrollView
-        ref={ref}
-        showsVerticalScrollIndicator={false}
-        snapToInterval={ITEM_H}
-        decelerationRate="fast"
-        onMomentumScrollEnd={onMomentumEnd}
-        onScrollEndDrag={onScrollEnd}
-        style={{ height: DRUM_H }}
-      >
+      <ScrollView ref={ref} showsVerticalScrollIndicator={false}
+        snapToInterval={ITEM_H} decelerationRate="fast"
+        onMomentumScrollEnd={snap} onScrollEndDrag={snap}
+        style={{ height: DRUM_H }}>
         {padItems.map((it, i) => (
           <View key={i} style={dr.item}>
             {it.label !== '' && (
@@ -119,146 +99,50 @@ const dr = StyleSheet.create({
     top: ITEM_H * PAD, height: ITEM_H,
     backgroundColor: '#eff6ff',
     borderTopWidth: 1.5, borderBottomWidth: 1.5, borderColor: '#bfdbfe',
-    borderRadius: 10, zIndex: 0,
+    borderRadius: 10,
   },
   item: { height: ITEM_H, justifyContent: 'center', alignItems: 'center' },
   label: { fontSize: 17, color: '#c4c4c4', fontWeight: '500' },
   labelSel: { fontSize: 21, color: '#111827', fontWeight: '700' },
 });
 
-// ─────────────────────────────────────────────
-type UserType = 'lender' | 'renter' | 'both';
-const USER_TYPE_LABELS: Record<UserType, string> = { renter: '借主', lender: '貸主', both: '両方' };
-
 // ─── 小コンポーネント ─────────────────────────
 function SectionTitle({ label }: { label: string }) {
-  return (
-    <View style={s.secTitle}>
-      <Text style={s.secLabel}>{label}</Text>
-    </View>
-  );
+  return <View style={s.secTitle}><Text style={s.secLabel}>{label}</Text></View>;
 }
 function Card({ children }: { children: React.ReactNode }) {
   return <View style={s.card}>{children}</View>;
 }
-function Row({
-  label, value, last, children,
-}: { label: string; value?: string; last?: boolean; children?: React.ReactNode }) {
+function Row({ label, value, children }: { label: string; value?: string; children?: React.ReactNode }) {
   return (
-    <View style={[s.row, last && s.rowLast]}>
+    <View style={s.row}>
       <Text style={s.rowLabel}>{label}</Text>
       {children ?? <Text style={s.rowValue}>{value}</Text>}
     </View>
   );
 }
 
-// ─── メイン ───────────────────────────────────
+const USER_TYPE_LABELS: Record<string, string> = { renter: '借主', lender: '貸主', both: '両方' };
+
+// ─── プロフィール表示画面 ──────────────────────
 export default function ProfileScreen() {
-  const { user, signOut, syncUser } = useAuthStore();
-  const [editing, setEditing] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [avatarUri, setAvatarUri] = useState<string | null>(null); // ローカルプレビュー用
-  const [uploadingAvatar, setUploadingAvatar] = useState(false);
-  const [form, setForm] = useState({ display_name: '', bio: '', user_type: 'renter' as UserType });
-  // draft: 保存ボタンを押すまで反映しないnotif一時状態
-  const [draft, setDraft] = useState<NotifSettings>(DEFAULT_NOTIF);
+  const { user, signOut } = useAuthStore();
+  const [notif, setNotif] = useState<NotifSettings>(DEFAULT_NOTIF);
 
-  // 初期値セット
-  useEffect(() => {
-    if (user) {
-      setForm({ display_name: user.display_name, bio: user.bio ?? '', user_type: user.user_type });
-    }
-  }, [user]);
-
-  // 通知設定ロード → draftに反映
-  useEffect(() => {
+  // フォーカス時に通知設定を再読み込み（編集画面から戻った後も反映）
+  useFocusEffect(useCallback(() => {
     AsyncStorage.getItem(NOTIF_KEY).then((raw) => {
-      if (raw) setDraft({ ...DEFAULT_NOTIF, ...JSON.parse(raw) });
+      if (raw) setNotif({ ...DEFAULT_NOTIF, ...JSON.parse(raw) });
     });
-  }, []);
+  }, []));
 
-  const setN = <K extends keyof NotifSettings>(k: K, v: NotifSettings[K]) =>
-    setDraft((d) => ({ ...d, [k]: v }));
-
-  const { h: remH, m: remM } = minutesToParts(draft.reminderMinutes);
-  const setReminderH = (h: number) => setN('reminderMinutes', partsToMinutes(h, remM));
-  const setReminderM = (m: number) => setN('reminderMinutes', partsToMinutes(remH, m));
-
-  const handlePickAvatar = async () => {
-    // expo-image-picker はDev Build必須のため、Expo Go環境では動的インポートで対応
-    let ImagePicker: typeof import('expo-image-picker');
-    try {
-      ImagePicker = await import('expo-image-picker');
-    } catch {
-      Alert.alert('非対応', 'この機能はDev Buildが必要です。\nExpo Go では利用できません。');
-      return;
-    }
-
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('権限が必要', '写真へのアクセスを許可してください');
-      return;
-    }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.7,
-    });
-    if (result.canceled || !result.assets[0]) return;
-
-    const asset = result.assets[0];
-    setAvatarUri(asset.uri);
-    setUploadingAvatar(true);
-    try {
-      const ext = asset.uri.split('.').pop()?.toLowerCase() ?? 'jpg';
-      const { data: { session } } = await supabase.auth.getSession();
-      const userId = session?.user?.id;
-      if (!userId) throw new Error('not authenticated');
-
-      const path = `avatars/${userId}.${ext}`;
-      const response = await fetch(asset.uri);
-      const blob = await response.blob();
-      const arrayBuffer = await blob.arrayBuffer();
-
-      const { error } = await supabase.storage
-        .from('avatars')
-        .upload(path, arrayBuffer, { contentType: `image/${ext}`, upsert: true });
-      if (error) throw error;
-
-      const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(path);
-      await api.put('/users/me', { avatar_url: publicUrl });
-      await syncUser();
-    } catch {
-      Alert.alert('エラー', 'アイコンのアップロードに失敗しました');
-      setAvatarUri(null);
-    } finally {
-      setUploadingAvatar(false);
-    }
+  const setN = <K extends keyof NotifSettings>(k: K, v: NotifSettings[K]) => {
+    const next = { ...notif, [k]: v };
+    setNotif(next);
+    AsyncStorage.setItem(NOTIF_KEY, JSON.stringify(next));
   };
 
-  const handleSave = async () => {
-    if (!form.display_name.trim()) {
-      Alert.alert('エラー', '名前を入力してください');
-      return;
-    }
-    setSaving(true);
-    try {
-      await api.put('/users/me', {
-        display_name: form.display_name.trim(),
-        bio: form.bio.trim() || null,
-        user_type: form.user_type,
-      });
-      await syncUser();
-      // 通知設定をここで永続化
-      await AsyncStorage.setItem(NOTIF_KEY, JSON.stringify(draft));
-      setEditing(false);
-    } catch {
-      Alert.alert('エラー', '保存に失敗しました');
-    } finally {
-      setSaving(false);
-    }
-  };
+  const { h: remH, m: remM } = minutesToParts(notif.reminderMinutes);
 
   if (!user) return <ActivityIndicator style={{ flex: 1 }} color="#3b82f6" />;
 
@@ -267,155 +151,77 @@ export default function ProfileScreen() {
 
       {/* ── アバター ── */}
       <View style={s.avatarSection}>
-        <Pressable onPress={handlePickAvatar} disabled={uploadingAvatar} style={s.avatarWrap}>
-          {uploadingAvatar ? (
-            <View style={s.avatarImg}>
-              <ActivityIndicator color="#3b82f6" />
-            </View>
-          ) : (avatarUri ?? user.avatar_url) ? (
-            <Image source={{ uri: avatarUri ?? user.avatar_url! }} style={s.avatarImg} />
+        <View style={s.avatarWrap}>
+          {user.avatar_url ? (
+            <Image source={{ uri: user.avatar_url }} style={s.avatarImg} />
           ) : (
             <View style={[s.avatarImg, s.avatarPlaceholder]}>
-              <Text style={s.avatarInitial}>
-                {user.display_name.charAt(0).toUpperCase()}
-              </Text>
+              <Text style={s.avatarInitial}>{user.display_name.charAt(0).toUpperCase()}</Text>
             </View>
           )}
-          <View style={s.avatarBadge}>
-            <Text style={s.avatarBadgeText}>📷</Text>
-          </View>
-        </Pressable>
-        <Text style={s.avatarHint}>タップして変更</Text>
+        </View>
+        <Text style={s.avatarName}>{user.display_name}</Text>
+        <Text style={s.avatarEmail}>{user.email}</Text>
       </View>
 
       {/* ── プロフィール情報 ── */}
       <SectionTitle label="プロフィール" />
       <Card>
-        <Row label="名前" last={!editing}>
-          {editing ? (
-            <TextInput
-              style={s.input}
-              value={form.display_name}
-              onChangeText={(v) => setForm((f) => ({ ...f, display_name: v }))}
-              placeholder="表示名"
-              placeholderTextColor="#c4c4c4"
-              returnKeyType="next"
-            />
-          ) : (
-            <Text style={s.rowValue}>{user.display_name}</Text>
-          )}
-        </Row>
-
+        <Row label="名前" value={user.display_name} />
         <View style={s.divider} />
-        <Row label="メールアドレス" value={user.email} last={!editing} />
-
-        {editing && (
-          <>
-            <View style={s.divider} />
-            <Row label="自己紹介" last>
-              <TextInput
-                style={[s.input, s.textarea]}
-                value={form.bio}
-                onChangeText={(v) => setForm((f) => ({ ...f, bio: v }))}
-                placeholder="台車の使い方や注意点など"
-                placeholderTextColor="#c4c4c4"
-                multiline
-                numberOfLines={3}
-                textAlignVertical="top"
-              />
-            </Row>
-          </>
-        )}
-
-        {!editing && (
-          <>
-            <View style={s.divider} />
-            <Row label="自己紹介" value={user.bio || '未設定'} last />
-          </>
-        )}
+        <Row label="自己紹介" value={user.bio || '未設定'} />
+        <View style={s.divider} />
+        <Row label="タイプ" value={USER_TYPE_LABELS[user.user_type]} />
       </Card>
 
-      {/* ユーザータイプ */}
-      <SectionTitle label="利用タイプ" />
-      <Card>
-        {editing ? (
-          <View style={s.typeWrap}>
-            {(['renter', 'lender', 'both'] as UserType[]).map((t) => {
-              const sel = form.user_type === t;
-              return (
-                <Pressable key={t} style={[s.typeChip, sel && s.typeChipSel]}
-                  onPress={() => setForm((f) => ({ ...f, user_type: t }))}>
-                  <Text style={[s.typeChipText, sel && s.typeChipTextSel]}>{USER_TYPE_LABELS[t]}</Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        ) : (
-          <Row label="タイプ" value={USER_TYPE_LABELS[user.user_type]} last />
-        )}
-      </Card>
-
-      {/* 編集ボタン（編集モードでない時のみ表示） */}
-      {!editing && (
-        <Pressable style={s.editBtn} onPress={() => setEditing(true)}>
-          <Text style={s.editBtnText}>プロフィールを編集</Text>
-        </Pressable>
-      )}
+      <Pressable style={s.editBtn} onPress={() => router.push('/profile-edit' as any)}>
+        <Text style={s.editBtnText}>プロフィールを編集</Text>
+      </Pressable>
 
       {/* ── 通知設定 ── */}
       <SectionTitle label="通知設定" />
       <Card>
-        <Row label="通知" last={!draft.enabled}>
-          <Switch value={draft.enabled} onValueChange={(v) => setN('enabled', v)}
+        <Row label="通知">
+          <Switch value={notif.enabled} onValueChange={(v) => setN('enabled', v)}
             trackColor={{ false: '#e5e7eb', true: '#bfdbfe' }}
-            thumbColor={draft.enabled ? '#3b82f6' : '#9ca3af'} ios_backgroundColor="#e5e7eb" />
+            thumbColor={notif.enabled ? '#3b82f6' : '#9ca3af'} ios_backgroundColor="#e5e7eb" />
         </Row>
-
-        {draft.enabled && (
+        {notif.enabled && (
           <>
             <View style={s.divider} />
             <Row label="リクエスト通知">
-              <Switch value={draft.request} onValueChange={(v) => setN('request', v)}
+              <Switch value={notif.request} onValueChange={(v) => setN('request', v)}
                 trackColor={{ false: '#e5e7eb', true: '#bfdbfe' }}
-                thumbColor={draft.request ? '#3b82f6' : '#9ca3af'} ios_backgroundColor="#e5e7eb" />
+                thumbColor={notif.request ? '#3b82f6' : '#9ca3af'} ios_backgroundColor="#e5e7eb" />
             </Row>
             <View style={s.divider} />
             <Row label="メッセージ通知">
-              <Switch value={draft.message} onValueChange={(v) => setN('message', v)}
+              <Switch value={notif.message} onValueChange={(v) => setN('message', v)}
                 trackColor={{ false: '#e5e7eb', true: '#bfdbfe' }}
-                thumbColor={draft.message ? '#3b82f6' : '#9ca3af'} ios_backgroundColor="#e5e7eb" />
+                thumbColor={notif.message ? '#3b82f6' : '#9ca3af'} ios_backgroundColor="#e5e7eb" />
             </Row>
             <View style={s.divider} />
-            <Row label="予約リマインド" last={!draft.reminder}>
-              <Switch value={draft.reminder} onValueChange={(v) => setN('reminder', v)}
+            <Row label="予約リマインド">
+              <Switch value={notif.reminder} onValueChange={(v) => setN('reminder', v)}
                 trackColor={{ false: '#e5e7eb', true: '#bfdbfe' }}
-                thumbColor={draft.reminder ? '#3b82f6' : '#9ca3af'} ios_backgroundColor="#e5e7eb" />
+                thumbColor={notif.reminder ? '#3b82f6' : '#9ca3af'} ios_backgroundColor="#e5e7eb" />
             </Row>
-
-            {draft.reminder && (
+            {notif.reminder && (
               <>
                 <View style={s.divider} />
                 <View style={s.reminderSection}>
                   <Text style={s.reminderTitle}>リマインドタイミング</Text>
-                  <Text style={s.reminderSummary}>{formatReminder(draft.reminderMinutes)}前に通知</Text>
+                  <Text style={s.reminderSummary}>{formatReminder(notif.reminderMinutes)}前に通知</Text>
                   <View style={s.drumWrap}>
-                    <DrumRoll
-                      value={remH}
-                      onChange={(h) => {
-                        if (h === 24) setN('reminderMinutes', 1440);
-                        else setReminderH(h);
-                      }}
-                      items={Array.from({ length: 25 }, (_, i) => ({ label: `${i}時間`, value: i }))}
-                    />
+                    <DrumRoll value={remH}
+                      onChange={(h) => setN('reminderMinutes', h === 24 ? 1440 : partsToMinutes(h, remM))}
+                      items={Array.from({ length: 25 }, (_, i) => ({ label: `${i}時間`, value: i }))} />
                     <Text style={s.drumSep}>:</Text>
-                    <DrumRoll
-                      value={remH === 24 ? 0 : remM}
-                      onChange={(m) => { if (remH < 24) setReminderM(m); }}
+                    <DrumRoll value={remH === 24 ? 0 : remM}
+                      onChange={(m) => { if (remH < 24) setN('reminderMinutes', partsToMinutes(remH, m)); }}
                       items={[0, 10, 20, 30, 40, 50].map((m) => ({
-                        label: `${String(m).padStart(2, '0')}分`,
-                        value: m,
-                      }))}
-                    />
+                        label: `${String(m).padStart(2, '0')}分`, value: m,
+                      }))} />
                   </View>
                 </View>
               </>
@@ -424,98 +230,44 @@ export default function ProfileScreen() {
         )}
       </Card>
 
-      {/* ── 保存ボタン ── */}
-      <Pressable style={[s.saveBtn, saving && s.saveBtnOff]} onPress={handleSave} disabled={saving}>
-        <Text style={s.saveBtnText}>{saving ? '保存中...' : '保存する'}</Text>
-      </Pressable>
-
       {/* ── ログアウト ── */}
       <Pressable style={s.logoutBtn} onPress={() =>
         Alert.alert('ログアウト', 'ログアウトしますか？', [
           { text: 'キャンセル', style: 'cancel' },
           { text: 'ログアウト', style: 'destructive', onPress: signOut },
-        ])
-      }>
+        ])}>
         <Text style={s.logoutText}>ログアウト</Text>
       </Pressable>
-
       <View style={{ height: 40 }} />
     </ScrollView>
   );
 }
 
-// ─── スタイル ─────────────────────────────────
 const s = StyleSheet.create({
   page: { flex: 1, backgroundColor: '#f5f6f8' },
   content: { paddingHorizontal: 16, paddingTop: 20, paddingBottom: 48 },
 
-  avatarSection: { alignItems: 'center', paddingTop: 8, paddingBottom: 4 },
-  avatarWrap: { position: 'relative' },
-  avatarImg: {
-    width: 88, height: 88, borderRadius: 44,
-    backgroundColor: '#e0e7ff',
-    alignItems: 'center', justifyContent: 'center',
-    borderWidth: 3, borderColor: '#fff',
-    shadowColor: '#000', shadowOpacity: 0.12, shadowRadius: 8, elevation: 4,
-  },
-  avatarPlaceholder: { backgroundColor: '#3b82f6' },
+  avatarSection: { alignItems: 'center', paddingVertical: 16 },
+  avatarWrap: {},
+  avatarImg: { width: 88, height: 88, borderRadius: 44, borderWidth: 3, borderColor: '#fff',
+    shadowColor: '#000', shadowOpacity: 0.12, shadowRadius: 8, elevation: 4 },
+  avatarPlaceholder: { backgroundColor: '#3b82f6', alignItems: 'center', justifyContent: 'center' },
   avatarInitial: { fontSize: 36, fontWeight: '700', color: '#fff' },
-  avatarBadge: {
-    position: 'absolute', bottom: 0, right: 0,
-    width: 28, height: 28, borderRadius: 14,
-    backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center',
-    borderWidth: 1.5, borderColor: '#e5e7eb',
-    shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 4, elevation: 2,
-  },
-  avatarBadgeText: { fontSize: 14 },
-  avatarHint: { marginTop: 8, fontSize: 12, color: '#9ca3af', fontWeight: '500' },
+  avatarName: { marginTop: 10, fontSize: 18, fontWeight: '700', color: '#111827' },
+  avatarEmail: { marginTop: 2, fontSize: 13, color: '#9ca3af' },
 
   secTitle: { marginTop: 24, marginBottom: 10 },
   secLabel: { fontSize: 13, fontWeight: '700', color: '#6b7280', letterSpacing: 0.5, textTransform: 'uppercase' },
-
-  card: {
-    backgroundColor: '#fff', borderRadius: 16,
-    shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 8, elevation: 2,
-  },
+  card: { backgroundColor: '#fff', borderRadius: 16,
+    shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 8, elevation: 2 },
   divider: { height: StyleSheet.hairlineWidth, backgroundColor: '#f0f0f0', marginLeft: 16 },
-
-  row: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 16, paddingVertical: 14, minHeight: 52,
-  },
-  rowLast: {},
+  row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 16, paddingVertical: 14, minHeight: 52 },
   rowLabel: { fontSize: 15, color: '#374151', fontWeight: '500', flex: 1 },
   rowValue: { fontSize: 15, color: '#6b7280', flexShrink: 1, textAlign: 'right', maxWidth: '60%' },
 
-  input: {
-    flex: 1, borderWidth: 1.5, borderColor: '#e5e7eb', borderRadius: 8,
-    paddingHorizontal: 10, paddingVertical: 8, fontSize: 15,
-    backgroundColor: '#fafafa', color: '#111827',
-  },
-  textarea: { height: 80, textAlignVertical: 'top' },
-
-  typeWrap: { flexDirection: 'row', gap: 8, padding: 16 },
-  typeChip: {
-    flex: 1, paddingVertical: 10, borderRadius: 10,
-    borderWidth: 1.5, borderColor: '#e5e7eb', backgroundColor: '#fafafa', alignItems: 'center',
-  },
-  typeChipSel: { borderColor: '#3b82f6', backgroundColor: '#eff6ff' },
-  typeChipText: { fontSize: 14, fontWeight: '600', color: '#9ca3af' },
-  typeChipTextSel: { color: '#3b82f6' },
-
-  saveBtn: {
-    marginTop: 20, backgroundColor: '#3b82f6', borderRadius: 14,
-    padding: 16, alignItems: 'center',
-    shadowColor: '#3b82f6', shadowOpacity: 0.3, shadowRadius: 8, elevation: 4,
-  },
-  saveBtnOff: { backgroundColor: '#93c5fd', shadowOpacity: 0 },
-  saveBtnText: { fontSize: 16, fontWeight: '800', color: '#fff' },
-
-  editBtn: {
-    marginTop: 14, backgroundColor: '#fff', borderRadius: 12,
-    padding: 14, alignItems: 'center',
-    borderWidth: 1.5, borderColor: '#3b82f6',
-  },
+  editBtn: { marginTop: 14, backgroundColor: '#fff', borderRadius: 12, padding: 14,
+    alignItems: 'center', borderWidth: 1.5, borderColor: '#3b82f6' },
   editBtnText: { fontSize: 15, fontWeight: '700', color: '#3b82f6' },
 
   reminderSection: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 16 },
@@ -524,9 +276,7 @@ const s = StyleSheet.create({
   drumWrap: { flexDirection: 'row', alignItems: 'center', gap: 4, marginVertical: 4 },
   drumSep: { fontSize: 22, fontWeight: '700', color: '#9ca3af', paddingBottom: 4 },
 
-  logoutBtn: {
-    marginTop: 24, padding: 15, alignItems: 'center', borderRadius: 12,
-    borderWidth: 1.5, borderColor: '#fca5a5', backgroundColor: '#fff',
-  },
+  logoutBtn: { marginTop: 24, padding: 15, alignItems: 'center', borderRadius: 12,
+    borderWidth: 1.5, borderColor: '#fca5a5', backgroundColor: '#fff' },
   logoutText: { color: '#ef4444', fontWeight: '700', fontSize: 15 },
 });
