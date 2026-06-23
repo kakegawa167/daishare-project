@@ -43,9 +43,9 @@ function partsToMinutes(h: number, m: number): number {
 }
 function formatReminder(total: number): string {
   const { h, m } = minutesToParts(total);
-  if (h === 0) return `${m}分前`;
-  if (m === 0) return `${h}時間前`;
-  return `${h}時間${m}分前`;
+  if (h === 0) return `${m}分`;
+  if (m === 0) return `${h}時間`;
+  return `${h}時間${m}分`;
 }
 
 // ─── ドラムロール ────────────────────────────
@@ -156,7 +156,8 @@ export default function ProfileScreen() {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ display_name: '', bio: '', user_type: 'renter' as UserType });
-  const [notif, setNotif] = useState<NotifSettings>(DEFAULT_NOTIF);
+  // draft: 保存ボタンを押すまで反映しないnotif一時状態
+  const [draft, setDraft] = useState<NotifSettings>(DEFAULT_NOTIF);
 
   // 初期値セット
   useEffect(() => {
@@ -165,21 +166,17 @@ export default function ProfileScreen() {
     }
   }, [user]);
 
-  // 通知設定ロード
+  // 通知設定ロード → draftに反映
   useEffect(() => {
     AsyncStorage.getItem(NOTIF_KEY).then((raw) => {
-      if (raw) setNotif({ ...DEFAULT_NOTIF, ...JSON.parse(raw) });
+      if (raw) setDraft({ ...DEFAULT_NOTIF, ...JSON.parse(raw) });
     });
   }, []);
 
-  const saveNotif = (next: NotifSettings) => {
-    setNotif(next);
-    AsyncStorage.setItem(NOTIF_KEY, JSON.stringify(next));
-  };
   const setN = <K extends keyof NotifSettings>(k: K, v: NotifSettings[K]) =>
-    saveNotif({ ...notif, [k]: v });
+    setDraft((d) => ({ ...d, [k]: v }));
 
-  const { h: remH, m: remM } = minutesToParts(notif.reminderMinutes);
+  const { h: remH, m: remM } = minutesToParts(draft.reminderMinutes);
   const setReminderH = (h: number) => setN('reminderMinutes', partsToMinutes(h, remM));
   const setReminderM = (m: number) => setN('reminderMinutes', partsToMinutes(remH, m));
 
@@ -196,9 +193,11 @@ export default function ProfileScreen() {
         user_type: form.user_type,
       });
       await syncUser();
+      // 通知設定をここで永続化
+      await AsyncStorage.setItem(NOTIF_KEY, JSON.stringify(draft));
       setEditing(false);
     } catch {
-      Alert.alert('エラー', 'プロフィールの更新に失敗しました');
+      Alert.alert('エラー', '保存に失敗しました');
     } finally {
       setSaving(false);
     }
@@ -276,20 +275,8 @@ export default function ProfileScreen() {
         )}
       </Card>
 
-      {/* 編集ボタン */}
-      {editing ? (
-        <View style={s.btnRow}>
-          <Pressable style={s.cancelBtn} onPress={() => {
-            setEditing(false);
-            setForm({ display_name: user.display_name, bio: user.bio ?? '', user_type: user.user_type });
-          }}>
-            <Text style={s.cancelBtnText}>キャンセル</Text>
-          </Pressable>
-          <Pressable style={[s.saveBtn, saving && s.saveBtnOff]} onPress={handleSave} disabled={saving}>
-            <Text style={s.saveBtnText}>{saving ? '保存中...' : '保存する'}</Text>
-          </Pressable>
-        </View>
-      ) : (
+      {/* 編集ボタン（編集モードでない時のみ表示） */}
+      {!editing && (
         <Pressable style={s.editBtn} onPress={() => setEditing(true)}>
           <Text style={s.editBtnText}>プロフィールを編集</Text>
         </Pressable>
@@ -298,61 +285,43 @@ export default function ProfileScreen() {
       {/* ── 通知設定 ── */}
       <SectionTitle label="通知設定" />
       <Card>
-        {/* マスターON/OFF */}
-        <Row label="通知" last={!notif.enabled}>
-          <Switch
-            value={notif.enabled}
-            onValueChange={(v) => setN('enabled', v)}
+        <Row label="通知" last={!draft.enabled}>
+          <Switch value={draft.enabled} onValueChange={(v) => setN('enabled', v)}
             trackColor={{ false: '#e5e7eb', true: '#bfdbfe' }}
-            thumbColor={notif.enabled ? '#3b82f6' : '#9ca3af'}
-            ios_backgroundColor="#e5e7eb"
-          />
+            thumbColor={draft.enabled ? '#3b82f6' : '#9ca3af'} ios_backgroundColor="#e5e7eb" />
         </Row>
 
-        {notif.enabled && (
+        {draft.enabled && (
           <>
             <View style={s.divider} />
             <Row label="リクエスト通知">
-              <Switch
-                value={notif.request}
-                onValueChange={(v) => setN('request', v)}
+              <Switch value={draft.request} onValueChange={(v) => setN('request', v)}
                 trackColor={{ false: '#e5e7eb', true: '#bfdbfe' }}
-                thumbColor={notif.request ? '#3b82f6' : '#9ca3af'}
-                ios_backgroundColor="#e5e7eb"
-              />
+                thumbColor={draft.request ? '#3b82f6' : '#9ca3af'} ios_backgroundColor="#e5e7eb" />
             </Row>
             <View style={s.divider} />
             <Row label="メッセージ通知">
-              <Switch
-                value={notif.message}
-                onValueChange={(v) => setN('message', v)}
+              <Switch value={draft.message} onValueChange={(v) => setN('message', v)}
                 trackColor={{ false: '#e5e7eb', true: '#bfdbfe' }}
-                thumbColor={notif.message ? '#3b82f6' : '#9ca3af'}
-                ios_backgroundColor="#e5e7eb"
-              />
+                thumbColor={draft.message ? '#3b82f6' : '#9ca3af'} ios_backgroundColor="#e5e7eb" />
             </Row>
             <View style={s.divider} />
-            <Row label="予約リマインド" last={!notif.reminder}>
-              <Switch
-                value={notif.reminder}
-                onValueChange={(v) => setN('reminder', v)}
+            <Row label="予約リマインド" last={!draft.reminder}>
+              <Switch value={draft.reminder} onValueChange={(v) => setN('reminder', v)}
                 trackColor={{ false: '#e5e7eb', true: '#bfdbfe' }}
-                thumbColor={notif.reminder ? '#3b82f6' : '#9ca3af'}
-                ios_backgroundColor="#e5e7eb"
-              />
+                thumbColor={draft.reminder ? '#3b82f6' : '#9ca3af'} ios_backgroundColor="#e5e7eb" />
             </Row>
 
-            {notif.reminder && (
+            {draft.reminder && (
               <>
                 <View style={s.divider} />
                 <View style={s.reminderSection}>
                   <Text style={s.reminderTitle}>リマインドタイミング</Text>
-                  <Text style={s.reminderSummary}>{formatReminder(notif.reminderMinutes)}前に通知</Text>
+                  <Text style={s.reminderSummary}>{formatReminder(draft.reminderMinutes)}前に通知</Text>
                   <View style={s.drumWrap}>
                     <DrumRoll
                       value={remH}
                       onChange={(h) => {
-                        // 24時間のとき分は0固定
                         if (h === 24) setN('reminderMinutes', 1440);
                         else setReminderH(h);
                       }}
@@ -374,6 +343,11 @@ export default function ProfileScreen() {
           </>
         )}
       </Card>
+
+      {/* ── 保存ボタン ── */}
+      <Pressable style={[s.saveBtn, saving && s.saveBtnOff]} onPress={handleSave} disabled={saving}>
+        <Text style={s.saveBtnText}>{saving ? '保存中...' : '保存する'}</Text>
+      </Pressable>
 
       {/* ── ログアウト ── */}
       <Pressable style={s.logoutBtn} onPress={() =>
@@ -428,19 +402,13 @@ const s = StyleSheet.create({
   typeChipText: { fontSize: 14, fontWeight: '600', color: '#9ca3af' },
   typeChipTextSel: { color: '#3b82f6' },
 
-  btnRow: { flexDirection: 'row', gap: 10, marginTop: 14 },
-  cancelBtn: {
-    flex: 1, backgroundColor: '#f3f4f6', borderRadius: 12,
-    padding: 14, alignItems: 'center',
-  },
-  cancelBtnText: { fontSize: 15, fontWeight: '600', color: '#6b7280' },
   saveBtn: {
-    flex: 2, backgroundColor: '#3b82f6', borderRadius: 12,
-    padding: 14, alignItems: 'center',
-    shadowColor: '#3b82f6', shadowOpacity: 0.3, shadowRadius: 6, elevation: 3,
+    marginTop: 20, backgroundColor: '#3b82f6', borderRadius: 14,
+    padding: 16, alignItems: 'center',
+    shadowColor: '#3b82f6', shadowOpacity: 0.3, shadowRadius: 8, elevation: 4,
   },
   saveBtnOff: { backgroundColor: '#93c5fd', shadowOpacity: 0 },
-  saveBtnText: { fontSize: 15, fontWeight: '700', color: '#fff' },
+  saveBtnText: { fontSize: 16, fontWeight: '800', color: '#fff' },
 
   editBtn: {
     marginTop: 14, backgroundColor: '#fff', borderRadius: 12,
