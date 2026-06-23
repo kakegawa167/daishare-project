@@ -1,202 +1,89 @@
-# ダイシェア — 課題管理
+# ダイシェア 課題管理
 
-> 最終更新: 2026-06-21  
-> ステータス凡例: `[ ]` 未対応 / `[→]` 対応中 / `[x]` 解消済み / `[-]` 対応しない
-
----
-
-## ISSUE-001: Apple Developer Program 未登録
-
-**ステータス**: `[ ]` **対応者**: ユーザー  
-**優先度**: 高（リリース前に必須）
-
-**内容**  
-Apple Developer Program（$99/年）への登録が完了していない。  
-以下の作業がブロックされている。
-
-**影響するタスク**
-- `5-2` TestFlight / Internal Testing 配布・動作確認
-- `5-4` EAS Build（Production）実行
-- `5-4` App Store 審査申請
-- `0-7` EAS 設定（eas login / eas build:configure）
-
-**対応手順**
-1. https://developer.apple.com/programs/ から登録（$99/年）
-2. 登録完了後、Xcode で Apple ID を紐付け
-3. EAS Build 設定: `eas build --platform ios --profile production`
+> Claude が自律的に解決できないブロッカー・要対応課題を記録するドキュメント。  
+> ステータス: `open`（未対応）/ `in-progress`（対応中）/ `resolved`（解決済み）
 
 ---
 
-## ISSUE-002: Railway アカウント・プロジェクト未設定
+## ISS-001 — Supabase Storage バケットの作成・RLS 設定
 
-**ステータス**: `[ ]` **対応者**: ユーザー  
-**優先度**: 中（本番デプロイ前に必要）
-
-**内容**  
-バックエンドの本番・staging デプロイ先として Railway を使う予定だが未設定。  
-現在はローカル Docker のみで動作確認できている状態。
-
-**影響するタスク**
-- `0-6` Railway 設定（サービス作成・環境変数・GitHub 連携）
-- `0-8` GitHub Actions CD が通ることの確認
-
-**対応手順**
-1. https://railway.app にアクセス、GitHub アカウントでサインアップ
-2. 新規プロジェクト作成 → GitHub リポジトリ連携
-3. `develop` ブランチを staging サービスに、`main` を production に設定
-4. 以下の環境変数を Railway 側に設定:
-   - `DATABASE_URL` (Supabase connection string)
-   - `SUPABASE_JWT_SECRET`
-   - `SUPABASE_URL`
-   - `SUPABASE_SERVICE_ROLE_KEY`
-   - `ALLOWED_ORIGINS`
+| 項目         | 内容                                                                           |
+| ------------ | ------------------------------------------------------------------------------ |
+| 発生日時     | 2026-06-21 頃                                                                  |
+| ステータス   | `open`                                                                         |
+| 課題内容     | `cart-images`・`avatars` バケットが未作成。RLS ポリシーも未設定               |
+| 影響範囲     | 台車画像アップロード機能、アバター画像アップロード機能                         |
+| 必要なアクション | Supabase ダッシュボードで以下を実施:<br>1. `avatars` バケット作成（Public）<br>2. `cart-images` バケット作成（Public）<br>3. 各バケットに RLS ポリシー設定（閲覧: 全員 / アップロード: 認証ユーザー本人のみ） |
+| 解決日時     | —                                                                              |
+| 解決方法     | —                                                                              |
 
 ---
 
-## ISSUE-003: GitHub Secrets 未登録
+## ISS-002 — Supabase Realtime の notifications テーブル有効化
 
-**ステータス**: `[ ]` **対応者**: ユーザー  
-**優先度**: 中（CI/CD 完全稼働に必要）
-
-**内容**  
-GitHub Actions の backend-deploy.yml / mobile-build.yml が参照する Secrets が未登録。  
-現在 `develop` push 時の EAS Build は `main` のみに限定して回避済み。
-
-**影響するタスク**
-- `0-8` PR 作成して CI が通ることを確認
-
-**登録が必要な Secrets**（Settings → Secrets and variables → Actions）
-
-| Secret 名 | 値の取得元 |
-|-----------|-----------|
-| `RAILWAY_TOKEN` | Railway ダッシュボード → Account Settings → Tokens |
-| `EXPO_TOKEN` | https://expo.dev → Account → Access Tokens |
-| `SUPABASE_DB_URL` | Supabase staging プロジェクト → Settings → Database → Connection string |
-| `SUPABASE_JWT_SECRET` | Supabase staging → Settings → API → JWT Secret |
+| 項目         | 内容                                                                         |
+| ------------ | ---------------------------------------------------------------------------- |
+| 発生日時     | 2026-06-21 頃                                                                |
+| ステータス   | `open`                                                                       |
+| 課題内容     | `notifications` テーブルの Supabase Realtime が有効化されていない。通知のリアルタイム受信が動作しない |
+| 影響範囲     | 通知バッジのリアルタイム更新、通知一覧のリアルタイム反映                     |
+| 必要なアクション | Supabase ダッシュボード → Database → Replication で `notifications` テーブルを有効化。RLS ポリシー（user_id = 本人のみ購読可）も設定する |
+| 解決日時     | —                                                                            |
+| 解決方法     | —                                                                            |
 
 ---
 
-## ISSUE-004: Supabase 本番プロジェクト未作成
+## ISS-003 — Supabase Realtime の messages テーブル RLS 設定
 
-**ステータス**: `[ ]` **対応者**: ユーザー  
-**優先度**: 低（リリース直前に対応）
-
-**内容**  
-現在は staging（`daishare-staging`）のみ作成済み。  
-本番（`daishare-prod`）は未作成。
-
-**影響するタスク**
-- `0-4` production プロジェクト作成
-- `5-3` Supabase RLS ポリシーの動作確認
-
-**対応手順**
-1. https://supabase.com → New Project → `daishare-prod`
-2. URL / Anon Key / JWT Secret / Service Role Key を取得
-3. `supabase db push` でマイグレーション適用（本番プロジェクトへ）
-4. Storage バケット作成（`cart-images` / `avatar-images`）+ RLS 設定
-5. Realtime → Tables で `messages` / `notifications` を有効化
-6. Railway の production 環境変数を本番 Supabase に更新
+| 項目         | 内容                                                                          |
+| ------------ | ----------------------------------------------------------------------------- |
+| 発生日時     | 2026-06-21 頃                                                                 |
+| ステータス   | `open`                                                                        |
+| 課題内容     | `messages` テーブルの Realtime は有効化済みだが RLS ポリシーが未設定。認証ユーザー全員が全メッセージを購読できる状態でセキュリティリスクがある |
+| 影響範囲     | セキュリティ（他ユーザーのメッセージが閲覧できる可能性）                      |
+| 必要なアクション | Supabase ダッシュボードで messages テーブルに RLS ポリシーを設定:<br>「`rental_request_id` の貸主または借主のみ購読可能」 |
+| 解決日時     | —                                                                             |
+| 解決方法     | —                                                                             |
 
 ---
 
-## ISSUE-005: プライバシーポリシー URL 未用意
+## ISS-004 — Railway 本番環境の未構築
 
-**ステータス**: `[ ]` **対応者**: ユーザー  
-**優先度**: 中（App Store 申請に必須）
-
-**内容**  
-App Store / Google Play への申請にはプライバシーポリシーの公開 URL が必要。  
-個人間取引サービスのため、以下を含むポリシーの作成が必要。
-
-**含めるべき主な項目**
-- 収集する情報（Googleアカウント情報、位置情報等）
-- 情報の利用目的
-- 第三者への提供（Supabase / Expo / Google）
-- データ保存期間・削除方法
-- お問い合わせ先
-
-**推奨対応**
-- GitHub Pages / Notion / Webサイトに公開
-- 無料テンプレート例: https://www.freeprivacypolicy.com
+| 項目         | 内容                                                           |
+| ------------ | -------------------------------------------------------------- |
+| 発生日時     | 2026-06-21 頃                                                  |
+| ステータス   | `open`                                                         |
+| 課題内容     | Railway の staging / production サービスが未作成。バックエンドが本番環境にデプロイされていない |
+| 影響範囲     | TestFlight 配布・本番リリース全般                              |
+| 必要なアクション | 1. Railway アカウント作成・プロジェクト作成<br>2. staging サービス（develop ブランチ連携）<br>3. production サービス（main ブランチ連携）<br>4. 各サービスに環境変数設定<br>5. GitHub Secrets に Railway Token を登録 |
+| 解決日時     | —                                                              |
+| 解決方法     | —                                                              |
 
 ---
 
-## ISSUE-006: アプリアイコン・スプラッシュ画像 未作成
+## ISS-005 — EAS Build 未設定（TestFlight 配布不可）
 
-**ステータス**: `[ ]` **対応者**: ユーザー（またはデザイナー）  
-**優先度**: 中（App Store 申請前に必要）
-
-**内容**  
-App Store / Google Play 申請には規定サイズのアイコン・スプラッシュ画像が必要。  
-現在はデフォルトの Expo アイコンを使用。
-
-**必要なアセット**
-
-| ファイル | サイズ | 場所 |
-|---------|--------|------|
-| アプリアイコン | 1024×1024px (PNG) | `mobile/assets/images/icon.png` |
-| Adaptive Icon（Android） | 1024×1024px (PNG) | `mobile/assets/images/adaptive-icon.png` |
-| スプラッシュ画像 | 1284×2778px (PNG) | `mobile/assets/images/splash-icon.png` |
-
-**デザイン候補**
-- 台車のシルエット + 「ダイシェア」テキスト
-- メインカラー: `#3b82f6`（青）、背景: `#ffffff`
+| 項目         | 内容                                                             |
+| ------------ | ---------------------------------------------------------------- |
+| 発生日時     | 2026-06-21 頃                                                    |
+| ステータス   | `open`                                                           |
+| 課題内容     | EAS の設定が未完了。TestFlight / Play Store Internal Testing への配布ができない |
+| 影響範囲     | 実機テスト、App Store / Play Store 申請                          |
+| 必要なアクション | 1. `eas-cli` インストール・`eas login`<br>2. `eas build:configure`<br>3. `eas.json` の各プロファイル設定<br>4. GitHub Secrets に EAS Token を登録<br>5. Apple Developer Program 登録確認 |
+| 解決日時     | —                                                                |
+| 解決方法     | —                                                                |
 
 ---
 
-## ISSUE-007: Supabase Storage バケット・RLS 未設定
+## ISS-006 — expo-image-picker が Expo Go で利用不可
 
-**ステータス**: `[ ]` **対応者**: ユーザー（Supabase ダッシュボード操作）  
-**優先度**: 中（画像アップロード機能に必要）
-
-**内容**  
-台車画像・プロフィール画像のアップロードに必要な Storage バケットが未作成。  
-コード側の実装（ISSUE 解消後すぐ動く）は先行して進める。
-
-**影響するタスク**
-- `2-1` Storage バケット作成 + RLS
-- `2-4` 台車画像アップロード
-- `1-3` プロフィール画像アップロード
-
-**Supabase ダッシュボードでの手順**
-1. Storage → New bucket → `cart-images`（Public: OFF）
-2. Storage → New bucket → `avatar-images`（Public: ON）
-3. `cart-images` の RLS ポリシー:
-   - SELECT: `auth.uid()::text = (storage.foldername(name))[1]` （本人のみ閲覧）  
-     ※ または Public にして URL を秘匿する設計でも可
-   - INSERT: `auth.uid()::text = (storage.foldername(name))[1]`
-   - DELETE: `auth.uid()::text = (storage.foldername(name))[1]`
-4. `avatar-images` の RLS ポリシー:
-   - SELECT: `true`（全員閲覧可）
-   - INSERT/DELETE: `auth.uid()::text = (storage.foldername(name))[1]`
-
----
-
-## ISSUE-008: Supabase Realtime 設定未対応
-
-**ステータス**: `[ ]` **対応者**: ユーザー（Supabase ダッシュボード操作）  
-**優先度**: 中（メッセージリアルタイム受信に必要）
-
-**内容**  
-Supabase Realtime でメッセージ・通知をリアルタイム受信するために、  
-ダッシュボードでテーブルの Realtime 有効化と RLS 設定が必要。  
-モバイル側コードは実装済み（本 issue 解消後に動作する）。
-
-**Supabase ダッシュボードでの手順**
-1. Database → Replication → Source → `supabase_realtime` → Tables
-2. `messages` テーブルの `INSERT` を有効化
-3. `notifications` テーブルの `INSERT` / `UPDATE` を有効化
-4. RLS: `messages` に以下ポリシーを追加（Realtime 購読用）
-   ```sql
-   -- messages の SELECT RLS（当事者のみ）
-   CREATE POLICY "messages_select" ON messages
-     FOR SELECT USING (
-       auth.uid() IN (
-         SELECT renter_id FROM rental_requests WHERE id = rental_request_id
-         UNION
-         SELECT owner_id FROM carts WHERE id IN (
-           SELECT cart_id FROM rental_requests WHERE id = rental_request_id
-         )
-       )
-     );
-   ```
+| 項目         | 内容                                                                          |
+| ------------ | ----------------------------------------------------------------------------- |
+| 発生日時     | 2026-06-22                                                                    |
+| ステータス   | `in-progress`                                                                 |
+| 課題内容     | `expo-image-picker` はネイティブモジュールのため Expo Go では動作しない。アバター変更機能が Expo Go でテストできない |
+| 影響範囲     | プロフィール編集画面のアバター変更機能                                        |
+| 必要なアクション | EAS Build で Development Build を作成して実機にインストールする（ISS-005 解決後） |
+| 暫定対応     | 動的インポート + try/catch で Expo Go 時はアラート表示（グレースフルデグレード）実装済み（ERR-006 参照） |
+| 解決日時     | —（ISS-005 解決後に対応予定）                                                |
+| 解決方法     | —                                                                             |
