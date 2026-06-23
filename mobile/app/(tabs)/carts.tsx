@@ -42,7 +42,7 @@ function CartCard({
   const isActive = cart.status === 'active';
 
   return (
-    <View style={s.card}>
+    <Pressable style={s.card} onPress={() => router.push(`/carts/${cart.id}/edit` as any)}>
       {/* サムネイル */}
       <View style={s.thumb}>
         {cart.image_urls.length > 0 ? (
@@ -84,29 +84,22 @@ function CartCard({
         </View>
       </View>
 
-      {/* アクション */}
-      <View style={s.actions}>
-        <Pressable
-          style={s.editBtn}
-          onPress={() => router.push(`/carts/${cart.id}/edit` as any)}
-          accessibilityLabel="編集"
-        >
-          <Text style={s.editIcon}>✏️</Text>
-        </Pressable>
-        <Pressable
-          style={s.deleteBtn}
-          onPress={() =>
-            Alert.alert('台車を削除', `「${cart.title}」を削除しますか？`, [
-              { text: 'キャンセル', style: 'cancel' },
-              { text: '削除', style: 'destructive', onPress: () => onDelete(cart.id) },
-            ])
-          }
-          accessibilityLabel="削除"
-        >
-          <Text style={s.deleteIcon}>🗑</Text>
-        </Pressable>
-      </View>
-    </View>
+      {/* 削除ボタン */}
+      <Pressable
+        style={s.deleteBtn}
+        onPress={(e) => {
+          e.stopPropagation();
+          Alert.alert('台車を削除', `「${cart.title}」を削除しますか？`, [
+            { text: 'キャンセル', style: 'cancel' },
+            { text: '削除', style: 'destructive', onPress: () => onDelete(cart.id) },
+          ]);
+        }}
+        accessibilityLabel="削除"
+        hitSlop={8}
+      >
+        <Text style={s.deleteIcon}>🗑</Text>
+      </Pressable>
+    </Pressable>
   );
 }
 
@@ -281,16 +274,11 @@ const s = StyleSheet.create({
   statusOn: { color: '#059669' },
   statusOff: { color: '#9ca3af' },
 
-  actions: {
-    flexDirection: 'column', borderLeftWidth: StyleSheet.hairlineWidth, borderLeftColor: '#e5e7eb',
+  deleteBtn: {
+    paddingHorizontal: 14, alignSelf: 'stretch', alignItems: 'center', justifyContent: 'center',
+    borderLeftWidth: StyleSheet.hairlineWidth, borderLeftColor: '#e5e7eb',
   },
-  editBtn: {
-    flex: 1, paddingHorizontal: 14, alignItems: 'center', justifyContent: 'center',
-    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#e5e7eb',
-  },
-  editIcon: { fontSize: 18 },
-  deleteBtn: { flex: 1, paddingHorizontal: 14, alignItems: 'center', justifyContent: 'center' },
-  deleteIcon: { fontSize: 18 },
+  deleteIcon: { fontSize: 20 },
 
   // FAB
   fab: {
