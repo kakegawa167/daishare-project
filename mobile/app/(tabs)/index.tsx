@@ -2,7 +2,7 @@ import { api } from '@/lib/api';
 import { Cart, CartCategory } from '@/lib/types';
 import { EmptyScreen, LoadingScreen } from '@/components/ScreenState';
 import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Dimensions,
   FlatList,
@@ -20,7 +20,7 @@ import {
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = (width - 48) / 2;
 
-// ─── 定数 ───────────────────────────────────────
+// ─── 定数 ────────────────────────────────────────
 const TOKYO_23KU = [
   '千代田区','中央区','港区','新宿区','文京区','台東区',
   '墨田区','江東区','品川区','目黒区','大田区','世田谷区',
@@ -36,39 +36,60 @@ const CATEGORIES: { value: CartCategory; label: string }[] = [
   { value: 'other',         label: 'その他' },
 ];
 
+const PRICE_OPTIONS: { label: string; value: number | null }[] = [
+  { label: '上限なし', value: null },
+  { label: '〜¥1,000/日', value: 1000 },
+  { label: '〜¥3,000/日', value: 3000 },
+  { label: '〜¥5,000/日', value: 5000 },
+];
+
+type SortKey = 'newest' | 'price_asc' | 'price_desc';
+const SORT_OPTIONS: { key: SortKey; label: string }[] = [
+  { key: 'newest',     label: '新しい順' },
+  { key: 'price_asc',  label: '価格の安い順' },
+  { key: 'price_desc', label: '価格の高い順' },
+];
+
 type AreaGroup = { label: string; items: string[] };
 
 function groupMunicipalities(municipalities: string[]): AreaGroup[] {
-  const ku23   = municipalities.filter(m => TOKYO_23KU.includes(m));
-  const shi    = municipalities.filter(m => !TOKYO_23KU.includes(m) && m.endsWith('市') && !m.includes('市') === false && !m.startsWith('横浜市') && !m.startsWith('川崎市'));
+  const ku23     = municipalities.filter(m => TOKYO_23KU.includes(m));
   const kanagawa = municipalities.filter(m => m.startsWith('横浜市') || m.startsWith('川崎市'));
-  const other  = municipalities.filter(
+  const shi      = municipalities.filter(
+    m => !TOKYO_23KU.includes(m) && !kanagawa.includes(m) && (m.endsWith('市') || m.includes('市'))
+  );
+  const other    = municipalities.filter(
     m => !ku23.includes(m) && !shi.includes(m) && !kanagawa.includes(m)
   );
   const groups: AreaGroup[] = [];
-  if (ku23.length)      groups.push({ label: '東京23区', items: ku23.sort() });
-  if (shi.length)       groups.push({ label: '東京市部', items: shi.sort() });
-  if (kanagawa.length)  groups.push({ label: '神奈川県', items: kanagawa.sort() });
-  if (other.length)     groups.push({ label: 'その他', items: other.sort() });
+  if (ku23.length)      groups.push({ label: '東京23区', items: [...ku23].sort() });
+  if (shi.length)       groups.push({ label: '東京市部', items: [...shi].sort() });
+  if (kanagawa.length)  groups.push({ label: '神奈川県', items: [...kanagawa].sort() });
+  if (other.length)     groups.push({ label: 'その他',  items: [...other].sort() });
   return groups;
 }
 
-// ─── フィルタ型 ──────────────────────────────────
-interface Filters {
-  municipality: string | null;
+// 台車の「基準価格」（日額 > 週額 > 1回）
+function effectivePrice(cart: Cart): number {
+  return cart.daily_rate ?? cart.weekly_rate ?? cart.per_rental_rate ?? Infinity;
+}
+
+// ─── 絞り込み型 ──────────────────────────────────
+interface FilterState {
   category: CartCategory | null;
   foldable: boolean | null;
+  maxDailyRate: number | null;
 }
-const DEFAULT_FILTERS: Filters = { municipality: null, category: null, foldable: null };
+const DEFAULT_FILTER: FilterState = { category: null, foldable: null, maxDailyRate: null };
 
-// ─── 台車カード ──────────────────────────────────
+function activeFilterCount(f: FilterState): number {
+  return [f.category, f.foldable, f.maxDailyRate].filter(v => v !== null).length;
+}
+
+// ─── 台車カード ───────────────────────────────────
 function CartCard({ cart }: { cart: Cart }) {
   return (
-    <Pressable
-      style={s.card}
-      onPress={() => router.push(`/search/${cart.owner_id}` as any)}
-      accessibilityRole="button"
-    >
+    <Pressable style={s.card} onPress={() => router.push(`/search/${cart.owner_id}` as any)}>
       <View style={s.imageWrap}>
         {cart.image_urls.length > 0 ? (
           <Image source={{ uri: cart.image_urls[0] }} style={s.image} resizeMode="cover" />
@@ -81,9 +102,7 @@ function CartCard({ cart }: { cart: Cart }) {
       <View style={s.cardBody}>
         <Text style={s.cardTitle} numberOfLines={2}>{cart.title}</Text>
         {cart.station_name && (
-          <Text style={s.cardMeta} numberOfLines={1}>
-            📍 {cart.municipality ?? ''} {cart.station_name}
-          </Text>
+          <Text style={s.cardMeta} numberOfLines={1}>📍 {cart.municipality} {cart.station_name}</Text>
         )}
         <Text style={s.cardPrice}>
           {cart.daily_rate != null
@@ -97,58 +116,40 @@ function CartCard({ cart }: { cart: Cart }) {
   );
 }
 
-// ─── エリア選択モーダル ───────────────────────────
+// ─── エリア選択モーダル ──────────────────────────
 function AreaModal({
-  visible, onClose, onSelect, selected,
-}: {
-  visible: boolean;
-  onClose: () => void;
-  onSelect: (m: string | null) => void;
-  selected: string | null;
-}) {
-  const [municipalities, setMunicipalities] = useState<string[]>([]);
+  visible, onClose, selected, onSelect,
+}: { visible: boolean; onClose: () => void; selected: string | null; onSelect: (m: string | null) => void }) {
   const [groups, setGroups] = useState<AreaGroup[]>([]);
 
   useEffect(() => {
     if (!visible) return;
-    api.get<string[]>('/stations/municipalities').then(r => {
-      setMunicipalities(r.data);
-      setGroups(groupMunicipalities(r.data));
-    }).catch(() => {});
+    api.get<string[]>('/stations/municipalities')
+      .then(r => setGroups(groupMunicipalities(r.data)))
+      .catch(() => {});
   }, [visible]);
+
+  const pick = (m: string | null) => { onSelect(m); onClose(); };
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
-      <View style={m.container}>
-        <View style={m.header}>
-          <Text style={m.headerTitle}>エリアを選択</Text>
-          <Pressable onPress={onClose} style={m.closeBtn}>
-            <Text style={m.closeBtnText}>閉じる</Text>
-          </Pressable>
+      <View style={am.container}>
+        <View style={am.header}>
+          <Text style={am.title}>エリアを選択</Text>
+          <Pressable onPress={onClose}><Text style={am.close}>閉じる</Text></Pressable>
         </View>
-        <ScrollView style={m.scroll} showsVerticalScrollIndicator={false}>
-          {/* 全エリア */}
-          <Pressable
-            style={[m.item, selected === null && m.itemSel]}
-            onPress={() => { onSelect(null); onClose(); }}
-          >
-            <Text style={[m.itemText, selected === null && m.itemTextSel]}>すべてのエリア</Text>
-            {selected === null && <Text style={m.check}>✓</Text>}
+        <ScrollView showsVerticalScrollIndicator={false}>
+          <Pressable style={[am.item, selected === null && am.itemSel]} onPress={() => pick(null)}>
+            <Text style={[am.itemText, selected === null && am.itemTextSel]}>すべてのエリア</Text>
+            {selected === null && <Text style={am.check}>✓</Text>}
           </Pressable>
-
-          {groups.map(group => (
-            <View key={group.label}>
-              <View style={m.groupHeader}>
-                <Text style={m.groupLabel}>{group.label}</Text>
-              </View>
-              {group.items.map(muni => (
-                <Pressable
-                  key={muni}
-                  style={[m.item, m.itemIndent, selected === muni && m.itemSel]}
-                  onPress={() => { onSelect(muni); onClose(); }}
-                >
-                  <Text style={[m.itemText, selected === muni && m.itemTextSel]}>{muni}</Text>
-                  {selected === muni && <Text style={m.check}>✓</Text>}
+          {groups.map(g => (
+            <View key={g.label}>
+              <View style={am.groupHeader}><Text style={am.groupLabel}>{g.label}</Text></View>
+              {g.items.map(muni => (
+                <Pressable key={muni} style={[am.item, am.itemIndent, selected === muni && am.itemSel]} onPress={() => pick(muni)}>
+                  <Text style={[am.itemText, selected === muni && am.itemTextSel]}>{muni}</Text>
+                  {selected === muni && <Text style={am.check}>✓</Text>}
                 </Pressable>
               ))}
             </View>
@@ -160,57 +161,67 @@ function AreaModal({
   );
 }
 
+// ─── ソートメニュー ──────────────────────────────
+function SortMenu({
+  visible, current, onSelect, onClose,
+}: { visible: boolean; current: SortKey; onSelect: (k: SortKey) => void; onClose: () => void }) {
+  if (!visible) return null;
+  return (
+    <>
+      <Pressable style={sm.backdrop} onPress={onClose} />
+      <View style={sm.menu}>
+        {SORT_OPTIONS.map(opt => (
+          <Pressable
+            key={opt.key}
+            style={[sm.item, current === opt.key && sm.itemSel]}
+            onPress={() => { onSelect(opt.key); onClose(); }}
+          >
+            <Text style={[sm.itemText, current === opt.key && sm.itemTextSel]}>{opt.label}</Text>
+            {current === opt.key && <Text style={sm.check}>✓</Text>}
+          </Pressable>
+        ))}
+      </View>
+    </>
+  );
+}
+
 // ─── 絞り込みモーダル ─────────────────────────────
 function FilterModal({
-  visible, onClose, filters, onChange,
-}: {
-  visible: boolean;
-  onClose: () => void;
-  filters: Filters;
-  onChange: (f: Filters) => void;
-}) {
-  const [draft, setDraft] = useState<Filters>(filters);
-
-  useEffect(() => { if (visible) setDraft(filters); }, [visible]);
-
-  const apply = () => { onChange(draft); onClose(); };
-  const reset = () => setDraft({ ...DEFAULT_FILTERS, municipality: filters.municipality });
+  visible, onClose, filter, onApply,
+}: { visible: boolean; onClose: () => void; filter: FilterState; onApply: (f: FilterState) => void }) {
+  const [draft, setDraft] = useState<FilterState>(filter);
+  useEffect(() => { if (visible) setDraft(filter); }, [visible, filter]);
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
-      <View style={f.container}>
-        <View style={f.header}>
-          <Pressable onPress={reset}>
-            <Text style={f.resetText}>リセット</Text>
+      <View style={fm.container}>
+        <View style={fm.header}>
+          <Pressable onPress={() => setDraft(DEFAULT_FILTER)}>
+            <Text style={fm.reset}>リセット</Text>
           </Pressable>
-          <Text style={f.headerTitle}>絞り込み</Text>
-          <Pressable onPress={onClose}>
-            <Text style={f.closeText}>閉じる</Text>
-          </Pressable>
+          <Text style={fm.title}>絞り込み</Text>
+          <Pressable onPress={onClose}><Text style={fm.close}>閉じる</Text></Pressable>
         </View>
 
-        <ScrollView style={f.scroll} showsVerticalScrollIndicator={false}>
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
           {/* カテゴリ */}
-          <Text style={f.sectionTitle}>台車タイプ</Text>
-          <View style={f.chips}>
+          <Text style={fm.section}>台車カテゴリー</Text>
+          <View style={fm.chips}>
             {CATEGORIES.map(cat => {
               const sel = draft.category === cat.value;
               return (
-                <Pressable
-                  key={cat.value}
-                  style={[f.chip, sel && f.chipSel]}
-                  onPress={() => setDraft(d => ({ ...d, category: sel ? null : cat.value }))}
-                >
-                  <Text style={[f.chipText, sel && f.chipTextSel]}>{cat.label}</Text>
+                <Pressable key={cat.value} style={[fm.chip, sel && fm.chipSel]}
+                  onPress={() => setDraft(d => ({ ...d, category: sel ? null : cat.value }))}>
+                  <Text style={[fm.chipText, sel && fm.chipTextSel]}>{cat.label}</Text>
                 </Pressable>
               );
             })}
           </View>
 
-          {/* 折りたたみ */}
-          <Text style={f.sectionTitle}>オプション</Text>
-          <View style={f.row}>
-            <Text style={f.rowLabel}>折りたたみ可能のみ</Text>
+          {/* スペック */}
+          <Text style={fm.section}>スペック</Text>
+          <View style={fm.switchRow}>
+            <Text style={fm.switchLabel}>折りたたみ可能のみ</Text>
             <Switch
               value={draft.foldable === true}
               onValueChange={v => setDraft(d => ({ ...d, foldable: v ? true : null }))}
@@ -220,12 +231,24 @@ function FilterModal({
             />
           </View>
 
-          <View style={{ height: 40 }} />
+          {/* 料金 */}
+          <Text style={fm.section}>料金（日額）</Text>
+          <View style={fm.chips}>
+            {PRICE_OPTIONS.map(opt => {
+              const sel = draft.maxDailyRate === opt.value;
+              return (
+                <Pressable key={String(opt.value)} style={[fm.chip, sel && fm.chipSel]}
+                  onPress={() => setDraft(d => ({ ...d, maxDailyRate: opt.value }))}>
+                  <Text style={[fm.chipText, sel && fm.chipTextSel]}>{opt.label}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
         </ScrollView>
 
-        <View style={f.footer}>
-          <Pressable style={f.applyBtn} onPress={apply}>
-            <Text style={f.applyBtnText}>この条件で検索</Text>
+        <View style={fm.footer}>
+          <Pressable style={fm.applyBtn} onPress={() => { onApply(draft); onClose(); }}>
+            <Text style={fm.applyText}>この条件で絞り込む</Text>
           </Pressable>
         </View>
       </View>
@@ -235,144 +258,150 @@ function FilterModal({
 
 // ─── メイン画面 ──────────────────────────────────
 export default function Home() {
-  const [carts, setCarts] = useState<Cart[]>([]);
+  const [allCarts, setAllCarts] = useState<Cart[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
-  const [areaModal, setAreaModal] = useState(false);
+
+  // エリア（API フィルタ）
+  const [municipality, setMunicipality] = useState<string | null>(null);
+  // 絞り込み（クライアントサイド）
+  const [filter, setFilter] = useState<FilterState>(DEFAULT_FILTER);
+  // ソート（クライアントサイド）
+  const [sortKey, setSortKey] = useState<SortKey>('newest');
+
+  // モーダル表示状態
+  const [areaModal, setAreaModal]     = useState(false);
+  const [sortMenu, setSortMenu]       = useState(false);
   const [filterModal, setFilterModal] = useState(false);
 
-  const fetchCarts = useCallback(async (f: Filters = filters) => {
+  const fetchCarts = useCallback(async (muni: string | null = municipality) => {
     setError(false);
     try {
       const params: Record<string, string> = {};
-      if (f.municipality) params.municipality = f.municipality;
-      if (f.category)     params.category = f.category;
-      if (f.foldable !== null) params.foldable = String(f.foldable);
+      if (muni) params.municipality = muni;
       const res = await api.get<Cart[]>('/carts', { params });
-      setCarts(res.data);
+      setAllCarts(res.data);
     } catch {
       setError(true);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [filters]);
+  }, [municipality]);
 
-  useFocusEffect(useCallback(() => { fetchCarts(filters); }, []));
+  useFocusEffect(useCallback(() => { fetchCarts(municipality); }, []));
 
-  const handleFiltersChange = (next: Filters) => {
-    setFilters(next);
-    fetchCarts(next);
+  const handleAreaSelect = (muni: string | null) => {
+    setMunicipality(muni);
+    fetchCarts(muni);
   };
 
-  const handleRefresh = () => { setRefreshing(true); fetchCarts(filters); };
+  const handleRefresh = () => { setRefreshing(true); fetchCarts(municipality); };
 
-  // アクティブフィルタ数（エリア除く）
-  const activeFilterCount = [filters.category, filters.foldable].filter(v => v !== null).length;
+  // クライアントサイドフィルタ + ソート
+  const displayedCarts = useMemo(() => {
+    let result = [...allCarts];
+
+    if (filter.category)
+      result = result.filter(c => c.category === filter.category);
+    if (filter.foldable === true)
+      result = result.filter(c => c.foldable);
+    if (filter.maxDailyRate !== null)
+      result = result.filter(c => (c.daily_rate ?? Infinity) <= filter.maxDailyRate!);
+
+    if (sortKey === 'price_asc')
+      result.sort((a, b) => effectivePrice(a) - effectivePrice(b));
+    else if (sortKey === 'price_desc')
+      result.sort((a, b) => effectivePrice(b) - effectivePrice(a));
+    // newest: APIが id DESC で返すのでそのまま
+
+    return result;
+  }, [allCarts, filter, sortKey]);
+
+  const filterCount = activeFilterCount(filter);
+  const sortLabel   = SORT_OPTIONS.find(o => o.key === sortKey)?.label ?? '新しい順';
 
   if (loading) return <LoadingScreen />;
 
   return (
     <View style={s.container}>
-      {/* ── 検索バー ── */}
+
+      {/* ── 検索バー（エリアのみ） ── */}
       <View style={s.searchBar}>
-        {/* エリアボタン */}
-        <Pressable
-          style={[s.filterBtn, filters.municipality && s.filterBtnActive]}
-          onPress={() => setAreaModal(true)}
-        >
-          <Text style={[s.filterBtnText, filters.municipality && s.filterBtnTextActive]} numberOfLines={1}>
-            📍 {filters.municipality ?? 'エリア'}
+        <Pressable style={s.searchBtn} onPress={() => setAreaModal(true)}>
+          <Text style={s.searchIcon}>🔍</Text>
+          <Text style={[s.searchText, municipality ? s.searchTextActive : null]} numberOfLines={1}>
+            {municipality ?? 'エリアで検索'}
           </Text>
-          {filters.municipality && (
-            <Pressable
-              hitSlop={8}
-              onPress={() => handleFiltersChange({ ...filters, municipality: null })}
-            >
-              <Text style={s.filterClear}>×</Text>
+          {municipality && (
+            <Pressable hitSlop={10} onPress={() => handleAreaSelect(null)}>
+              <Text style={s.searchClear}>×</Text>
             </Pressable>
           )}
         </Pressable>
-
-        {/* 絞り込みボタン */}
-        <Pressable
-          style={[s.filterBtn, activeFilterCount > 0 && s.filterBtnActive]}
-          onPress={() => setFilterModal(true)}
-        >
-          <Text style={[s.filterBtnText, activeFilterCount > 0 && s.filterBtnTextActive]}>
-            {activeFilterCount > 0 ? `絞り込み (${activeFilterCount})` : '絞り込み'}
-          </Text>
-        </Pressable>
       </View>
 
-      {/* アクティブフィルタ チップ */}
-      {(filters.category || filters.foldable !== null) && (
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={s.chipBar}
-          contentContainerStyle={s.chipBarContent}
-        >
-          {filters.category && (
-            <View style={s.activeChip}>
-              <Text style={s.activeChipText}>
-                {CATEGORIES.find(c => c.value === filters.category)?.label}
-              </Text>
-              <Pressable hitSlop={8} onPress={() => handleFiltersChange({ ...filters, category: null })}>
-                <Text style={s.activeChipClose}>×</Text>
-              </Pressable>
-            </View>
-          )}
-          {filters.foldable === true && (
-            <View style={s.activeChip}>
-              <Text style={s.activeChipText}>折りたたみ可</Text>
-              <Pressable hitSlop={8} onPress={() => handleFiltersChange({ ...filters, foldable: null })}>
-                <Text style={s.activeChipClose}>×</Text>
-              </Pressable>
-            </View>
-          )}
-        </ScrollView>
-      )}
-
-      {/* ── 一覧 ── */}
       {error ? (
         <View style={s.fill}>
-          <EmptyScreen icon="⚠️" message="台車の取得に失敗しました" action={{ label: '再試行', onPress: () => fetchCarts(filters) }} />
+          <EmptyScreen icon="⚠️" message="台車の取得に失敗しました" action={{ label: '再試行', onPress: () => fetchCarts() }} />
         </View>
       ) : (
         <FlatList
-          data={carts}
+          data={displayedCarts}
           keyExtractor={item => String(item.id)}
           numColumns={2}
           columnWrapperStyle={s.row}
-          contentContainerStyle={carts.length === 0 ? s.emptyContainer : s.listContent}
+          contentContainerStyle={displayedCarts.length === 0 ? s.emptyContainer : s.listContent}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#3b82f6" />}
           renderItem={({ item }) => <CartCard cart={item} />}
           ListEmptyComponent={
             <View style={s.fill}>
-              <EmptyScreen
-                icon="🔍"
-                message="台車が見つかりませんでした"
-                subMessage="条件を変えてもう一度お試しください"
-              />
+              <EmptyScreen icon="🔍" message="台車が見つかりませんでした" subMessage="条件を変えてみてください" />
+            </View>
+          }
+          ListHeaderComponent={
+            <View style={s.toolbar}>
+              {/* 件数 */}
+              <Text style={s.count}>{displayedCarts.length}件</Text>
+
+              <View style={s.toolbarRight}>
+                {/* ソート */}
+                <Pressable style={s.toolBtn} onPress={() => setSortMenu(v => !v)}>
+                  <Text style={s.toolBtnText}>{sortLabel} ▾</Text>
+                </Pressable>
+
+                {/* 絞り込み */}
+                <Pressable style={[s.toolBtn, filterCount > 0 && s.toolBtnActive]} onPress={() => setFilterModal(true)}>
+                  <Text style={[s.toolBtnText, filterCount > 0 && s.toolBtnTextActive]}>
+                    ≡ 絞り込み{filterCount > 0 ? ` (${filterCount})` : ''}
+                  </Text>
+                </Pressable>
+              </View>
             </View>
           }
         />
       )}
 
+      {/* ソートメニュー（ドロップダウン） */}
+      <SortMenu
+        visible={sortMenu}
+        current={sortKey}
+        onSelect={k => setSortKey(k)}
+        onClose={() => setSortMenu(false)}
+      />
+
       <AreaModal
         visible={areaModal}
         onClose={() => setAreaModal(false)}
-        selected={filters.municipality}
-        onSelect={muni => handleFiltersChange({ ...filters, municipality: muni })}
+        selected={municipality}
+        onSelect={handleAreaSelect}
       />
       <FilterModal
         visible={filterModal}
         onClose={() => setFilterModal(false)}
-        filters={filters}
-        onChange={next => handleFiltersChange({ ...filters, ...next })}
+        filter={filter}
+        onApply={setFilter}
       />
     </View>
   );
@@ -384,44 +413,38 @@ const s = StyleSheet.create({
   fill: { flex: 1 },
 
   searchBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
     backgroundColor: '#fff',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#e5e7eb',
-    gap: 8,
+    paddingHorizontal: 16, paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#e5e7eb',
   },
-  filterBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    flex: 1,
-    height: 38,
-    borderRadius: 19,
-    borderWidth: 1.5,
-    borderColor: '#e5e7eb',
-    backgroundColor: '#f9fafb',
-    paddingHorizontal: 14,
-    justifyContent: 'center',
+  searchBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: '#f3f4f6', borderRadius: 22,
+    paddingHorizontal: 14, paddingVertical: 10,
+    borderWidth: 1, borderColor: '#e5e7eb',
   },
-  filterBtnActive: { borderColor: '#3b82f6', backgroundColor: '#eff6ff' },
-  filterBtnText: { fontSize: 14, color: '#6b7280', fontWeight: '500', flexShrink: 1 },
-  filterBtnTextActive: { color: '#3b82f6', fontWeight: '700' },
-  filterClear: { fontSize: 16, color: '#3b82f6', fontWeight: '700', marginLeft: 2 },
+  searchIcon: { fontSize: 15, color: '#9ca3af' },
+  searchText: { flex: 1, fontSize: 15, color: '#9ca3af', fontWeight: '500' },
+  searchTextActive: { color: '#111827', fontWeight: '600' },
+  searchClear: { fontSize: 18, color: '#6b7280', fontWeight: '700', paddingHorizontal: 2 },
 
-  chipBar: { backgroundColor: '#fff', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#f0f0f0' },
-  chipBarContent: { paddingHorizontal: 16, paddingVertical: 8, gap: 8, flexDirection: 'row' },
-  activeChip: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    backgroundColor: '#dbeafe', borderRadius: 14, paddingHorizontal: 10, paddingVertical: 4,
+  // 結果ツールバー
+  toolbar: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 16, paddingTop: 14, paddingBottom: 10,
   },
-  activeChipText: { fontSize: 13, color: '#1d4ed8', fontWeight: '600' },
-  activeChipClose: { fontSize: 15, color: '#3b82f6', fontWeight: '700' },
+  count: { fontSize: 13, color: '#6b7280', fontWeight: '500' },
+  toolbarRight: { flexDirection: 'row', gap: 8 },
+  toolBtn: {
+    paddingHorizontal: 10, paddingVertical: 6, borderRadius: 14,
+    borderWidth: 1, borderColor: '#e5e7eb', backgroundColor: '#fff',
+  },
+  toolBtnActive: { borderColor: '#3b82f6', backgroundColor: '#eff6ff' },
+  toolBtnText: { fontSize: 12, color: '#374151', fontWeight: '600' },
+  toolBtnTextActive: { color: '#3b82f6' },
 
-  listContent: { padding: 16, gap: 12 },
-  emptyContainer: { flexGrow: 1, padding: 16 },
+  listContent: { paddingHorizontal: 16, paddingBottom: 24, gap: 12 },
+  emptyContainer: { flexGrow: 1, paddingHorizontal: 16 },
   row: { gap: 12, justifyContent: 'space-between' },
   card: {
     width: CARD_WIDTH, backgroundColor: '#fff', borderRadius: 12, overflow: 'hidden',
@@ -438,27 +461,43 @@ const s = StyleSheet.create({
   cardPriceSuffix: { fontSize: 11, fontWeight: '400', color: '#6b7280' },
 });
 
+// ─── スタイル: ソートメニュー ─────────────────────
+const sm = StyleSheet.create({
+  backdrop: {
+    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 10,
+  },
+  menu: {
+    position: 'absolute', top: 110, right: 16, zIndex: 20,
+    backgroundColor: '#fff', borderRadius: 12, minWidth: 160,
+    shadowColor: '#000', shadowOpacity: 0.12, shadowRadius: 12, elevation: 8,
+    borderWidth: StyleSheet.hairlineWidth, borderColor: '#e5e7eb',
+  },
+  item: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 16, paddingVertical: 13,
+    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#f3f4f6',
+  },
+  itemSel: { backgroundColor: '#eff6ff' },
+  itemText: { fontSize: 14, color: '#374151', fontWeight: '500' },
+  itemTextSel: { color: '#3b82f6', fontWeight: '700' },
+  check: { fontSize: 14, color: '#3b82f6', fontWeight: '700' },
+});
+
 // ─── スタイル: エリアモーダル ─────────────────────
-const m = StyleSheet.create({
+const am = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f5f6f8' },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 20, paddingVertical: 16,
-    backgroundColor: '#fff',
+    paddingHorizontal: 20, paddingVertical: 16, backgroundColor: '#fff',
     borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#e5e7eb',
   },
-  headerTitle: { fontSize: 17, fontWeight: '700', color: '#111827' },
-  closeBtn: { paddingVertical: 4, paddingHorizontal: 8 },
-  closeBtnText: { fontSize: 15, color: '#3b82f6', fontWeight: '600' },
-  scroll: { flex: 1 },
-  groupHeader: {
-    paddingHorizontal: 20, paddingTop: 20, paddingBottom: 6,
-  },
-  groupLabel: { fontSize: 12, fontWeight: '700', color: '#9ca3af', letterSpacing: 0.5, textTransform: 'uppercase' },
+  title: { fontSize: 17, fontWeight: '700', color: '#111827' },
+  close: { fontSize: 15, color: '#3b82f6', fontWeight: '600' },
+  groupHeader: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 6 },
+  groupLabel: { fontSize: 11, fontWeight: '700', color: '#9ca3af', letterSpacing: 0.5, textTransform: 'uppercase' },
   item: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 20, paddingVertical: 14,
-    backgroundColor: '#fff',
+    paddingHorizontal: 20, paddingVertical: 14, backgroundColor: '#fff',
     borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#f3f4f6',
   },
   itemIndent: { paddingLeft: 28 },
@@ -469,46 +508,42 @@ const m = StyleSheet.create({
 });
 
 // ─── スタイル: 絞り込みモーダル ──────────────────
-const f = StyleSheet.create({
+const fm = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f5f6f8' },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 20, paddingVertical: 16,
-    backgroundColor: '#fff',
+    paddingHorizontal: 20, paddingVertical: 16, backgroundColor: '#fff',
     borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#e5e7eb',
   },
-  headerTitle: { fontSize: 17, fontWeight: '700', color: '#111827' },
-  resetText: { fontSize: 15, color: '#6b7280' },
-  closeText: { fontSize: 15, color: '#3b82f6', fontWeight: '600' },
-  scroll: { flex: 1 },
-  sectionTitle: {
-    fontSize: 13, fontWeight: '700', color: '#6b7280',
-    letterSpacing: 0.5, textTransform: 'uppercase',
-    marginTop: 24, marginBottom: 10, marginHorizontal: 20,
+  title: { fontSize: 17, fontWeight: '700', color: '#111827' },
+  reset: { fontSize: 14, color: '#6b7280' },
+  close: { fontSize: 15, color: '#3b82f6', fontWeight: '600' },
+  section: {
+    fontSize: 12, fontWeight: '700', color: '#6b7280', letterSpacing: 0.5,
+    textTransform: 'uppercase', marginTop: 24, marginBottom: 12, marginHorizontal: 20,
   },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingHorizontal: 20 },
   chip: {
-    paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20,
+    paddingHorizontal: 14, paddingVertical: 9, borderRadius: 20,
     borderWidth: 1.5, borderColor: '#e5e7eb', backgroundColor: '#fff',
   },
   chipSel: { borderColor: '#3b82f6', backgroundColor: '#eff6ff' },
-  chipText: { fontSize: 14, color: '#6b7280', fontWeight: '500' },
+  chipText: { fontSize: 13, color: '#6b7280', fontWeight: '500' },
   chipTextSel: { color: '#3b82f6', fontWeight: '700' },
-  row: {
+  switchRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     backgroundColor: '#fff', paddingHorizontal: 20, paddingVertical: 14,
     borderTopWidth: StyleSheet.hairlineWidth, borderBottomWidth: StyleSheet.hairlineWidth,
     borderColor: '#f0f0f0',
   },
-  rowLabel: { fontSize: 15, color: '#374151', fontWeight: '500' },
+  switchLabel: { fontSize: 15, color: '#374151', fontWeight: '500' },
   footer: {
-    padding: 20, paddingBottom: 36,
-    backgroundColor: '#fff',
+    padding: 20, paddingBottom: 36, backgroundColor: '#fff',
     borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: '#e5e7eb',
   },
   applyBtn: {
     backgroundColor: '#3b82f6', borderRadius: 14, padding: 16, alignItems: 'center',
     shadowColor: '#3b82f6', shadowOpacity: 0.3, shadowRadius: 8, elevation: 4,
   },
-  applyBtnText: { fontSize: 16, fontWeight: '800', color: '#fff' },
+  applyText: { fontSize: 16, fontWeight: '800', color: '#fff' },
 });
