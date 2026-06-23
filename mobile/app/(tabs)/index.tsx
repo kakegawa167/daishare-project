@@ -118,9 +118,24 @@ function CartCard({ cart }: { cart: Cart }) {
 
 // ─── エリア選択モーダル ──────────────────────────
 function AreaModal({
-  visible, onClose, selected, onSelect,
-}: { visible: boolean; onClose: () => void; selected: string | null; onSelect: (m: string | null) => void }) {
+  visible, onClose, selected, onSelect, allCarts,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  selected: string | null;
+  onSelect: (m: string | null) => void;
+  allCarts: Cart[];
+}) {
   const [groups, setGroups] = useState<AreaGroup[]>([]);
+
+  // 市区町村ごとの台車数（allCarts から集計）
+  const countByMuni = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const c of allCarts) {
+      if (c.municipality) map[c.municipality] = (map[c.municipality] ?? 0) + 1;
+    }
+    return map;
+  }, [allCarts]);
 
   useEffect(() => {
     if (!visible) return;
@@ -139,21 +154,49 @@ function AreaModal({
           <Pressable onPress={onClose}><Text style={am.close}>閉じる</Text></Pressable>
         </View>
         <ScrollView showsVerticalScrollIndicator={false}>
+          {/* すべてのエリア */}
           <Pressable style={[am.item, selected === null && am.itemSel]} onPress={() => pick(null)}>
             <Text style={[am.itemText, selected === null && am.itemTextSel]}>すべてのエリア</Text>
-            {selected === null && <Text style={am.check}>✓</Text>}
-          </Pressable>
-          {groups.map(g => (
-            <View key={g.label}>
-              <View style={am.groupHeader}><Text style={am.groupLabel}>{g.label}</Text></View>
-              {g.items.map(muni => (
-                <Pressable key={muni} style={[am.item, am.itemIndent, selected === muni && am.itemSel]} onPress={() => pick(muni)}>
-                  <Text style={[am.itemText, selected === muni && am.itemTextSel]}>{muni}</Text>
-                  {selected === muni && <Text style={am.check}>✓</Text>}
-                </Pressable>
-              ))}
+            <View style={am.itemRight}>
+              <Text style={[am.count, selected === null && am.countSel]}>{allCarts.length}件</Text>
+              {selected === null && <Text style={am.check}>✓</Text>}
             </View>
-          ))}
+          </Pressable>
+
+          {groups.map(g => {
+            const groupTotal = g.items.reduce((s, m) => s + (countByMuni[m] ?? 0), 0);
+            return (
+              <View key={g.label}>
+                <View style={am.groupHeader}>
+                  <Text style={am.groupLabel}>{g.label}</Text>
+                  <Text style={am.groupCount}>{groupTotal}件</Text>
+                </View>
+                {g.items.map(muni => {
+                  const cnt = countByMuni[muni] ?? 0;
+                  const disabled = cnt === 0;
+                  const isSel = selected === muni;
+                  return (
+                    <Pressable
+                      key={muni}
+                      disabled={disabled}
+                      style={[am.item, am.itemIndent, isSel && am.itemSel, disabled && am.itemDisabled]}
+                      onPress={() => pick(muni)}
+                    >
+                      <Text style={[am.itemText, isSel && am.itemTextSel, disabled && am.itemTextDisabled]}>
+                        {muni}
+                      </Text>
+                      <View style={am.itemRight}>
+                        <Text style={[am.count, isSel && am.countSel, disabled && am.countDisabled]}>
+                          {cnt}件
+                        </Text>
+                        {isSel && <Text style={am.check}>✓</Text>}
+                      </View>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            );
+          })}
           <View style={{ height: 40 }} />
         </ScrollView>
       </View>
@@ -396,6 +439,7 @@ export default function Home() {
         onClose={() => setAreaModal(false)}
         selected={municipality}
         onSelect={handleAreaSelect}
+        allCarts={allCarts}
       />
       <FilterModal
         visible={filterModal}
@@ -493,8 +537,12 @@ const am = StyleSheet.create({
   },
   title: { fontSize: 17, fontWeight: '700', color: '#111827' },
   close: { fontSize: 15, color: '#3b82f6', fontWeight: '600' },
-  groupHeader: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 6 },
+  groupHeader: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 20, paddingTop: 20, paddingBottom: 6,
+  },
   groupLabel: { fontSize: 11, fontWeight: '700', color: '#9ca3af', letterSpacing: 0.5, textTransform: 'uppercase' },
+  groupCount: { fontSize: 11, color: '#9ca3af', fontWeight: '500' },
   item: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 20, paddingVertical: 14, backgroundColor: '#fff',
@@ -502,8 +550,14 @@ const am = StyleSheet.create({
   },
   itemIndent: { paddingLeft: 28 },
   itemSel: { backgroundColor: '#eff6ff' },
+  itemDisabled: { backgroundColor: '#fafafa' },
   itemText: { fontSize: 15, color: '#374151' },
   itemTextSel: { color: '#3b82f6', fontWeight: '700' },
+  itemTextDisabled: { color: '#c8ccd0' },
+  itemRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  count: { fontSize: 12, color: '#9ca3af', fontWeight: '500' },
+  countSel: { color: '#3b82f6' },
+  countDisabled: { color: '#d1d5db' },
   check: { fontSize: 16, color: '#3b82f6', fontWeight: '700' },
 });
 
