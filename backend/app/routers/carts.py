@@ -32,6 +32,7 @@ def _to_response(cart: Cart) -> CartResponse:
         quantity=cart.quantity,
         image_urls=cart.image_urls or [],
         station_id=cart.station_id,
+        lending_address=cart.lending_address,
         status=cart.status,
         owner_name=cart.owner.display_name if cart.owner else None,
         station_name=cart.station.name if cart.station else None,

@@ -18,6 +18,7 @@ const EMPTY: CartFormData = {
   per_rental_rate: '',
   quantity: '1',
   station_id: null,
+  lending_address: '',
   image_urls: [],
 };
 
@@ -39,6 +40,7 @@ export default function NewCart() {
       per_rental_rate: toNum(form.per_rental_rate),
       quantity: Number(form.quantity) || 1,
       station_id: form.station_id,
+      lending_address: form.lending_address.trim() || null,
       image_urls: form.image_urls,
     });
     Alert.alert('完了', '台車を登録しました', [

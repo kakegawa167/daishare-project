@@ -49,6 +49,7 @@ class Cart(Base):
     quantity: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     image_urls: Mapped[list[str]] = mapped_column(ARRAY(Text), nullable=False, default=list)
     station_id: Mapped[int | None] = mapped_column(ForeignKey("stations.id"), nullable=True)
+    lending_address: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[CartStatus] = mapped_column(
         SAEnum(CartStatus, name="cart_status"), nullable=False, default=CartStatus.active
     )

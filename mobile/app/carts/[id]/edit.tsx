@@ -28,6 +28,7 @@ export default function EditCart() {
         per_rental_rate: toStr(c.per_rental_rate),
         quantity: String(c.quantity),
         station_id: c.station_id,
+        lending_address: c.lending_address ?? '',
         image_urls: c.image_urls,
       });
     }).catch(() => Alert.alert('エラー', '台車情報の取得に失敗しました'));
@@ -50,6 +51,7 @@ export default function EditCart() {
       per_rental_rate: toNum(form.per_rental_rate),
       quantity: Number(form.quantity) || 1,
       station_id: form.station_id,
+      lending_address: form.lending_address.trim() || null,
       image_urls: form.image_urls,
     });
     Alert.alert('完了', '台車情報を更新しました', [

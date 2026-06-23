@@ -22,6 +22,7 @@ class CartCreateRequest(BaseModel):
     quantity: int = 1
     image_urls: list[str] = []
     station_id: int | None = None
+    lending_address: str | None = None
 
     @model_validator(mode="after")
     def at_least_one_price(self) -> "CartCreateRequest":
@@ -45,6 +46,7 @@ class CartUpdateRequest(BaseModel):
     quantity: int | None = None
     image_urls: list[str] | None = None
     station_id: int | None = None
+    lending_address: str | None = None
     status: CartStatus | None = None
 
 
@@ -65,6 +67,7 @@ class CartResponse(BaseModel):
     quantity: int
     image_urls: list[str]
     station_id: int | None
+    lending_address: str | None = None
     status: CartStatus
     owner_name: str | None = None
     station_name: str | None = None

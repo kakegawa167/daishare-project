@@ -20,6 +20,7 @@ export interface Cart {
   quantity: number;
   image_urls: string[];
   station_id: number | null;
+  lending_address: string | null;
   status: CartStatus;
   owner_name: string | null;
   station_name: string | null;
@@ -40,6 +41,7 @@ export interface CartFormData {
   per_rental_rate: string;
   quantity: string;
   station_id: number | null;
+  lending_address: string;
   image_urls: string[];
 }
 
