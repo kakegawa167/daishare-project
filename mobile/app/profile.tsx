@@ -1,69 +1,111 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Pressable,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
-  TouchableOpacity,
   View,
 } from 'react-native';
 
 import { api } from '@/lib/api';
-import { AppUser, useAuthStore } from '@/store/authStore';
-import { StationPicker } from '@/components/StationPicker';
+import { useAuthStore } from '@/store/authStore';
 
-type UserType = 'lender' | 'renter' | 'both';
+// ─── 通知設定の型 ────────────────────────────
+const NOTIF_KEY = '@daishare/notif_settings';
 
-const USER_TYPE_LABELS: Record<UserType, string> = {
-  renter: '借主',
-  lender: '貸主',
-  both: '両方',
+type ReminderHour = 6 | 12 | 18 | 24;
+interface NotifSettings {
+  enabled: boolean;
+  request: boolean;
+  message: boolean;
+  reminder: boolean;
+  reminderHour: ReminderHour;
+}
+const DEFAULT_NOTIF: NotifSettings = {
+  enabled: true,
+  request: true,
+  message: true,
+  reminder: true,
+  reminderHour: 18,
 };
 
-interface StationInfo {
-  id: number;
-  name: string;
-  municipality: string;
-  line_id: number;
+const REMINDER_OPTIONS: { value: ReminderHour; label: string }[] = [
+  { value: 6,  label: '6時間前' },
+  { value: 12, label: '12時間前' },
+  { value: 18, label: '18時間前' },
+  { value: 24, label: '24時間前' },
+];
+
+type UserType = 'lender' | 'renter' | 'both';
+const USER_TYPE_LABELS: Record<UserType, string> = { renter: '借主', lender: '貸主', both: '両方' };
+
+// ─── 小コンポーネント ─────────────────────────
+function SectionTitle({ label }: { label: string }) {
+  return (
+    <View style={s.secTitle}>
+      <Text style={s.secLabel}>{label}</Text>
+    </View>
+  );
+}
+function Card({ children }: { children: React.ReactNode }) {
+  return <View style={s.card}>{children}</View>;
+}
+function Row({
+  label, value, last, children,
+}: { label: string; value?: string; last?: boolean; children?: React.ReactNode }) {
+  return (
+    <View style={[s.row, last && s.rowLast]}>
+      <Text style={s.rowLabel}>{label}</Text>
+      {children ?? <Text style={s.rowValue}>{value}</Text>}
+    </View>
+  );
 }
 
+// ─── メイン ───────────────────────────────────
 export default function ProfileScreen() {
   const { user, signOut, syncUser } = useAuthStore();
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [showStationPicker, setShowStationPicker] = useState(false);
-  const [selectedStation, setSelectedStation] = useState<StationInfo | null>(null);
-  const [form, setForm] = useState({
-    display_name: '',
-    bio: '',
-    lending_address: '',
-    user_type: 'renter' as UserType,
-    base_station_id: null as number | null,
-  });
+  const [form, setForm] = useState({ display_name: '', bio: '', user_type: 'renter' as UserType });
+  const [notif, setNotif] = useState<NotifSettings>(DEFAULT_NOTIF);
 
+  // 初期値セット
   useEffect(() => {
     if (user) {
-      setForm({
-        display_name: user.display_name,
-        bio: user.bio ?? '',
-        lending_address: user.lending_address ?? '',
-        user_type: user.user_type,
-        base_station_id: user.base_station_id,
-      });
+      setForm({ display_name: user.display_name, bio: user.bio ?? '', user_type: user.user_type });
     }
   }, [user]);
 
+  // 通知設定ロード
+  useEffect(() => {
+    AsyncStorage.getItem(NOTIF_KEY).then((raw) => {
+      if (raw) setNotif({ ...DEFAULT_NOTIF, ...JSON.parse(raw) });
+    });
+  }, []);
+
+  const saveNotif = (next: NotifSettings) => {
+    setNotif(next);
+    AsyncStorage.setItem(NOTIF_KEY, JSON.stringify(next));
+  };
+  const setN = <K extends keyof NotifSettings>(k: K, v: NotifSettings[K]) =>
+    saveNotif({ ...notif, [k]: v });
+
   const handleSave = async () => {
+    if (!form.display_name.trim()) {
+      Alert.alert('エラー', '名前を入力してください');
+      return;
+    }
     setSaving(true);
     try {
       await api.put('/users/me', {
-        display_name: form.display_name,
-        bio: form.bio || null,
-        lending_address: form.lending_address || null,
+        display_name: form.display_name.trim(),
+        bio: form.bio.trim() || null,
         user_type: form.user_type,
-        base_station_id: form.base_station_id,
       });
       await syncUser();
       setEditing(false);
@@ -74,183 +116,259 @@ export default function ProfileScreen() {
     }
   };
 
-  if (!user) return <ActivityIndicator style={{ flex: 1 }} />;
+  if (!user) return <ActivityIndicator style={{ flex: 1 }} color="#3b82f6" />;
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text style={styles.heading}>プロフィール</Text>
+    <ScrollView style={s.page} contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
 
-      <Text style={styles.label}>表示名</Text>
+      {/* ── プロフィール情報 ── */}
+      <SectionTitle label="プロフィール" />
+      <Card>
+        <Row label="名前" last={!editing}>
+          {editing ? (
+            <TextInput
+              style={s.input}
+              value={form.display_name}
+              onChangeText={(v) => setForm((f) => ({ ...f, display_name: v }))}
+              placeholder="表示名"
+              placeholderTextColor="#c4c4c4"
+              returnKeyType="next"
+            />
+          ) : (
+            <Text style={s.rowValue}>{user.display_name}</Text>
+          )}
+        </Row>
+
+        <View style={s.divider} />
+        <Row label="メールアドレス" value={user.email} last={!editing} />
+
+        {editing && (
+          <>
+            <View style={s.divider} />
+            <Row label="自己紹介" last>
+              <TextInput
+                style={[s.input, s.textarea]}
+                value={form.bio}
+                onChangeText={(v) => setForm((f) => ({ ...f, bio: v }))}
+                placeholder="台車の使い方や注意点など"
+                placeholderTextColor="#c4c4c4"
+                multiline
+                numberOfLines={3}
+                textAlignVertical="top"
+              />
+            </Row>
+          </>
+        )}
+
+        {!editing && user.bio ? (
+          <>
+            <View style={s.divider} />
+            <Row label="自己紹介" value={user.bio} last />
+          </>
+        ) : null}
+      </Card>
+
+      {/* ユーザータイプ */}
+      <SectionTitle label="利用タイプ" />
+      <Card>
+        {editing ? (
+          <View style={s.typeWrap}>
+            {(['renter', 'lender', 'both'] as UserType[]).map((t) => {
+              const sel = form.user_type === t;
+              return (
+                <Pressable key={t} style={[s.typeChip, sel && s.typeChipSel]}
+                  onPress={() => setForm((f) => ({ ...f, user_type: t }))}>
+                  <Text style={[s.typeChipText, sel && s.typeChipTextSel]}>{USER_TYPE_LABELS[t]}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        ) : (
+          <Row label="タイプ" value={USER_TYPE_LABELS[user.user_type]} last />
+        )}
+      </Card>
+
+      {/* 編集ボタン */}
       {editing ? (
-        <TextInput
-          style={styles.input}
-          value={form.display_name}
-          onChangeText={(v) => setForm((f) => ({ ...f, display_name: v }))}
-        />
-      ) : (
-        <Text style={styles.value}>{user.display_name}</Text>
-      )}
-
-      <Text style={styles.label}>メールアドレス</Text>
-      <Text style={styles.value}>{user.email}</Text>
-
-      <Text style={styles.label}>自己紹介</Text>
-      {editing ? (
-        <TextInput
-          style={[styles.input, styles.multiline]}
-          value={form.bio}
-          onChangeText={(v) => setForm((f) => ({ ...f, bio: v }))}
-          multiline
-          numberOfLines={3}
-        />
-      ) : (
-        <Text style={styles.value}>{user.bio ?? '未設定'}</Text>
-      )}
-
-      <Text style={styles.label}>拠点駅</Text>
-      {editing ? (
-        <TouchableOpacity
-          style={styles.stationBtn}
-          onPress={() => setShowStationPicker(true)}
-          accessibilityRole="button"
-          accessibilityLabel="拠点駅を選択"
-        >
-          <Text style={selectedStation || form.base_station_id ? styles.stationBtnText : styles.stationBtnPlaceholder}>
-            {selectedStation ? `${selectedStation.name}駅（${selectedStation.municipality}）` : form.base_station_id ? '駅選択済み（名称読込中）' : '駅を選択してください'}
-          </Text>
-          <Text style={{ color: '#9ca3af' }}>›</Text>
-        </TouchableOpacity>
-      ) : (
-        <Text style={styles.value}>{user.base_station_id ? '設定済み' : '未設定'}</Text>
-      )}
-
-      <Text style={styles.label}>貸出場所詳細</Text>
-      {editing ? (
-        <TextInput
-          style={styles.input}
-          value={form.lending_address}
-          onChangeText={(v) => setForm((f) => ({ ...f, lending_address: v }))}
-          placeholder="例: 倉庫前（〇〇駅北口徒歩3分）"
-        />
-      ) : (
-        <Text style={styles.value}>{user.lending_address ?? '未設定'}</Text>
-      )}
-
-      <Text style={styles.label}>ユーザータイプ</Text>
-      {editing ? (
-        <View style={styles.typeRow}>
-          {(['renter', 'lender', 'both'] as UserType[]).map((t) => (
-            <TouchableOpacity
-              key={t}
-              style={[styles.typeBtn, form.user_type === t && styles.typeBtnActive]}
-              onPress={() => setForm((f) => ({ ...f, user_type: t }))}
-            >
-              <Text style={[styles.typeBtnText, form.user_type === t && styles.typeBtnTextActive]}>
-                {USER_TYPE_LABELS[t]}
-              </Text>
-            </TouchableOpacity>
-          ))}
+        <View style={s.btnRow}>
+          <Pressable style={s.cancelBtn} onPress={() => {
+            setEditing(false);
+            setForm({ display_name: user.display_name, bio: user.bio ?? '', user_type: user.user_type });
+          }}>
+            <Text style={s.cancelBtnText}>キャンセル</Text>
+          </Pressable>
+          <Pressable style={[s.saveBtn, saving && s.saveBtnOff]} onPress={handleSave} disabled={saving}>
+            <Text style={s.saveBtnText}>{saving ? '保存中...' : '保存する'}</Text>
+          </Pressable>
         </View>
       ) : (
-        <Text style={styles.value}>{USER_TYPE_LABELS[user.user_type]}</Text>
+        <Pressable style={s.editBtn} onPress={() => setEditing(true)}>
+          <Text style={s.editBtnText}>プロフィールを編集</Text>
+        </Pressable>
       )}
 
-      {editing ? (
-        <View style={styles.row}>
-          <TouchableOpacity style={styles.btnSecondary} onPress={() => setEditing(false)}>
-            <Text style={styles.btnSecondaryText}>キャンセル</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.btnPrimary} onPress={handleSave} disabled={saving}>
-            <Text style={styles.btnPrimaryText}>{saving ? '保存中...' : '保存'}</Text>
-          </TouchableOpacity>
-        </View>
-      ) : (
-        <TouchableOpacity style={styles.btnPrimary} onPress={() => setEditing(true)}>
-          <Text style={styles.btnPrimaryText}>編集</Text>
-        </TouchableOpacity>
-      )}
+      {/* ── 通知設定 ── */}
+      <SectionTitle label="通知設定" />
+      <Card>
+        {/* マスターON/OFF */}
+        <Row label="通知" last={!notif.enabled}>
+          <Switch
+            value={notif.enabled}
+            onValueChange={(v) => setN('enabled', v)}
+            trackColor={{ false: '#e5e7eb', true: '#bfdbfe' }}
+            thumbColor={notif.enabled ? '#3b82f6' : '#9ca3af'}
+            ios_backgroundColor="#e5e7eb"
+          />
+        </Row>
 
-      <TouchableOpacity style={styles.btnLogout} onPress={signOut}>
-        <Text style={styles.btnLogoutText}>ログアウト</Text>
-      </TouchableOpacity>
+        {notif.enabled && (
+          <>
+            <View style={s.divider} />
+            <Row label="リクエスト通知">
+              <Switch
+                value={notif.request}
+                onValueChange={(v) => setN('request', v)}
+                trackColor={{ false: '#e5e7eb', true: '#bfdbfe' }}
+                thumbColor={notif.request ? '#3b82f6' : '#9ca3af'}
+                ios_backgroundColor="#e5e7eb"
+              />
+            </Row>
+            <View style={s.divider} />
+            <Row label="メッセージ通知">
+              <Switch
+                value={notif.message}
+                onValueChange={(v) => setN('message', v)}
+                trackColor={{ false: '#e5e7eb', true: '#bfdbfe' }}
+                thumbColor={notif.message ? '#3b82f6' : '#9ca3af'}
+                ios_backgroundColor="#e5e7eb"
+              />
+            </Row>
+            <View style={s.divider} />
+            <Row label="予約リマインド" last={!notif.reminder}>
+              <Switch
+                value={notif.reminder}
+                onValueChange={(v) => setN('reminder', v)}
+                trackColor={{ false: '#e5e7eb', true: '#bfdbfe' }}
+                thumbColor={notif.reminder ? '#3b82f6' : '#9ca3af'}
+                ios_backgroundColor="#e5e7eb"
+              />
+            </Row>
 
-      <StationPicker
-        visible={showStationPicker}
-        onClose={() => setShowStationPicker(false)}
-        onSelect={(station) => {
-          setSelectedStation(station);
-          setForm((f) => ({ ...f, base_station_id: station.id }));
-        }}
-        currentStationId={form.base_station_id}
-      />
+            {notif.reminder && (
+              <>
+                <View style={s.divider} />
+                <View style={s.reminderSection}>
+                  <Text style={s.reminderTitle}>リマインドタイミング</Text>
+                  <View style={s.reminderChips}>
+                    {REMINDER_OPTIONS.map((opt) => {
+                      const sel = notif.reminderHour === opt.value;
+                      return (
+                        <Pressable key={opt.value}
+                          style={[s.reminderChip, sel && s.reminderChipSel]}
+                          onPress={() => setN('reminderHour', opt.value)}>
+                          <Text style={[s.reminderChipText, sel && s.reminderChipTextSel]}>
+                            {opt.label}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </View>
+              </>
+            )}
+          </>
+        )}
+      </Card>
+
+      {/* ── ログアウト ── */}
+      <Pressable style={s.logoutBtn} onPress={() =>
+        Alert.alert('ログアウト', 'ログアウトしますか？', [
+          { text: 'キャンセル', style: 'cancel' },
+          { text: 'ログアウト', style: 'destructive', onPress: signOut },
+        ])
+      }>
+        <Text style={s.logoutText}>ログアウト</Text>
+      </Pressable>
+
+      <View style={{ height: 40 }} />
     </ScrollView>
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
-  content: { padding: 24 },
-  heading: { fontSize: 24, fontWeight: 'bold', marginBottom: 24 },
-  label: { fontSize: 12, color: '#888', marginTop: 16, marginBottom: 4 },
-  value: { fontSize: 16, color: '#1a1a1a' },
+// ─── スタイル ─────────────────────────────────
+const s = StyleSheet.create({
+  page: { flex: 1, backgroundColor: '#f5f6f8' },
+  content: { paddingHorizontal: 16, paddingTop: 20, paddingBottom: 48 },
+
+  secTitle: { marginTop: 24, marginBottom: 10 },
+  secLabel: { fontSize: 13, fontWeight: '700', color: '#6b7280', letterSpacing: 0.5, textTransform: 'uppercase' },
+
+  card: {
+    backgroundColor: '#fff', borderRadius: 16,
+    shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 8, elevation: 2,
+    overflow: 'hidden',
+  },
+  divider: { height: StyleSheet.hairlineWidth, backgroundColor: '#f0f0f0', marginLeft: 16 },
+
+  row: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 16, paddingVertical: 14, minHeight: 52,
+  },
+  rowLast: {},
+  rowLabel: { fontSize: 15, color: '#374151', fontWeight: '500', flex: 1 },
+  rowValue: { fontSize: 15, color: '#6b7280', flexShrink: 1, textAlign: 'right', maxWidth: '60%' },
+
   input: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
+    flex: 1, borderWidth: 1.5, borderColor: '#e5e7eb', borderRadius: 8,
+    paddingHorizontal: 10, paddingVertical: 8, fontSize: 15,
+    backgroundColor: '#fafafa', color: '#111827',
   },
-  multiline: { height: 80, textAlignVertical: 'top' },
-  typeRow: { flexDirection: 'row', gap: 8 },
-  typeBtn: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 10,
-    alignItems: 'center',
+  textarea: { height: 80, textAlignVertical: 'top' },
+
+  typeWrap: { flexDirection: 'row', gap: 8, padding: 16 },
+  typeChip: {
+    flex: 1, paddingVertical: 10, borderRadius: 10,
+    borderWidth: 1.5, borderColor: '#e5e7eb', backgroundColor: '#fafafa', alignItems: 'center',
   },
-  typeBtnActive: { borderColor: '#2563eb', backgroundColor: '#eff6ff' },
-  typeBtnText: { color: '#666' },
-  typeBtnTextActive: { color: '#2563eb', fontWeight: '600' },
-  row: { flexDirection: 'row', gap: 12, marginTop: 24 },
-  btnPrimary: {
-    flex: 1,
-    backgroundColor: '#2563eb',
-    borderRadius: 8,
-    padding: 14,
-    alignItems: 'center',
-    marginTop: 24,
+  typeChipSel: { borderColor: '#3b82f6', backgroundColor: '#eff6ff' },
+  typeChipText: { fontSize: 14, fontWeight: '600', color: '#9ca3af' },
+  typeChipTextSel: { color: '#3b82f6' },
+
+  btnRow: { flexDirection: 'row', gap: 10, marginTop: 14 },
+  cancelBtn: {
+    flex: 1, backgroundColor: '#f3f4f6', borderRadius: 12,
+    padding: 14, alignItems: 'center',
   },
-  btnPrimaryText: { color: '#fff', fontWeight: '600', fontSize: 16 },
-  btnSecondary: {
-    flex: 1,
-    backgroundColor: '#f3f4f6',
-    borderRadius: 8,
-    padding: 14,
-    alignItems: 'center',
-    marginTop: 24,
+  cancelBtnText: { fontSize: 15, fontWeight: '600', color: '#6b7280' },
+  saveBtn: {
+    flex: 2, backgroundColor: '#3b82f6', borderRadius: 12,
+    padding: 14, alignItems: 'center',
+    shadowColor: '#3b82f6', shadowOpacity: 0.3, shadowRadius: 6, elevation: 3,
   },
-  btnSecondaryText: { color: '#374151', fontWeight: '600', fontSize: 16 },
-  btnLogout: {
-    marginTop: 40,
-    padding: 14,
-    alignItems: 'center',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#fca5a5',
+  saveBtnOff: { backgroundColor: '#93c5fd', shadowOpacity: 0 },
+  saveBtnText: { fontSize: 15, fontWeight: '700', color: '#fff' },
+
+  editBtn: {
+    marginTop: 14, backgroundColor: '#fff', borderRadius: 12,
+    padding: 14, alignItems: 'center',
+    borderWidth: 1.5, borderColor: '#3b82f6',
   },
-  btnLogoutText: { color: '#ef4444', fontWeight: '600' },
-  stationBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 12,
-    minHeight: 48,
+  editBtnText: { fontSize: 15, fontWeight: '700', color: '#3b82f6' },
+
+  reminderSection: { paddingHorizontal: 16, paddingVertical: 12 },
+  reminderTitle: { fontSize: 13, fontWeight: '600', color: '#6b7280', marginBottom: 10 },
+  reminderChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  reminderChip: {
+    paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20,
+    borderWidth: 1.5, borderColor: '#e5e7eb', backgroundColor: '#fafafa',
   },
-  stationBtnText: { fontSize: 16, color: '#1f2937' },
-  stationBtnPlaceholder: { fontSize: 16, color: '#9ca3af' },
+  reminderChipSel: { borderColor: '#3b82f6', backgroundColor: '#eff6ff' },
+  reminderChipText: { fontSize: 13, fontWeight: '600', color: '#9ca3af' },
+  reminderChipTextSel: { color: '#3b82f6' },
+
+  logoutBtn: {
+    marginTop: 24, padding: 15, alignItems: 'center', borderRadius: 12,
+    borderWidth: 1.5, borderColor: '#fca5a5', backgroundColor: '#fff',
+  },
+  logoutText: { color: '#ef4444', fontWeight: '700', fontSize: 15 },
 });
