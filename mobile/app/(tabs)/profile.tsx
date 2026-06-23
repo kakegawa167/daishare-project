@@ -23,15 +23,28 @@ interface NotifSettings {
   request: boolean;
   message: boolean;
   reminder: boolean;
-  reminderHour: number; // 1〜24
+  reminderMinutes: number; // 合計分 (最小10, 最大1440)
 }
 const DEFAULT_NOTIF: NotifSettings = {
   enabled: true,
   request: true,
   message: true,
   reminder: true,
-  reminderHour: 12,
+  reminderMinutes: 720, // 12時間前
 };
+
+function minutesToParts(total: number): { h: number; m: number } {
+  return { h: Math.floor(total / 60), m: total % 60 };
+}
+function partsToMinutes(h: number, m: number): number {
+  return Math.max(10, Math.min(1440, h * 60 + m));
+}
+function formatReminder(total: number): string {
+  const { h, m } = minutesToParts(total);
+  if (h === 0) return `${m}分前`;
+  if (m === 0) return `${h}時間前`;
+  return `${h}時間${m}分前`;
+}
 
 type UserType = 'lender' | 'renter' | 'both';
 const USER_TYPE_LABELS: Record<UserType, string> = { renter: '借主', lender: '貸主', both: '両方' };
@@ -86,6 +99,10 @@ export default function ProfileScreen() {
   };
   const setN = <K extends keyof NotifSettings>(k: K, v: NotifSettings[K]) =>
     saveNotif({ ...notif, [k]: v });
+
+  const { h: remH, m: remM } = minutesToParts(notif.reminderMinutes);
+  const setReminderH = (h: number) => setN('reminderMinutes', partsToMinutes(h, remM));
+  const setReminderM = (m: number) => setN('reminderMinutes', partsToMinutes(remH, m));
 
   const handleSave = async () => {
     if (!form.display_name.trim()) {
@@ -251,25 +268,56 @@ export default function ProfileScreen() {
                 <View style={s.divider} />
                 <View style={s.reminderSection}>
                   <Text style={s.reminderTitle}>リマインドタイミング</Text>
-                  <View style={s.stepper}>
-                    <Pressable
-                      style={[s.stepBtn, notif.reminderHour <= 1 && s.stepBtnOff]}
-                      onPress={() => setN('reminderHour', Math.max(1, notif.reminderHour - 1))}
-                      disabled={notif.reminderHour <= 1}
-                    >
-                      <Text style={s.stepBtnText}>−</Text>
-                    </Pressable>
-                    <View style={s.stepDisplay}>
-                      <Text style={s.stepValue}>{notif.reminderHour}</Text>
-                      <Text style={s.stepUnit}>時間前</Text>
+                  <Text style={s.reminderSummary}>{formatReminder(notif.reminderMinutes)}</Text>
+
+                  {/* 時間ステッパー */}
+                  <View style={s.stepperRow}>
+                    <Text style={s.stepperLabel}>時間</Text>
+                    <View style={s.stepper}>
+                      <Pressable
+                        style={[s.stepBtn, remH <= 0 && s.stepBtnOff]}
+                        onPress={() => setReminderH(Math.max(0, remH - 1))}
+                        disabled={remH <= 0}
+                      >
+                        <Text style={s.stepBtnText}>−</Text>
+                      </Pressable>
+                      <View style={s.stepDisplay}>
+                        <Text style={s.stepValue}>{remH}</Text>
+                        <Text style={s.stepUnit}>時間</Text>
+                      </View>
+                      <Pressable
+                        style={[s.stepBtn, remH >= 23 && s.stepBtnOff]}
+                        onPress={() => setReminderH(Math.min(23, remH + 1))}
+                        disabled={remH >= 23}
+                      >
+                        <Text style={s.stepBtnText}>＋</Text>
+                      </Pressable>
                     </View>
-                    <Pressable
-                      style={[s.stepBtn, notif.reminderHour >= 24 && s.stepBtnOff]}
-                      onPress={() => setN('reminderHour', Math.min(24, notif.reminderHour + 1))}
-                      disabled={notif.reminderHour >= 24}
-                    >
-                      <Text style={s.stepBtnText}>＋</Text>
-                    </Pressable>
+                  </View>
+
+                  {/* 分ステッパー */}
+                  <View style={[s.stepperRow, { marginTop: 12 }]}>
+                    <Text style={s.stepperLabel}>分</Text>
+                    <View style={s.stepper}>
+                      <Pressable
+                        style={[s.stepBtn, (remH === 0 && remM <= 10) && s.stepBtnOff]}
+                        onPress={() => setReminderM(remM === 0 ? 50 : remM - 10)}
+                        disabled={remH === 0 && remM <= 10}
+                      >
+                        <Text style={s.stepBtnText}>−</Text>
+                      </Pressable>
+                      <View style={s.stepDisplay}>
+                        <Text style={s.stepValue}>{String(remM).padStart(2, '0')}</Text>
+                        <Text style={s.stepUnit}>分</Text>
+                      </View>
+                      <Pressable
+                        style={[s.stepBtn, (remH >= 23 && remM >= 50) && s.stepBtnOff]}
+                        onPress={() => setReminderM(remM >= 50 ? 0 : remM + 10)}
+                        disabled={remH >= 23 && remM >= 50}
+                      >
+                        <Text style={s.stepBtnText}>＋</Text>
+                      </Pressable>
+                    </View>
                   </View>
                 </View>
               </>
@@ -354,8 +402,11 @@ const s = StyleSheet.create({
   editBtnText: { fontSize: 15, fontWeight: '700', color: '#3b82f6' },
 
   reminderSection: { paddingHorizontal: 16, paddingVertical: 14 },
-  reminderTitle: { fontSize: 13, fontWeight: '600', color: '#6b7280', marginBottom: 12 },
-  stepper: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 0 },
+  reminderTitle: { fontSize: 13, fontWeight: '600', color: '#6b7280', marginBottom: 4 },
+  reminderSummary: { fontSize: 18, fontWeight: '700', color: '#3b82f6', marginBottom: 14 },
+  stepperRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  stepperLabel: { fontSize: 13, fontWeight: '600', color: '#6b7280', width: 24 },
+  stepper: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 0 },
   stepBtn: {
     width: 44, height: 44, borderRadius: 22,
     backgroundColor: '#3b82f6', alignItems: 'center', justifyContent: 'center',
