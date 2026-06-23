@@ -44,6 +44,8 @@ def _to_response(cart: Cart) -> CartResponse:
 async def search_carts(
     municipality: str | None = Query(None),
     station_id: int | None = Query(None),
+    category: str | None = Query(None),
+    foldable: bool | None = Query(None),
     db: AsyncSession = Depends(get_db),
 ) -> list[CartResponse]:
     stmt = (
@@ -56,6 +58,10 @@ async def search_carts(
         stmt = stmt.where(Cart.station_id == station_id)
     elif municipality:
         stmt = stmt.join(Station).where(Station.municipality == municipality)
+    if category:
+        stmt = stmt.where(Cart.category == category)
+    if foldable is not None:
+        stmt = stmt.where(Cart.foldable == foldable)
 
     result = await db.execute(stmt)
     return [_to_response(c) for c in result.scalars().all()]
