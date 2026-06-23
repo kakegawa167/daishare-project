@@ -2,7 +2,8 @@ import { api } from '@/lib/api';
 import { Cart } from '@/lib/types';
 import { EmptyScreen, LoadingScreen } from '@/components/ScreenState';
 import { router } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
+import { useFocusEffect } from 'expo-router';
 import {
   Alert,
   FlatList,
@@ -78,7 +79,7 @@ export default function Carts() {
     }
   }, []);
 
-  useEffect(() => { fetchCarts(); }, [fetchCarts]);
+  useFocusEffect(useCallback(() => { fetchCarts(); }, [fetchCarts]));
 
   const handleDelete = async (id: number) => {
     try {

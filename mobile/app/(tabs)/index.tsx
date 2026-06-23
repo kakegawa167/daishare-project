@@ -2,7 +2,8 @@ import { api } from '@/lib/api';
 import { Cart } from '@/lib/types';
 import { EmptyScreen, LoadingScreen } from '@/components/ScreenState';
 import { router } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
+import { useFocusEffect } from 'expo-router';
 import {
   Dimensions,
   FlatList,
@@ -75,7 +76,7 @@ export default function Home() {
     }
   }, []);
 
-  useEffect(() => { fetchCarts(); }, [fetchCarts]);
+  useFocusEffect(useCallback(() => { fetchCarts(); }, [fetchCarts]));
 
   const handleSearch = () => fetchCarts(query.trim() || undefined);
   const handleRefresh = () => { setRefreshing(true); fetchCarts(query.trim() || undefined); };
