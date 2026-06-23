@@ -1,8 +1,10 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Picker } from '@react-native-picker/picker';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -268,57 +270,40 @@ export default function ProfileScreen() {
                 <View style={s.divider} />
                 <View style={s.reminderSection}>
                   <Text style={s.reminderTitle}>リマインドタイミング</Text>
-                  <Text style={s.reminderSummary}>{formatReminder(notif.reminderMinutes)}</Text>
+                  <View style={s.drumWrap}>
+                    {/* 時間ドラム */}
+                    <View style={s.drumCol}>
+                      <Picker
+                        selectedValue={remH}
+                        onValueChange={(v) => setReminderH(v as number)}
+                        style={s.drum}
+                        itemStyle={s.drumItem}
+                      >
+                        {Array.from({ length: 24 }, (_, i) => (
+                          <Picker.Item key={i} label={`${i}時間`} value={i} />
+                        ))}
+                      </Picker>
+                    </View>
 
-                  {/* 時間ステッパー */}
-                  <View style={s.stepperRow}>
-                    <Text style={s.stepperLabel}>時間</Text>
-                    <View style={s.stepper}>
-                      <Pressable
-                        style={[s.stepBtn, remH <= 0 && s.stepBtnOff]}
-                        onPress={() => setReminderH(Math.max(0, remH - 1))}
-                        disabled={remH <= 0}
+                    <Text style={s.drumSep}>:</Text>
+
+                    {/* 分ドラム */}
+                    <View style={s.drumCol}>
+                      <Picker
+                        selectedValue={remM}
+                        onValueChange={(v) => setReminderM(v as number)}
+                        style={s.drum}
+                        itemStyle={s.drumItem}
                       >
-                        <Text style={s.stepBtnText}>−</Text>
-                      </Pressable>
-                      <View style={s.stepDisplay}>
-                        <Text style={s.stepValue}>{remH}</Text>
-                        <Text style={s.stepUnit}>時間</Text>
-                      </View>
-                      <Pressable
-                        style={[s.stepBtn, remH >= 23 && s.stepBtnOff]}
-                        onPress={() => setReminderH(Math.min(23, remH + 1))}
-                        disabled={remH >= 23}
-                      >
-                        <Text style={s.stepBtnText}>＋</Text>
-                      </Pressable>
+                        {[0, 10, 20, 30, 40, 50].map((m) => (
+                          <Picker.Item key={m} label={`${String(m).padStart(2, '0')}分`} value={m} />
+                        ))}
+                      </Picker>
                     </View>
                   </View>
-
-                  {/* 分ステッパー */}
-                  <View style={[s.stepperRow, { marginTop: 12 }]}>
-                    <Text style={s.stepperLabel}>分</Text>
-                    <View style={s.stepper}>
-                      <Pressable
-                        style={[s.stepBtn, (remH === 0 && remM <= 10) && s.stepBtnOff]}
-                        onPress={() => setReminderM(remM === 0 ? 50 : remM - 10)}
-                        disabled={remH === 0 && remM <= 10}
-                      >
-                        <Text style={s.stepBtnText}>−</Text>
-                      </Pressable>
-                      <View style={s.stepDisplay}>
-                        <Text style={s.stepValue}>{String(remM).padStart(2, '0')}</Text>
-                        <Text style={s.stepUnit}>分</Text>
-                      </View>
-                      <Pressable
-                        style={[s.stepBtn, (remH >= 23 && remM >= 50) && s.stepBtnOff]}
-                        onPress={() => setReminderM(remM >= 50 ? 0 : remM + 10)}
-                        disabled={remH >= 23 && remM >= 50}
-                      >
-                        <Text style={s.stepBtnText}>＋</Text>
-                      </Pressable>
-                    </View>
-                  </View>
+                  <Text style={s.reminderSummary}>
+                    {formatReminder(notif.reminderMinutes)}に通知
+                  </Text>
                 </View>
               </>
             )}
@@ -401,21 +386,17 @@ const s = StyleSheet.create({
   },
   editBtnText: { fontSize: 15, fontWeight: '700', color: '#3b82f6' },
 
-  reminderSection: { paddingHorizontal: 16, paddingVertical: 14 },
-  reminderTitle: { fontSize: 13, fontWeight: '600', color: '#6b7280', marginBottom: 4 },
-  reminderSummary: { fontSize: 18, fontWeight: '700', color: '#3b82f6', marginBottom: 14 },
-  stepperRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  stepperLabel: { fontSize: 13, fontWeight: '600', color: '#6b7280', width: 24 },
-  stepper: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 0 },
-  stepBtn: {
-    width: 44, height: 44, borderRadius: 22,
-    backgroundColor: '#3b82f6', alignItems: 'center', justifyContent: 'center',
+  reminderSection: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 4 },
+  reminderTitle: { fontSize: 13, fontWeight: '600', color: '#6b7280', marginBottom: 8 },
+  reminderSummary: {
+    fontSize: 13, fontWeight: '600', color: '#3b82f6',
+    textAlign: 'center', marginBottom: 10,
   },
-  stepBtnOff: { backgroundColor: '#e5e7eb' },
-  stepBtnText: { color: '#fff', fontSize: 20, fontWeight: '600', lineHeight: 24 },
-  stepDisplay: { minWidth: 100, alignItems: 'center', paddingHorizontal: 12 },
-  stepValue: { fontSize: 32, fontWeight: '800', color: '#111827', lineHeight: 38 },
-  stepUnit: { fontSize: 13, color: '#6b7280', marginTop: 2 },
+  drumWrap: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
+  drumCol: { flex: 1 },
+  drum: { height: Platform.OS === 'ios' ? 160 : 180 },
+  drumItem: { fontSize: 20, fontWeight: '600', color: '#111827' },
+  drumSep: { fontSize: 22, fontWeight: '700', color: '#9ca3af', paddingHorizontal: 4, marginBottom: 8 },
 
   logoutBtn: {
     marginTop: 24, padding: 15, alignItems: 'center', borderRadius: 12,
