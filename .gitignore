@@ -90,3 +90,4 @@ Thumbs.db
 *.log
 logs/
 mobile/.claude/
+.claude/settings.local.json
