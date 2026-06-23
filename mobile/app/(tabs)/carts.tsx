@@ -1,9 +1,8 @@
 import { api } from '@/lib/api';
 import { Cart } from '@/lib/types';
 import { EmptyScreen, LoadingScreen } from '@/components/ScreenState';
-import { router } from 'expo-router';
-import { useCallback, useState } from 'react';
-import { useFocusEffect } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
+import { useCallback, useMemo, useState } from 'react';
 import {
   Alert,
   FlatList,
@@ -11,60 +10,114 @@ import {
   Pressable,
   RefreshControl,
   StyleSheet,
+  Switch,
   Text,
   View,
 } from 'react-native';
 
-function CartCard({ cart, onDelete }: { cart: Cart; onDelete: (id: number) => void }) {
-  const handleDelete = () => {
-    Alert.alert('台車を削除', `「${cart.title}」を削除しますか？`, [
-      { text: 'キャンセル', style: 'cancel' },
-      { text: '削除', style: 'destructive', onPress: () => onDelete(cart.id) },
-    ]);
-  };
+// ─── 並び替えオプション ───────────────────────
+type SortKey = 'id_asc' | 'id_desc' | 'price_asc' | 'price_desc';
+const SORT_OPTIONS: { key: SortKey; label: string }[] = [
+  { key: 'id_asc',    label: '登録が早い順' },
+  { key: 'id_desc',   label: '登録が新しい順' },
+  { key: 'price_asc', label: '価格が安い順' },
+  { key: 'price_desc',label: '価格が高い順' },
+];
+
+function lowestPrice(cart: Cart): number {
+  const rates = [cart.daily_rate, cart.weekly_rate, cart.per_rental_rate].filter((r): r is number => r != null);
+  return rates.length ? Math.min(...rates) : 0;
+}
+
+// ─── カードコンポーネント ─────────────────────
+function CartCard({
+  cart,
+  onDelete,
+  onToggleStatus,
+}: {
+  cart: Cart;
+  onDelete: (id: number) => void;
+  onToggleStatus: (id: number, current: Cart['status']) => void;
+}) {
+  const isActive = cart.status === 'active';
 
   return (
-    <View style={styles.card}>
-      {cart.image_urls.length > 0 ? (
-        <Image source={{ uri: cart.image_urls[0] }} style={styles.cardImage} />
-      ) : (
-        <View style={[styles.cardImage, styles.cardImagePlaceholder]}>
-          <Text style={styles.placeholderIcon}>🛒</Text>
-        </View>
-      )}
-      <View style={styles.cardBody}>
-        <View style={styles.cardTop}>
-          <Text style={styles.cardTitle} numberOfLines={1}>{cart.title}</Text>
-          <Text style={[styles.statusBadge, cart.status === 'active' ? styles.statusActive : styles.statusInactive]}>
-            {cart.status === 'active' ? '公開中' : '非公開'}
-          </Text>
-        </View>
-        {cart.station_name && (
-          <Text style={styles.cardMeta}>📍 {cart.municipality} / {cart.station_name}</Text>
+    <View style={s.card}>
+      {/* サムネイル */}
+      <View style={s.thumb}>
+        {cart.image_urls.length > 0 ? (
+          <Image source={{ uri: cart.image_urls[0] }} style={s.thumbImg} resizeMode="cover" />
+        ) : (
+          <View style={s.thumbPlaceholder}>
+            <Text style={s.thumbIcon}>🛒</Text>
+          </View>
         )}
-        <Text style={styles.cardMeta}>{[
-          cart.daily_rate != null && `¥${cart.daily_rate.toLocaleString()}/日`,
-          cart.weekly_rate != null && `¥${cart.weekly_rate.toLocaleString()}/週`,
-          cart.per_rental_rate != null && `¥${cart.per_rental_rate.toLocaleString()}/回`,
-        ].filter(Boolean).join('　')} · {cart.quantity}台</Text>
       </View>
-      <View style={styles.actions}>
-        <Pressable style={styles.editBtn} onPress={() => router.push(`/carts/${cart.id}/edit` as any)}>
-          <Text style={styles.editBtnText}>編集</Text>
+
+      {/* メイン情報 */}
+      <View style={s.body}>
+        <Text style={s.title} numberOfLines={1}>{cart.title}</Text>
+        {cart.station_name && (
+          <Text style={s.meta} numberOfLines={1}>📍 {cart.municipality} · {cart.station_name}</Text>
+        )}
+        <Text style={s.price}>
+          {[
+            cart.daily_rate != null && `¥${cart.daily_rate.toLocaleString()}/日`,
+            cart.weekly_rate != null && `¥${cart.weekly_rate.toLocaleString()}/週`,
+            cart.per_rental_rate != null && `¥${cart.per_rental_rate.toLocaleString()}/回`,
+          ].filter(Boolean).join('  ')}
+        </Text>
+
+        {/* 公開トグル */}
+        <View style={s.toggleRow}>
+          <Text style={[s.statusLabel, isActive ? s.statusOn : s.statusOff]}>
+            {isActive ? '公開中' : '非公開'}
+          </Text>
+          <Switch
+            value={isActive}
+            onValueChange={() => onToggleStatus(cart.id, cart.status)}
+            trackColor={{ false: '#e5e7eb', true: '#bfdbfe' }}
+            thumbColor={isActive ? '#3b82f6' : '#9ca3af'}
+            ios_backgroundColor="#e5e7eb"
+            style={{ transform: [{ scaleX: 0.85 }, { scaleY: 0.85 }] }}
+          />
+        </View>
+      </View>
+
+      {/* アクション */}
+      <View style={s.actions}>
+        <Pressable
+          style={s.editBtn}
+          onPress={() => router.push(`/carts/${cart.id}/edit` as any)}
+          accessibilityLabel="編集"
+        >
+          <Text style={s.editIcon}>✏️</Text>
         </Pressable>
-        <Pressable style={styles.deleteBtn} onPress={handleDelete}>
-          <Text style={styles.deleteBtnText}>削除</Text>
+        <Pressable
+          style={s.deleteBtn}
+          onPress={() =>
+            Alert.alert('台車を削除', `「${cart.title}」を削除しますか？`, [
+              { text: 'キャンセル', style: 'cancel' },
+              { text: '削除', style: 'destructive', onPress: () => onDelete(cart.id) },
+            ])
+          }
+          accessibilityLabel="削除"
+        >
+          <Text style={s.deleteIcon}>🗑</Text>
         </Pressable>
       </View>
     </View>
   );
 }
 
+// ─── メイン画面 ───────────────────────────────
 export default function Carts() {
   const [carts, setCarts] = useState<Cart[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [sortKey, setSortKey] = useState<SortKey>('id_asc');
+  const [showSort, setShowSort] = useState(false);
 
   const fetchCarts = useCallback(async () => {
     setError(false);
@@ -81,6 +134,16 @@ export default function Carts() {
 
   useFocusEffect(useCallback(() => { fetchCarts(); }, [fetchCarts]));
 
+  const sorted = useMemo(() => {
+    const arr = [...carts];
+    switch (sortKey) {
+      case 'id_asc':    return arr.sort((a, b) => a.id - b.id);
+      case 'id_desc':   return arr.sort((a, b) => b.id - a.id);
+      case 'price_asc': return arr.sort((a, b) => lowestPrice(a) - lowestPrice(b));
+      case 'price_desc':return arr.sort((a, b) => lowestPrice(b) - lowestPrice(a));
+    }
+  }, [carts, sortKey]);
+
   const handleDelete = async (id: number) => {
     try {
       await api.delete(`/carts/${id}`);
@@ -90,19 +153,61 @@ export default function Carts() {
     }
   };
 
+  const handleToggleStatus = async (id: number, current: Cart['status']) => {
+    try {
+      const res = await api.patch<Cart>(`/carts/${id}/status`);
+      setCarts((prev) => prev.map((c) => (c.id === id ? res.data : c)));
+    } catch {
+      Alert.alert('エラー', '公開設定の変更に失敗しました');
+    }
+  };
+
   if (loading) return <LoadingScreen />;
-  if (error) return <EmptyScreen icon="⚠️" message="台車一覧の取得に失敗しました" action={{ label: '再試行', onPress: fetchCarts }} />;
+  if (error) return (
+    <EmptyScreen icon="⚠️" message="台車一覧の取得に失敗しました" action={{ label: '再試行', onPress: fetchCarts }} />
+  );
+
+  const currentSortLabel = SORT_OPTIONS.find((o) => o.key === sortKey)?.label ?? '';
 
   return (
-    <View style={styles.container}>
+    <View style={s.container}>
+      {/* ツールバー */}
+      {carts.length > 0 && (
+        <View style={s.toolbar}>
+          <Text style={s.toolbarCount}>{carts.length}台登録中</Text>
+          <Pressable style={s.sortBtn} onPress={() => setShowSort((v) => !v)}>
+            <Text style={s.sortBtnText}>⇅ {currentSortLabel}</Text>
+          </Pressable>
+        </View>
+      )}
+
+      {/* 並び替えドロップダウン */}
+      {showSort && (
+        <View style={s.sortMenu}>
+          {SORT_OPTIONS.map((opt) => (
+            <Pressable
+              key={opt.key}
+              style={[s.sortItem, sortKey === opt.key && s.sortItemSel]}
+              onPress={() => { setSortKey(opt.key); setShowSort(false); }}
+            >
+              <Text style={[s.sortItemText, sortKey === opt.key && s.sortItemTextSel]}>
+                {sortKey === opt.key ? '✓ ' : '　'}{opt.label}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+      )}
+
       <FlatList
-        data={carts}
+        data={sorted}
         keyExtractor={(item) => String(item.id)}
-        renderItem={({ item }) => <CartCard cart={item} onDelete={handleDelete} />}
+        renderItem={({ item }) => (
+          <CartCard cart={item} onDelete={handleDelete} onToggleStatus={handleToggleStatus} />
+        )}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchCarts(); }} tintColor="#3b82f6" />
         }
-        contentContainerStyle={carts.length === 0 ? styles.empty : styles.list}
+        contentContainerStyle={sorted.length === 0 ? s.emptyWrap : s.list}
         ListEmptyComponent={
           <EmptyScreen
             icon="🛒"
@@ -112,56 +217,87 @@ export default function Carts() {
           />
         }
       />
-      {carts.length > 0 && (
-        <Pressable style={styles.fab} onPress={() => router.push('/carts/new' as any)}>
-          <Text style={styles.fabText}>＋ 台車を登録</Text>
-        </Pressable>
-      )}
+
+      {/* FAB */}
+      <Pressable style={s.fab} onPress={() => router.push('/carts/new' as any)}>
+        <Text style={s.fabText}>＋ 台車を登録</Text>
+      </Pressable>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f9fafb' },
-  list: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 100 },
-  empty: { flex: 1 },
-  card: {
+// ─── スタイル ─────────────────────────────────
+const s = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#f5f6f8' },
+
+  // ツールバー
+  toolbar: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 16, paddingVertical: 10,
     backgroundColor: '#fff',
-    borderRadius: 14,
-    marginBottom: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#e5e7eb',
+  },
+  toolbarCount: { fontSize: 13, color: '#6b7280', fontWeight: '500' },
+  sortBtn: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: '#f3f4f6', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20,
+  },
+  sortBtnText: { fontSize: 13, color: '#374151', fontWeight: '600' },
+
+  // ドロップダウン
+  sortMenu: {
+    backgroundColor: '#fff',
+    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#e5e7eb',
+    shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 6, elevation: 3,
+  },
+  sortItem: { paddingHorizontal: 20, paddingVertical: 13 },
+  sortItemSel: { backgroundColor: '#eff6ff' },
+  sortItemText: { fontSize: 14, color: '#374151' },
+  sortItemTextSel: { color: '#3b82f6', fontWeight: '700' },
+
+  // リスト
+  list: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 120 },
+  emptyWrap: { flex: 1 },
+
+  // カード
+  card: {
+    backgroundColor: '#fff', borderRadius: 14, marginBottom: 10,
+    flexDirection: 'row', alignItems: 'center',
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    elevation: 2,
+    shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 6, elevation: 2,
   },
-  cardImage: { width: '100%', height: 160 },
-  cardImagePlaceholder: { backgroundColor: '#f0f0f0', alignItems: 'center', justifyContent: 'center' },
-  placeholderIcon: { fontSize: 48 },
-  cardBody: { padding: 12 },
-  cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
-  cardTitle: { fontSize: 16, fontWeight: '700', flex: 1, marginRight: 8, color: '#1a1a1a' },
-  statusBadge: { fontSize: 12, fontWeight: '700', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 },
-  statusActive: { backgroundColor: '#d1fae5', color: '#065f46' },
-  statusInactive: { backgroundColor: '#f3f4f6', color: '#6b7280' },
-  cardMeta: { fontSize: 13, color: '#6b7280', marginBottom: 2 },
-  actions: { flexDirection: 'row', borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: '#e5e7eb' },
-  editBtn: { flex: 1, padding: 13, alignItems: 'center' },
-  editBtnText: { color: '#3b82f6', fontWeight: '700', fontSize: 14 },
-  deleteBtn: { flex: 1, padding: 13, alignItems: 'center', borderLeftWidth: StyleSheet.hairlineWidth, borderLeftColor: '#e5e7eb' },
-  deleteBtnText: { color: '#ef4444', fontWeight: '700', fontSize: 14 },
+  thumb: { width: 88, height: 88 },
+  thumbImg: { width: 88, height: 88 },
+  thumbPlaceholder: { width: 88, height: 88, backgroundColor: '#f0f0f0', alignItems: 'center', justifyContent: 'center' },
+  thumbIcon: { fontSize: 32 },
+
+  body: { flex: 1, paddingHorizontal: 12, paddingVertical: 10 },
+  title: { fontSize: 15, fontWeight: '700', color: '#111827', marginBottom: 2 },
+  meta: { fontSize: 12, color: '#9ca3af', marginBottom: 2 },
+  price: { fontSize: 13, color: '#374151', fontWeight: '600', marginBottom: 6 },
+
+  toggleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  statusLabel: { fontSize: 12, fontWeight: '700' },
+  statusOn: { color: '#059669' },
+  statusOff: { color: '#9ca3af' },
+
+  actions: {
+    flexDirection: 'column', borderLeftWidth: StyleSheet.hairlineWidth, borderLeftColor: '#e5e7eb',
+  },
+  editBtn: {
+    flex: 1, paddingHorizontal: 14, alignItems: 'center', justifyContent: 'center',
+    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#e5e7eb',
+  },
+  editIcon: { fontSize: 18 },
+  deleteBtn: { flex: 1, paddingHorizontal: 14, alignItems: 'center', justifyContent: 'center' },
+  deleteIcon: { fontSize: 18 },
+
+  // FAB
   fab: {
-    position: 'absolute',
-    bottom: 24,
-    right: 24,
-    backgroundColor: '#3b82f6',
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    borderRadius: 28,
-    shadowColor: '#000',
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
+    position: 'absolute', bottom: 24, right: 20, left: 20,
+    backgroundColor: '#3b82f6', paddingVertical: 16, borderRadius: 14,
+    alignItems: 'center',
+    shadowColor: '#3b82f6', shadowOpacity: 0.35, shadowRadius: 10, elevation: 4,
   },
-  fabText: { color: '#fff', fontWeight: '700', fontSize: 15 },
+  fabText: { color: '#fff', fontWeight: '800', fontSize: 15 },
 });

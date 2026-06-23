@@ -70,7 +70,7 @@ async def get_my_carts(
         select(Cart)
         .options(selectinload(Cart.owner), selectinload(Cart.station))
         .where(Cart.owner_id == uuid.UUID(user_id), Cart.status != CartStatus.deleted)
-        .order_by(Cart.id.desc())
+        .order_by(Cart.id.asc())
     )
     result = await db.execute(stmt)
     return [_to_response(c) for c in result.scalars().all()]
@@ -123,6 +123,29 @@ async def update_cart(
 
     for field, value in body.model_dump(exclude_none=True).items():
         setattr(cart, field, value)
+    await db.commit()
+    await db.refresh(cart)
+    result = await db.execute(
+        select(Cart).options(selectinload(Cart.owner), selectinload(Cart.station)).where(Cart.id == cart.id)
+    )
+    return _to_response(result.scalar_one())
+
+
+@router.patch("/{cart_id}/status", response_model=CartResponse)
+async def toggle_cart_status(
+    cart_id: int,
+    user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+) -> CartResponse:
+    result = await db.execute(
+        select(Cart).options(selectinload(Cart.owner), selectinload(Cart.station)).where(Cart.id == cart_id)
+    )
+    cart = result.scalar_one_or_none()
+    if not cart:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cart not found")
+    if str(cart.owner_id) != user_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not your cart")
+    cart.status = CartStatus.inactive if cart.status == CartStatus.active else CartStatus.active
     await db.commit()
     await db.refresh(cart)
     result = await db.execute(
