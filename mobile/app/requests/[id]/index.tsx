@@ -1,5 +1,5 @@
 import { api } from '@/lib/api';
-import { Message, RentalRequest, Reservation } from '@/lib/types';
+import { Cart, Message, RentalRequest, Reservation } from '@/lib/types';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/authStore';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -94,20 +94,66 @@ function ReviewModal({ reservationId, visible, onClose }: { reservationId: numbe
   );
 }
 
+// ─── 台車カード + カウンター ───────────────────────────
+function CartEditRow({ cart, qty, onChange }: { cart: Cart; qty: number; onChange: (v: number) => void }) {
+  const rate = cart.daily_rate != null ? `¥${cart.daily_rate.toLocaleString()}/日`
+    : cart.weekly_rate != null ? `¥${cart.weekly_rate.toLocaleString()}/週`
+    : `¥${(cart.per_rental_rate ?? 0).toLocaleString()}/回`;
+
+  return (
+    <View style={[s.cartRow, qty > 0 && s.cartRowSelected]}>
+      <View style={s.cartRowInfo}>
+        <Text style={s.cartRowTitle} numberOfLines={1}>{cart.title}</Text>
+        <Text style={s.cartRowRate}>{rate} ・ 在庫{cart.quantity}台</Text>
+        {(cart.municipality || cart.station_name) && (
+          <Text style={s.cartRowMeta}>📍 {[cart.municipality, cart.station_name].filter(Boolean).join(' / ')}</Text>
+        )}
+      </View>
+      <View style={s.counter}>
+        <Pressable
+          style={[s.counterBtn, qty === 0 && s.counterBtnDisabled]}
+          onPress={() => onChange(Math.max(0, qty - 1))}
+          disabled={qty === 0}
+        >
+          <Text style={[s.counterBtnText, qty === 0 && { color: '#d1d5db' }]}>−</Text>
+        </Pressable>
+        <Text style={s.counterVal}>{qty}</Text>
+        <Pressable
+          style={[s.counterBtn, qty >= cart.quantity && s.counterBtnDisabled]}
+          onPress={() => onChange(Math.min(cart.quantity, qty + 1))}
+          disabled={qty >= cart.quantity}
+        >
+          <Text style={[s.counterBtnText, qty >= cart.quantity && { color: '#d1d5db' }]}>＋</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
 // ─── リクエスト編集モーダル (貸主用) ──────────────────
 function EditRequestModal({
   visible, req, onClose, onSaved,
 }: { visible: boolean; req: RentalRequest; onClose: () => void; onSaved: () => void }) {
   const [startDate, setStartDate] = useState(new Date(req.start_date));
   const [endDate, setEndDate] = useState(new Date(req.end_date));
-  const [quantity, setQuantity] = useState(String(req.quantity));
+  const [qty, setQty] = useState(req.quantity);
+  const [cart, setCart] = useState<Cart | null>(null);
   const [showStart, setShowStart] = useState(false);
   const [showEnd, setShowEnd] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
+  useEffect(() => {
+    if (!visible) return;
+    api.get<Cart>(`/carts/${req.cart_id}`).then((r) => setCart(r.data)).catch(() => {});
+  }, [visible, req.cart_id]);
+
   const handleSave = async () => {
     if (endDate <= startDate) {
       Alert.alert('エラー', '返却希望日は貸出希望日より後にしてください');
+      return;
+    }
+    if (qty < 1) {
+      Alert.alert('エラー', '台数は1台以上選択してください');
       return;
     }
     setSubmitting(true);
@@ -115,7 +161,7 @@ function EditRequestModal({
       await api.patch(`/rental-requests/${req.id}`, {
         start_date: startDate.toISOString(),
         end_date: endDate.toISOString(),
-        quantity: Number(quantity) || req.quantity,
+        quantity: qty,
       });
       onSaved();
       onClose();
@@ -156,14 +202,14 @@ function EditRequestModal({
           />
         )}
 
-        <Text style={s.editLabel}>台数</Text>
-        <TextInput
-          style={s.editInput}
-          value={quantity} onChangeText={setQuantity}
-          keyboardType="number-pad" maxLength={3}
-        />
+        <Text style={s.editLabel}>台車・台数</Text>
+        {cart ? (
+          <CartEditRow cart={cart} qty={qty} onChange={setQty} />
+        ) : (
+          <ActivityIndicator style={{ marginVertical: 12 }} color="#3b82f6" />
+        )}
 
-        <Pressable style={[s.editSaveBtn, submitting && { opacity: 0.6 }]} onPress={handleSave} disabled={submitting}>
+        <Pressable style={[s.editSaveBtn, (submitting || qty < 1) && { opacity: 0.6 }]} onPress={handleSave} disabled={submitting || qty < 1}>
           {submitting ? <ActivityIndicator color="#fff" /> : <Text style={s.editSaveBtnText}>保存する</Text>}
         </Pressable>
         <Pressable style={s.reviewCancel} onPress={onClose}>
@@ -532,6 +578,26 @@ const s = StyleSheet.create({
   reviewSubmitText: { color: '#fff', fontWeight: '700', fontSize: 16 },
   reviewCancel: { marginTop: 12, padding: 12, alignItems: 'center' },
   reviewCancelText: { color: '#6b7280', fontSize: 15 },
+
+  // 台車カード
+  cartRow: {
+    flexDirection: 'row', alignItems: 'center', backgroundColor: '#f9fafb',
+    borderRadius: 12, padding: 12, marginBottom: 6, gap: 10,
+    borderWidth: 1.5, borderColor: 'transparent',
+  },
+  cartRowSelected: { borderColor: '#3b82f6', backgroundColor: '#eff6ff' },
+  cartRowInfo: { flex: 1 },
+  cartRowTitle: { fontSize: 14, fontWeight: '600', color: '#111827' },
+  cartRowRate: { fontSize: 12, color: '#6b7280', marginTop: 2 },
+  cartRowMeta: { fontSize: 12, color: '#9ca3af', marginTop: 2 },
+  counter: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  counterBtn: {
+    width: 32, height: 32, borderRadius: 16, borderWidth: 1.5, borderColor: '#3b82f6',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  counterBtnDisabled: { borderColor: '#e5e7eb' },
+  counterBtnText: { fontSize: 18, fontWeight: '700', color: '#3b82f6', lineHeight: 22 },
+  counterVal: { fontSize: 16, fontWeight: '700', color: '#111827', minWidth: 20, textAlign: 'center' },
 
   // 編集モーダル
   editModal: { flex: 1, padding: 24, backgroundColor: '#fff' },
