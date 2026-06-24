@@ -49,7 +49,6 @@ export default function LoginScreen() {
       const { error } = await supabase.auth.signInWithIdToken({
         provider: 'google',
         token: data.idToken,
-        nonce: data.nonce,
       });
       if (error) throw error;
       // 認証成功 → _layout.tsx の onAuthStateChange がリダイレクトを処理
