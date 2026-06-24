@@ -2,6 +2,7 @@ import { api } from '@/lib/api';
 import { Message, RentalRequest, Reservation } from '@/lib/types';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/authStore';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -12,6 +13,7 @@ import {
   Modal,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -92,33 +94,118 @@ function ReviewModal({ reservationId, visible, onClose }: { reservationId: numbe
   );
 }
 
-// ─── リクエスト条件カード ──────────────────────────────
+// ─── リクエスト編集モーダル (貸主用) ──────────────────
+function EditRequestModal({
+  visible, req, onClose, onSaved,
+}: { visible: boolean; req: RentalRequest; onClose: () => void; onSaved: () => void }) {
+  const [startDate, setStartDate] = useState(new Date(req.start_date));
+  const [endDate, setEndDate] = useState(new Date(req.end_date));
+  const [quantity, setQuantity] = useState(String(req.quantity));
+  const [message, setMessage] = useState(req.message ?? '');
+  const [showStart, setShowStart] = useState(false);
+  const [showEnd, setShowEnd] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSave = async () => {
+    if (endDate <= startDate) {
+      Alert.alert('エラー', '返却希望日は貸出希望日より後にしてください');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await api.patch(`/rental-requests/${req.id}`, {
+        start_date: startDate.toISOString(),
+        end_date: endDate.toISOString(),
+        quantity: Number(quantity) || req.quantity,
+        message: message.trim() || null,
+      });
+      onSaved();
+      onClose();
+    } catch {
+      Alert.alert('エラー', '更新に失敗しました');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const fmtD = (d: Date) =>
+    d.toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+
+  return (
+    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose} accessibilityViewIsModal>
+      <ScrollView style={s.editModal} contentContainerStyle={{ paddingBottom: 40 }}>
+        <Text style={s.editTitle}>リクエストを編集</Text>
+
+        <Text style={s.editLabel}>貸出希望日時</Text>
+        <Pressable style={s.editDtBtn} onPress={() => setShowStart(true)}>
+          <Text style={s.editDtBtnText}>📅 {fmtD(startDate)}</Text>
+        </Pressable>
+        {showStart && (
+          <DateTimePicker
+            value={startDate} mode="datetime" display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+            onChange={(_, d) => { setShowStart(false); if (d) setStartDate(d); }}
+          />
+        )}
+
+        <Text style={s.editLabel}>返却希望日時</Text>
+        <Pressable style={s.editDtBtn} onPress={() => setShowEnd(true)}>
+          <Text style={s.editDtBtnText}>📅 {fmtD(endDate)}</Text>
+        </Pressable>
+        {showEnd && (
+          <DateTimePicker
+            value={endDate} mode="datetime" display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+            onChange={(_, d) => { setShowEnd(false); if (d) setEndDate(d); }}
+          />
+        )}
+
+        <Text style={s.editLabel}>台数</Text>
+        <TextInput
+          style={s.editInput}
+          value={quantity} onChangeText={setQuantity}
+          keyboardType="number-pad" maxLength={3}
+        />
+
+        <Text style={s.editLabel}>備考・メモ</Text>
+        <TextInput
+          style={[s.editInput, { height: 80, textAlignVertical: 'top' }]}
+          value={message} onChangeText={setMessage} multiline maxLength={500}
+          placeholder="条件変更の理由など"
+        />
+
+        <Pressable style={[s.editSaveBtn, submitting && { opacity: 0.6 }]} onPress={handleSave} disabled={submitting}>
+          {submitting ? <ActivityIndicator color="#fff" /> : <Text style={s.editSaveBtnText}>保存する</Text>}
+        </Pressable>
+        <Pressable style={s.reviewCancel} onPress={onClose}>
+          <Text style={s.reviewCancelText}>キャンセル</Text>
+        </Pressable>
+      </ScrollView>
+    </Modal>
+  );
+}
+
+// ─── リクエスト条件カード (常時展開) ──────────────────
 function RequestInfoCard({ req, status }: { req: RentalRequest; status: string }) {
-  const [open, setOpen] = useState(false);
   const color = STATUS_COLOR[status] ?? '#9ca3af';
   return (
-    <Pressable style={s.infoCard} onPress={() => setOpen((v) => !v)}>
+    <View style={s.infoCard}>
       <View style={s.infoCardTop}>
+        <Text style={s.infoCartTitle} numberOfLines={1}>🛒 {req.cart_title ?? '台車'}</Text>
         <View style={[s.statusBadge, { backgroundColor: color + '20' }]}>
           <Text style={[s.statusBadgeText, { color }]}>{STATUS_LABEL[status] ?? status}</Text>
         </View>
-        <Text style={s.infoToggleHint}>リクエスト詳細 {open ? '▲' : '▼'}</Text>
       </View>
-      {open && (
-        <View style={s.infoDetails}>
-          <Text style={s.infoRow}>🛒 台車: {req.cart_title ?? '台車'}</Text>
-          <Text style={s.infoRow}>🕐 貸出希望: {fmtDT(req.start_date)}</Text>
-          <Text style={s.infoRow}>🕐 返却希望: {fmtDT(req.end_date)}</Text>
-          <Text style={s.infoRow}>📦 台数: {req.quantity}台</Text>
-          {(req.municipality || req.station_name) && (
-            <Text style={s.infoRow}>📍 {[req.municipality, req.station_name].filter(Boolean).join(' / ')}</Text>
-          )}
-          {req.lending_address ? <Text style={s.infoRow}>🏠 {req.lending_address}</Text> : null}
-          {req.renter_name ? <Text style={s.infoRow}>👤 借りる人: {req.renter_name}</Text> : null}
-          {req.message ? <Text style={s.infoRow}>💬 備考: {req.message}</Text> : null}
-        </View>
-      )}
-    </Pressable>
+      <View style={s.infoDetails}>
+        <Text style={s.infoRow}>🕐 貸出希望: {fmtDT(req.start_date)}</Text>
+        <Text style={s.infoRow}>🕐 返却希望: {fmtDT(req.end_date)}</Text>
+        <Text style={s.infoRow}>📦 台数: {req.quantity}台</Text>
+        {(req.municipality || req.station_name) && (
+          <Text style={s.infoRow}>📍 {[req.municipality, req.station_name].filter(Boolean).join(' / ')}</Text>
+        )}
+        {req.lending_address ? <Text style={s.infoRow}>🏠 {req.lending_address}</Text> : null}
+        {req.renter_name ? <Text style={s.infoRow}>👤 借りる人: {req.renter_name}</Text> : null}
+        {req.message ? <Text style={s.infoRow}>💬 備考: {req.message}</Text> : null}
+      </View>
+    </View>
   );
 }
 
@@ -163,6 +250,7 @@ export default function RequestChat() {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [showReview, setShowReview] = useState(false);
+  const [showEdit, setShowEdit] = useState(false);
   const listRef = useRef<FlatList>(null);
 
   const fetchAll = useCallback(async () => {
@@ -231,8 +319,8 @@ export default function RequestChat() {
     }
   };
 
-  const handleAction = async (action: 'accept' | 'reject' | 'cancel') => {
-    const labels = { accept: '承認', reject: '拒否', cancel: 'キャンセル' };
+  const handleAction = async (action: 'accept' | 'reject') => {
+    const labels = { accept: '承認', reject: '拒否' };
     Alert.alert(`${labels[action]}`, `リクエストを${labels[action]}しますか？`, [
       { text: 'いいえ', style: 'cancel' },
       { text: 'はい', style: action === 'accept' ? 'default' : 'destructive',
@@ -258,42 +346,35 @@ export default function RequestChat() {
   const currentStatus = res?.status ?? request.status;
   const canChat = ['pending', 'accepted', 'reserved', 'lent'].includes(request.status);
 
-  // 相手の名前をヘッダーに表示
   const otherName = isLender
     ? (request.renter_name ?? 'チャット')
     : (request.lender_name ?? 'チャット');
 
   return (
     <>
-      {/* ヘッダータイトルを相手のユーザー名に動的変更 */}
       <Stack.Screen options={{ title: otherName }} />
 
-      <KeyboardAvoidingView
-        style={{ flex: 1, backgroundColor: '#e8edf2' }}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? (insets.top + 44) : 0}
-      >
+      {/* キーボード対応: FlatListにautomaticallyAdjustKeyboardInsets、inputはKAVで押し上げ */}
+      <View style={{ flex: 1, backgroundColor: '#e8edf2' }}>
         {/* リクエスト条件カード */}
         <RequestInfoCard req={request} status={currentStatus} />
 
-        {/* アクションボタン */}
+        {/* 貸主アクションボタン: pending時 */}
         {request.status === 'pending' && isLender && (
           <View style={s.actionRow}>
             <Pressable style={[s.actionBtn, { backgroundColor: '#10b981' }]} onPress={() => handleAction('accept')}>
-              <Text style={s.actionBtnText}>✓ 承認する</Text>
+              <Text style={s.actionBtnText}>✓ 承認</Text>
+            </Pressable>
+            <Pressable style={[s.actionBtn, { backgroundColor: '#3b82f6' }]} onPress={() => setShowEdit(true)}>
+              <Text style={s.actionBtnText}>✏️ 編集</Text>
             </Pressable>
             <Pressable style={[s.actionBtn, { backgroundColor: '#fee2e2' }]} onPress={() => handleAction('reject')}>
-              <Text style={[s.actionBtnText, { color: '#ef4444' }]}>✕ 拒否する</Text>
+              <Text style={[s.actionBtnText, { color: '#ef4444' }]}>✕ 拒否</Text>
             </Pressable>
           </View>
         )}
-        {request.status === 'pending' && !isLender && (
-          <View style={s.actionRow}>
-            <Pressable style={[s.actionBtn, { backgroundColor: '#f3f4f6' }]} onPress={() => handleAction('cancel')}>
-              <Text style={[s.actionBtnText, { color: '#6b7280' }]}>キャンセルする</Text>
-            </Pressable>
-          </View>
-        )}
+
+        {/* 貸主アクション: 予約確定後 */}
         {res?.status === 'reserved' && isLender && (
           <View style={s.actionRow}>
             <Pressable style={[s.actionBtn, { backgroundColor: '#8b5cf6' }]} onPress={() => handleReservationAction('lend')}>
@@ -326,6 +407,8 @@ export default function RequestChat() {
           keyExtractor={(m) => String(m.id)}
           renderItem={({ item }) => <MessageBubble msg={item} myId={myId} />}
           contentContainerStyle={s.msgList}
+          // iOS 15+: キーボード出現時にスクロールを自動調整
+          automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
           onLayout={() => listRef.current?.scrollToEnd({ animated: false })}
           onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
           ListEmptyComponent={
@@ -335,33 +418,46 @@ export default function RequestChat() {
           }
         />
 
-        {res && <ReviewModal reservationId={res.id} visible={showReview} onClose={() => setShowReview(false)} />}
-
-        {/* 入力欄 */}
+        {/* 入力欄: KAVでキーボードの上に固定 */}
         {canChat && (
-          <View style={[s.inputBar, { paddingBottom: Math.max(insets.bottom, 8) }]}>
-            <TextInput
-              style={s.input}
-              value={input}
-              onChangeText={setInput}
-              placeholder="メッセージを入力..."
-              placeholderTextColor="#9ca3af"
-              multiline
-              maxLength={500}
-            />
-            <Pressable
-              style={[s.sendBtn, (!input.trim() || sending) && s.sendBtnOff]}
-              onPress={handleSend}
-              disabled={!input.trim() || sending}
-            >
-              {sending
-                ? <ActivityIndicator color="#fff" size="small" />
-                : <Text style={s.sendBtnText}>送信</Text>
-              }
-            </Pressable>
-          </View>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            keyboardVerticalOffset={0}
+          >
+            <View style={[s.inputBar, { paddingBottom: Math.max(insets.bottom, 8) }]}>
+              <TextInput
+                style={s.input}
+                value={input}
+                onChangeText={setInput}
+                placeholder="メッセージを入力..."
+                placeholderTextColor="#9ca3af"
+                multiline
+                maxLength={500}
+              />
+              <Pressable
+                style={[s.sendBtn, (!input.trim() || sending) && s.sendBtnOff]}
+                onPress={handleSend}
+                disabled={!input.trim() || sending}
+              >
+                {sending
+                  ? <ActivityIndicator color="#fff" size="small" />
+                  : <Text style={s.sendBtnText}>送信</Text>
+                }
+              </Pressable>
+            </View>
+          </KeyboardAvoidingView>
         )}
-      </KeyboardAvoidingView>
+      </View>
+
+      {res && <ReviewModal reservationId={res.id} visible={showReview} onClose={() => setShowReview(false)} />}
+      {showEdit && request && (
+        <EditRequestModal
+          visible={showEdit}
+          req={request}
+          onClose={() => setShowEdit(false)}
+          onSaved={fetchAll}
+        />
+      )}
     </>
   );
 }
@@ -374,12 +470,12 @@ const s = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#e5e7eb',
     paddingHorizontal: 14, paddingVertical: 10,
   },
-  infoCardTop: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  infoCardTop: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
+  infoCartTitle: { flex: 1, fontSize: 14, fontWeight: '700', color: '#111827' },
   statusBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 },
   statusBadgeText: { fontSize: 12, fontWeight: '700' },
-  infoToggleHint: { flex: 1, textAlign: 'right', fontSize: 12, color: '#9ca3af' },
-  infoDetails: { marginTop: 8, gap: 3 },
-  infoRow: { fontSize: 13, color: '#6b7280', lineHeight: 20 },
+  infoDetails: { gap: 2 },
+  infoRow: { fontSize: 13, color: '#6b7280', lineHeight: 19 },
 
   actionRow: {
     flexDirection: 'row', gap: 8, padding: 10,
@@ -387,7 +483,7 @@ const s = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#e5e7eb',
   },
   actionBtn: { flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: 'center' },
-  actionBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+  actionBtnText: { color: '#fff', fontWeight: '700', fontSize: 13 },
 
   msgList: { flexGrow: 1, paddingHorizontal: 12, paddingVertical: 16, gap: 4 },
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 60 },
@@ -425,12 +521,13 @@ const s = StyleSheet.create({
     fontSize: 15, color: '#111827', lineHeight: 20,
   },
   sendBtn: {
-    width: 40, height: 40, borderRadius: 20, marginBottom: 0,
+    width: 40, height: 40, borderRadius: 20,
     backgroundColor: '#3b82f6', alignItems: 'center', justifyContent: 'center',
   },
   sendBtnOff: { backgroundColor: '#93c5fd' },
   sendBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
 
+  // レビューモーダル
   reviewModal: { flex: 1, padding: 24, backgroundColor: '#fff' },
   reviewTitle: { fontSize: 20, fontWeight: '700', marginBottom: 20 },
   reviewLabel: { fontSize: 14, fontWeight: '600', color: '#374151', marginTop: 16, marginBottom: 8 },
@@ -444,4 +541,20 @@ const s = StyleSheet.create({
   reviewSubmitText: { color: '#fff', fontWeight: '700', fontSize: 16 },
   reviewCancel: { marginTop: 12, padding: 12, alignItems: 'center' },
   reviewCancelText: { color: '#6b7280', fontSize: 15 },
+
+  // 編集モーダル
+  editModal: { flex: 1, padding: 24, backgroundColor: '#fff' },
+  editTitle: { fontSize: 20, fontWeight: '700', marginBottom: 8 },
+  editLabel: { fontSize: 14, fontWeight: '600', color: '#374151', marginTop: 16, marginBottom: 8 },
+  editDtBtn: {
+    backgroundColor: '#f3f4f6', borderRadius: 10,
+    paddingVertical: 12, paddingHorizontal: 14,
+  },
+  editDtBtnText: { fontSize: 15, color: '#374151', fontWeight: '600' },
+  editInput: {
+    borderWidth: 1.5, borderColor: '#e5e7eb', borderRadius: 10,
+    padding: 12, fontSize: 15, color: '#111827',
+  },
+  editSaveBtn: { marginTop: 24, backgroundColor: '#3b82f6', padding: 16, borderRadius: 10, alignItems: 'center' },
+  editSaveBtnText: { color: '#fff', fontWeight: '700', fontSize: 16 },
 });

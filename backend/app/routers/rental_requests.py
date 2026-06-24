@@ -12,7 +12,7 @@ from app.models.message import Message
 from app.models.rental_request import RentalRequest, RequestStatus
 from app.models.reservation import Reservation
 from app.models.user import User
-from app.schemas.cart import RentalRequestCreate, RentalRequestResponse
+from app.schemas.cart import RentalRequestCreate, RentalRequestResponse, RentalRequestUpdate
 from app.services import notification_service
 
 router = APIRouter(prefix="/rental-requests", tags=["rental-requests"])
@@ -112,6 +112,36 @@ async def create_request(
     await notification_service.notify_request_received(
         db, r.cart.owner_id, renter.display_name or "借主", r.id
     )
+    await db.commit()
+    return _to_response(r)
+
+
+@router.patch("/{request_id}", response_model=RentalRequestResponse)
+async def update_request(
+    request_id: int,
+    body: RentalRequestUpdate,
+    user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+) -> RentalRequestResponse:
+    r = await _get_request_or_404(request_id, db)
+    if str(r.cart.owner_id) != user_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only cart owner can edit")
+    if r.status != RequestStatus.pending:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Request is not pending")
+    if body.start_date is not None:
+        r.start_date = body.start_date
+    if body.end_date is not None:
+        r.end_date = body.end_date
+    if body.quantity is not None:
+        r.quantity = body.quantity
+    if body.message is not None:
+        r.message = body.message
+    db.add(Message(
+        rental_request_id=r.id,
+        sender_id=r.cart.owner_id,
+        body="リクエスト内容が貸す人によって更新されました。",
+        is_system=True,
+    ))
     await db.commit()
     return _to_response(r)
 

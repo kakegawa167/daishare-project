@@ -76,6 +76,13 @@ class CartResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class RentalRequestUpdate(BaseModel):
+    start_date: datetime | None = None
+    end_date: datetime | None = None
+    quantity: int | None = None
+    message: str | None = None
+
+
 class RentalRequestCreate(BaseModel):
     cart_id: int
     quantity: int = 1
