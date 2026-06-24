@@ -226,15 +226,15 @@ async def cancel_request(
     db: AsyncSession = Depends(get_db),
 ) -> RentalRequestResponse:
     r = await _get_request_or_404(request_id, db)
-    if str(r.renter_id) != user_id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only renter can cancel")
+    if str(r.cart.owner_id) != user_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only lender can cancel")
     if r.status not in (RequestStatus.pending, RequestStatus.accepted):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot cancel")
     r.status = RequestStatus.cancelled
-    renter_result = await db.execute(select(User).where(User.id == uuid.UUID(user_id)))
-    renter = renter_result.scalar_one_or_none()
+    lender_result = await db.execute(select(User).where(User.id == uuid.UUID(user_id)))
+    lender = lender_result.scalar_one_or_none()
     await notification_service.notify_request_cancelled(
-        db, r.cart.owner_id, renter.display_name or "借主", r.id
+        db, r.renter_id, lender.display_name or "貸主", r.id
     )
     await db.commit()
     return _to_response(r)

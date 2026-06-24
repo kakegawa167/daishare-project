@@ -421,8 +421,8 @@ REMINDER_RETURN     貸主・借主：返却時間リマインド
 rental_requests:
   pending ──[承認]──► accepted ──[予約自動作成]
           ──[拒否]──► rejected
-          ──[取消]──► cancelled（※ISS-008: 現在の実装は借主のみ・設計は貸主のみ・要修正）
-  ※ 借主はUIからキャンセル不可。チャットで貸主に依頼する仕様
+          ──[取消]──► cancelled（貸主のみ）→ 借主に通知
+  ※ 借主はキャンセル不可。チャットで貸主に依頼する仕様
 
 reservations:
   reserved ──[貸出]──► lent ──[返却]──► returned ──[評価]──► reviews 作成
@@ -481,7 +481,7 @@ carts:
 | PATCH  | `/rental-requests/{id}`        | リクエスト内容編集（貸主のみ・pending 時のみ・日時/台数変更）     |
 | POST   | `/rental-requests/{id}/accept` | 承認（貸主のみ）→ 予約自動作成                                    |
 | POST   | `/rental-requests/{id}/reject` | 拒否（貸主のみ）                                                  |
-| POST   | `/rental-requests/{id}/cancel` | キャンセル（貸主のみ・※ISS-008 現在の実装は借主のみ・要修正）    |
+| POST   | `/rental-requests/{id}/cancel` | キャンセル（貸主のみ）→ 借主に通知                                |
 
 #### Messages
 
