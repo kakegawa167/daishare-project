@@ -12,6 +12,7 @@ from app.models.cart import Cart
 from app.models.message import Message
 from app.models.rental_request import RentalRequest
 from app.models.reservation import Reservation, ReservationStatus
+from app.models.user import User
 from app.schemas.message import ReservationResponse
 from app.services import notification_service
 
@@ -108,7 +109,10 @@ async def start_lend(
         body="貸出が開始されました。",
         is_system=True,
     ))
-    await notification_service.notify_lend_started(db, r.renter_id, r.id)
+    lender_result = await db.execute(select(User).where(User.id == r.lender_id))
+    lender = lender_result.scalar_one_or_none()
+    lender_name = lender.display_name or "貸主" if lender else "貸主"
+    await notification_service.notify_lend_started(db, r.renter_id, lender_name, r.id)
     await db.commit()
     return _to_response(r)
 
@@ -132,7 +136,10 @@ async def complete_return(
         body="返却が完了しました。",
         is_system=True,
     ))
-    await notification_service.notify_returned(db, r.lender_id, r.id)
+    lender_result = await db.execute(select(User).where(User.id == r.lender_id))
+    lender = lender_result.scalar_one_or_none()
+    lender_name = lender.display_name or "貸主" if lender else "貸主"
+    await notification_service.notify_returned(db, r.renter_id, lender_name, r.id)
     await db.commit()
     return _to_response(r)
 

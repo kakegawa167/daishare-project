@@ -69,10 +69,10 @@ function ReviewModal({ reservationId, visible, onClose }: { reservationId: numbe
         <Text style={s.reviewTitle}>レビューを書く</Text>
         <Text style={s.reviewLabel}>評価</Text>
         <View style={s.ratingRow}>
-          {([1, 2, 3] as const).map((v) => (
+          {([3, 2, 1] as const).map((v) => (
             <Pressable key={v} style={[s.ratingBtn, rating === v && s.ratingBtnActive]} onPress={() => setRating(v)}>
               <Text style={[s.ratingBtnText, rating === v && s.ratingBtnTextActive]}>
-                {v === 1 ? '😞 悪い' : v === 2 ? '😐 普通' : '😊 良い'}
+                {v === 3 ? '⭐⭐⭐ 良い' : v === 2 ? '⭐⭐ 普通' : '⭐ 悪い'}
               </Text>
             </Pressable>
           ))}

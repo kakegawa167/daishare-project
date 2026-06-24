@@ -99,22 +99,22 @@ async def notify_message_received(db: AsyncSession, recipient_id: uuid.UUID, sen
     )
 
 
-async def notify_lend_started(db: AsyncSession, renter_id: uuid.UUID, reservation_id: int) -> None:
+async def notify_lend_started(db: AsyncSession, renter_id: uuid.UUID, lender_name: str, reservation_id: int) -> None:
     await _create_notification(
         db, renter_id,
         NotificationType.lend_started,
         "貸出が開始されました",
-        "台車の貸出が開始されました。ご確認ください。",
+        f"{lender_name}さんが貸出を開始しました。ご確認ください。",
         related_id=reservation_id,
     )
 
 
-async def notify_returned(db: AsyncSession, lender_id: uuid.UUID, reservation_id: int) -> None:
+async def notify_returned(db: AsyncSession, renter_id: uuid.UUID, lender_name: str, reservation_id: int) -> None:
     await _create_notification(
-        db, lender_id,
+        db, renter_id,
         NotificationType.returned,
-        "返却が完了しました",
-        "台車が返却されました。レビューを書きましょう。",
+        "返却を確認しました",
+        f"{lender_name}さんが返却を確認しました。レビューを書きましょう。",
         related_id=reservation_id,
     )
 
