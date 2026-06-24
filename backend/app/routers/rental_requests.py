@@ -128,18 +128,30 @@ async def update_request(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only cart owner can edit")
     if r.status != RequestStatus.pending:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Request is not pending")
-    if body.start_date is not None:
+
+    # 変更前の値を保存
+    fmt = lambda d: d.strftime("%-m/%-d %-H:%M") if d else "-"
+    changes: list[str] = []
+    if body.start_date is not None and body.start_date != r.start_date:
+        changes.append(f"貸出日時: {fmt(r.start_date)} → {fmt(body.start_date)}")
         r.start_date = body.start_date
-    if body.end_date is not None:
+    if body.end_date is not None and body.end_date != r.end_date:
+        changes.append(f"返却日時: {fmt(r.end_date)} → {fmt(body.end_date)}")
         r.end_date = body.end_date
-    if body.quantity is not None:
+    if body.quantity is not None and body.quantity != r.quantity:
+        changes.append(f"台数: {r.quantity}台 → {body.quantity}台")
         r.quantity = body.quantity
     if body.message is not None:
         r.message = body.message
+
+    lender_name = r.cart.owner.display_name if r.cart and r.cart.owner else "貸す人"
+    change_text = "\n".join(changes) if changes else "（変更なし）"
+    system_body = f"{lender_name}さんがリクエスト内容を変更しました。\n{change_text}"
+
     db.add(Message(
         rental_request_id=r.id,
         sender_id=r.cart.owner_id,
-        body="リクエスト内容が貸す人によって更新されました。",
+        body=system_body,
         is_system=True,
     ))
     await db.commit()

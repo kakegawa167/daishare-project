@@ -8,6 +8,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  RefreshControl,
   FlatList,
   KeyboardAvoidingView,
   Modal,
@@ -290,6 +291,7 @@ export default function RequestChat() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [sending, setSending] = useState(false);
   const [showReview, setShowReview] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
@@ -318,10 +320,40 @@ export default function RequestChat() {
       Alert.alert('エラー', 'データの取得に失敗しました');
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }, [id]);
 
+  const handleRefresh = useCallback(() => {
+    setRefreshing(true);
+    fetchAll();
+  }, [fetchAll]);
+
   useEffect(() => { fetchAll(); }, [fetchAll]);
+
+  // Realtimeが機能しない場合のポーリングフォールバック（5秒ごとにメッセージのみ更新）
+  useEffect(() => {
+    const timer = setInterval(async () => {
+      try {
+        const res = await api.get<Message[]>(`/rental-requests/${id}/messages`);
+        setMessages((prev) => {
+          // 新しいメッセージがあれば追加、既存は is_read を更新
+          const merged = [...prev];
+          for (const m of res.data) {
+            const idx = merged.findIndex((x) => x.id === m.id);
+            if (idx === -1) {
+              merged.push(m);
+            } else if (merged[idx].is_read !== m.is_read) {
+              merged[idx] = { ...merged[idx], is_read: m.is_read };
+            }
+          }
+          return merged;
+        });
+        await api.post(`/rental-requests/${id}/messages/read`).catch(() => {});
+      } catch {}
+    }, 5000);
+    return () => clearInterval(timer);
+  }, [id]);
 
   useEffect(() => {
     // 既存チャンネルを確実に削除してから再作成（React StrictMode / hot reload 対策）
@@ -477,6 +509,9 @@ export default function RequestChat() {
             return <MessageBubble msg={item} myId={myId} isLastRead={isLastRead} />;
           }}
           contentContainerStyle={s.msgList}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#3b82f6" />
+          }
           // iOS 15+: キーボード出現時にスクロールを自動調整
           automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
           onLayout={() => listRef.current?.scrollToEnd({ animated: false })}
