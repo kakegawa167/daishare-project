@@ -1,4 +1,6 @@
 import uuid
+from collections import defaultdict
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
@@ -18,7 +20,12 @@ from app.services import notification_service
 router = APIRouter(prefix="/rental-requests", tags=["rental-requests"])
 
 
-def _to_response(r: RentalRequest) -> RentalRequestResponse:
+def _to_response(
+    r: RentalRequest,
+    last_message_body: str | None = None,
+    last_message_at: datetime | None = None,
+    unread_count: int = 0,
+) -> RentalRequestResponse:
     return RentalRequestResponse(
         id=r.id,
         cart_id=r.cart_id,
@@ -35,6 +42,9 @@ def _to_response(r: RentalRequest) -> RentalRequestResponse:
         station_name=r.cart.station.name if r.cart and r.cart.station else None,
         municipality=r.cart.station.municipality if r.cart and r.cart.station else None,
         lending_address=r.cart.lending_address if r.cart else None,
+        last_message_body=last_message_body,
+        last_message_at=last_message_at,
+        unread_count=unread_count,
     )
 
 
@@ -60,7 +70,6 @@ async def list_requests(
     db: AsyncSession = Depends(get_db),
 ) -> list[RentalRequestResponse]:
     uid = uuid.UUID(user_id)
-    # 自分が借主のリクエスト、または自分の台車へのリクエスト
     stmt = (
         select(RentalRequest)
         .options(
@@ -73,7 +82,36 @@ async def list_requests(
         .order_by(RentalRequest.created_at.desc())
     )
     result = await db.execute(stmt)
-    return [_to_response(r) for r in result.scalars().all()]
+    requests = result.scalars().all()
+
+    if not requests:
+        return []
+
+    # メッセージを一括取得してスレッドサマリーを計算
+    req_ids = [r.id for r in requests]
+    msgs_result = await db.execute(
+        select(Message)
+        .where(Message.rental_request_id.in_(req_ids))
+        .order_by(Message.created_at.asc())
+    )
+    all_msgs = msgs_result.scalars().all()
+
+    last_msg: dict[int, Message] = {}
+    unread: dict[int, int] = defaultdict(int)
+    for m in all_msgs:
+        last_msg[m.rental_request_id] = m
+        if not m.is_read and m.sender_id != uid:
+            unread[m.rental_request_id] += 1
+
+    return [
+        _to_response(
+            r,
+            last_message_body=last_msg[r.id].body if r.id in last_msg else None,
+            last_message_at=last_msg[r.id].created_at if r.id in last_msg else None,
+            unread_count=unread[r.id],
+        )
+        for r in requests
+    ]
 
 
 @router.get("/{request_id}", response_model=RentalRequestResponse)

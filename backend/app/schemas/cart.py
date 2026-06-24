@@ -114,5 +114,8 @@ class RentalRequestResponse(BaseModel):
     station_name: str | None = None
     municipality: str | None = None
     lending_address: str | None = None
+    last_message_body: str | None = None
+    last_message_at: datetime | None = None
+    unread_count: int = 0
 
     model_config = {"from_attributes": True}
