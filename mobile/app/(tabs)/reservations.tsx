@@ -224,14 +224,18 @@ export default function Reservations() {
   // 自分が貸す人のリクエスト（自分の台車へのリクエスト）
   const asLender = requests.filter(r => r.renter_id !== userId);
 
-  // タブごとに振り分け（履歴：cancelled / rejected / accepted で期限切れ）
+  // タブごとに振り分け
   const classify = (list: RentalRequest[], tab: ContentTab): RentalRequest[] => {
     if (tab === 'request') return list.filter(r => r.status === 'pending');
-    if (tab === 'booked')  return list.filter(r => r.status === 'accepted' && new Date(r.end_date) >= now);
-    // history: cancelled, rejected, accepted で返却期限切れ
+    if (tab === 'booked')  return list.filter(r =>
+      r.status === 'accepted' &&
+      r.reservation_status !== 'returned' &&
+      (r.reservation_status === 'reserved' || r.reservation_status === 'lent' || !r.reservation_status)
+    );
+    // history: cancelled, rejected, 返却済み
     return list.filter(r =>
       r.status === 'cancelled' || r.status === 'rejected' ||
-      (r.status === 'accepted' && new Date(r.end_date) < now)
+      r.reservation_status === 'returned'
     );
   };
 

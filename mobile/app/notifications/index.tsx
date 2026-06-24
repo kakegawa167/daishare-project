@@ -2,6 +2,7 @@ import { api } from '@/lib/api';
 import { EmptyScreen, LoadingScreen } from '@/components/ScreenState';
 import { useCallback, useEffect, useState } from 'react';
 import { useBadgeStore } from '@/store/badgeStore';
+import { useAuthStore } from '@/store/authStore';
 import { router } from 'expo-router';
 import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 
@@ -21,6 +22,7 @@ export default function Notifications() {
   const [error, setError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const { clearNotifications, decrementNotification } = useBadgeStore();
+  const { user } = useAuthStore();
 
   const fetchNotifications = useCallback(async () => {
     setError(false);
@@ -53,12 +55,16 @@ export default function Notifications() {
   };
 
   const navigate = (n: Notification) => {
-    if (!n.related_id) return;
     const t = n.type.toLowerCase();
+    if (t === 'review_received') {
+      // 自分のレビュー一覧 → 自分のプロフィール画面
+      if (user?.id) router.push(`/search/${user.id}` as any);
+      return;
+    }
+    if (!n.related_id) return;
     if (t === 'message_received' || t === 'lend_started' || t === 'returned'
         || t === 'reminder_lend_start' || t === 'reminder_return'
-        || t === 'request_accepted' || t === 'request_rejected'
-        || t === 'review_received') {
+        || t === 'request_accepted' || t === 'request_rejected') {
       router.push(`/requests/${n.related_id}` as any);
     } else {
       // request_received / request_cancelled → 予約一覧
