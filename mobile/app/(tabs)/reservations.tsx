@@ -142,21 +142,39 @@ function RequestList({
 
 // ─── タブバー ─────────────────────────────────────
 function TabBar({
-  tabs, active, onChange,
-}: { tabs: { key: ContentTab; label: string }[]; active: ContentTab; onChange: (t: ContentTab) => void }) {
+  tabs, active, onChange, counts,
+}: {
+  tabs: { key: ContentTab; label: string }[];
+  active: ContentTab;
+  onChange: (t: ContentTab) => void;
+  counts: Record<ContentTab, number>;
+}) {
   return (
     <View style={s.tabRow}>
-      {tabs.map(tab => (
-        <Pressable
-          key={tab.key}
-          style={[s.tabBtn, active === tab.key && s.tabBtnActive]}
-          onPress={() => onChange(tab.key)}
-        >
-          <Text style={[s.tabBtnText, active === tab.key && s.tabBtnTextActive]}>
-            {tab.label}
-          </Text>
-        </Pressable>
-      ))}
+      {tabs.map(tab => {
+        const isActive = active === tab.key;
+        const count = counts[tab.key];
+        return (
+          <Pressable
+            key={tab.key}
+            style={[s.tabBtn, isActive && s.tabBtnActive]}
+            onPress={() => onChange(tab.key)}
+          >
+            <View style={s.tabInner}>
+              <Text style={[s.tabBtnText, isActive && s.tabBtnTextActive]}>
+                {tab.label}
+              </Text>
+              {count > 0 && (
+                <View style={[s.tabBadge, isActive && s.tabBadgeActive]}>
+                  <Text style={[s.tabBadgeText, isActive && s.tabBadgeTextActive]}>
+                    {count}
+                  </Text>
+                </View>
+              )}
+            </View>
+          </Pressable>
+        );
+      })}
     </View>
   );
 }
@@ -214,7 +232,13 @@ export default function Reservations() {
   const baseList     = isLenderView ? asLender : asRenter;
   const displayList  = useMemo(() => classify(baseList, contentTab), [baseList, contentTab, requests]);
 
-  const tabs         = isLenderView ? LENDER_TABS : RENTER_TABS;
+  const counts: Record<ContentTab, number> = useMemo(() => ({
+    request: classify(baseList, 'request').length,
+    booked:  classify(baseList, 'booked').length,
+    history: classify(baseList, 'history').length,
+  }), [baseList, requests]);
+
+  const tabs = isLenderView ? LENDER_TABS : RENTER_TABS;
 
   const emptyConfig: Record<ContentTab, { icon: string; message: string; sub: string }> = {
     request: isLenderView
@@ -252,7 +276,7 @@ export default function Reservations() {
       )}
 
       {/* コンテンツタブ */}
-      <TabBar tabs={tabs} active={contentTab} onChange={t => setContentTab(t)} />
+      <TabBar tabs={tabs} active={contentTab} onChange={t => setContentTab(t)} counts={counts} />
 
       <RequestList
         requests={displayList}
@@ -296,8 +320,17 @@ const s = StyleSheet.create({
   },
   tabBtn: { flex: 1, paddingVertical: 13, alignItems: 'center' },
   tabBtnActive: { borderBottomWidth: 2, borderBottomColor: '#3b82f6' },
+  tabInner: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   tabBtnText: { fontSize: 13, color: '#9ca3af', fontWeight: '500' },
   tabBtnTextActive: { color: '#3b82f6', fontWeight: '700' },
+  tabBadge: {
+    minWidth: 18, height: 18, borderRadius: 9,
+    backgroundColor: '#e5e7eb', alignItems: 'center', justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  tabBadgeActive: { backgroundColor: '#3b82f6' },
+  tabBadgeText: { fontSize: 11, fontWeight: '700', color: '#6b7280' },
+  tabBadgeTextActive: { color: '#fff' },
 });
 
 const c = StyleSheet.create({
