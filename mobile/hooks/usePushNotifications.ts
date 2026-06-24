@@ -50,8 +50,13 @@ export function usePushNotifications() {
 
     // 通知タップ時の画面遷移
     const sub = Notifications.addNotificationResponseReceivedListener((response) => {
-      const data = response.notification.request.content.data as { related_id?: number };
-      if (data?.related_id) {
+      const data = response.notification.request.content.data as { related_id?: number; type?: string };
+      if (!data?.related_id) return;
+      if (data.type === 'request_received') {
+        // リクエスト受信 → 予約一覧（受信タブ）
+        router.replace('/(tabs)/reservations');
+      } else {
+        // メッセージ・承認・その他 → チャット画面
         router.push(`/requests/${data.related_id}` as any);
       }
     });

@@ -57,6 +57,9 @@ export interface RentalRequest {
   created_at: string;
   cart_title: string | null;
   renter_name: string | null;
+  station_name: string | null;
+  municipality: string | null;
+  lending_address: string | null;
 }
 
 export interface Message {

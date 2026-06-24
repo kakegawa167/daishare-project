@@ -48,7 +48,7 @@ function DateTimeField({
         <DateTimePicker
           value={value}
           mode="date"
-          display={Platform.OS === 'ios' ? 'inline' : 'default'}
+          display={Platform.OS === 'ios' ? 'compact' : 'default'}
           minimumDate={minimumDate}
           onChange={(_, d) => { setShowDate(false); if (d) { const n = new Date(d); n.setHours(value.getHours(), value.getMinutes()); onChange(n); } }}
         />
@@ -57,7 +57,7 @@ function DateTimeField({
         <DateTimePicker
           value={value}
           mode="time"
-          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+          display="spinner"
           onChange={(_, d) => { setShowTime(false); if (d) { const n = new Date(value); n.setHours(d.getHours(), d.getMinutes()); onChange(n); } }}
         />
       )}

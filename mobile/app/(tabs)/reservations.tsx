@@ -51,8 +51,8 @@ function RequestCard({
   isLenderView: boolean;
   onAction: () => void;
 }) {
-  const fmt = (d: string) =>
-    new Date(d).toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric' });
+  const fmtDT = (d: string) =>
+    new Date(d).toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 
   const handleAccept = async () => {
     try { await api.post(`/rental-requests/${req.id}/accept`); onAction(); }
@@ -88,10 +88,19 @@ function RequestCard({
         <Text style={c.meta}>👤 借りる人: {req.renter_name}</Text>
       )}
 
-      <Text style={c.meta}>📅 {fmt(req.start_date)} 〜 {fmt(req.end_date)}　{req.quantity}台</Text>
+      <Text style={c.meta}>🕐 貸出希望: {fmtDT(req.start_date)}</Text>
+      <Text style={c.meta}>🕐 返却希望: {fmtDT(req.end_date)}</Text>
+      <Text style={c.meta}>📦 台数: {req.quantity}台</Text>
+
+      {(req.municipality || req.station_name) && (
+        <Text style={c.meta}>📍 {[req.municipality, req.station_name].filter(Boolean).join(' / ')}</Text>
+      )}
+      {req.lending_address ? (
+        <Text style={c.meta}>🏠 {req.lending_address}</Text>
+      ) : null}
 
       {req.message ? (
-        <Text style={c.msgPreview} numberOfLines={1}>"{req.message}"</Text>
+        <Text style={c.msgPreview}>💬 {req.message}</Text>
       ) : null}
 
       {/* 貸す人アクション: pending のとき承認/拒否 */}
