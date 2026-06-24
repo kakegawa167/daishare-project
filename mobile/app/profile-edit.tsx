@@ -86,7 +86,11 @@ export default function ProfileEditScreen() {
         user_type: form.user_type,
       });
       await syncUser();
-      router.back();
+      if (user?.is_new) {
+        router.replace('/(tabs)');
+      } else {
+        router.back();
+      }
     } catch {
       Alert.alert('エラー', '保存に失敗しました');
     } finally {

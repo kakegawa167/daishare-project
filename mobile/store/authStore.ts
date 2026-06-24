@@ -23,6 +23,7 @@ export interface AppUser {
   lending_address: string | null;
   user_type: 'lender' | 'renter' | 'both';
   expo_push_token: string | null;
+  is_new?: boolean;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({

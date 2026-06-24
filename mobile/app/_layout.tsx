@@ -51,15 +51,17 @@ export default function RootLayout() {
 }
 
 function RootLayoutNav() {
-  const { session, loading } = useAuthStore();
+  const { session, loading, user } = useAuthStore();
   usePushNotifications();
 
   useEffect(() => {
     if (loading) return;
     if (!session) {
       router.replace('/(auth)/login');
+    } else if (user?.is_new) {
+      router.replace('/profile-edit');
     }
-  }, [session, loading]);
+  }, [session, loading, user?.is_new]);
 
   if (loading) return null;
 

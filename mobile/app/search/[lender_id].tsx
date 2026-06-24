@@ -160,7 +160,7 @@ export default function LenderDetail() {
 
   if (loading) return <View style={styles.center}><ActivityIndicator size="large" /></View>;
 
-  const ownerName = carts[0]?.owner_name ?? '貸主';
+  const ownerName = carts[0]?.owner_name ?? '貸す人';
   const avgRating = reviews.length > 0
     ? (reviews.reduce((s, r) => s + r.rating, 0) / reviews.length).toFixed(1)
     : null;

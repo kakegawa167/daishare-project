@@ -122,7 +122,7 @@ function Row({ label, value, children }: { label: string; value?: string; childr
   );
 }
 
-const USER_TYPE_LABELS: Record<string, string> = { renter: '借主', lender: '貸主', both: '両方' };
+const USER_TYPE_LABELS: Record<string, string> = { renter: '借りる人', lender: '貸す人', both: '両方' };
 
 // ─── プロフィール表示画面 ──────────────────────
 export default function ProfileScreen() {

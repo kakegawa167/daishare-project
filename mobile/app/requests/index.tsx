@@ -58,7 +58,7 @@ function RequestCard({ req, userId, onAction }: { req: RentalRequest; userId: st
           <Text style={[styles.badgeText, { color: STATUS_COLOR[req.status] }]}>{STATUS_LABEL[req.status]}</Text>
         </View>
       </View>
-      <Text style={styles.meta}>{isOwner ? `借主: ${req.renter_name ?? '不明'}` : '自分のリクエスト'}</Text>
+      <Text style={styles.meta}>{isOwner ? `借りる人: ${req.renter_name ?? '不明'}` : '自分のリクエスト'}</Text>
       <Text style={styles.meta}>📅 {startDate} 〜 {endDate}</Text>
       <Text style={styles.meta}>台数: {req.quantity}台</Text>
       {req.message && <Text style={styles.message}>"{req.message}"</Text>}

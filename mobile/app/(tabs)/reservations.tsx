@@ -85,7 +85,7 @@ function RequestCard({
 
       {/* 相手方表示 */}
       {isLenderView && req.renter_name && (
-        <Text style={c.meta}>👤 借主: {req.renter_name}</Text>
+        <Text style={c.meta}>👤 借りる人: {req.renter_name}</Text>
       )}
 
       <Text style={c.meta}>📅 {fmt(req.start_date)} 〜 {fmt(req.end_date)}　{req.quantity}台</Text>
@@ -94,7 +94,7 @@ function RequestCard({
         <Text style={c.msgPreview} numberOfLines={1}>"{req.message}"</Text>
       ) : null}
 
-      {/* 貸主アクション: pending のとき承認/拒否 */}
+      {/* 貸す人アクション: pending のとき承認/拒否 */}
       {req.status === 'pending' && isLenderView && (
         <View style={c.actions}>
           <Pressable style={[c.btn, c.btnAccept]} onPress={(e) => { e.stopPropagation?.(); handleAccept(); }}>
@@ -106,7 +106,7 @@ function RequestCard({
         </View>
       )}
 
-      {/* 借主アクション: pending のときキャンセル */}
+      {/* 借りる人アクション: pending のときキャンセル */}
       {req.status === 'pending' && !isLenderView && (
         <Pressable style={[c.btn, c.btnCancel]} onPress={(e) => { e.stopPropagation?.(); handleCancel(); }}>
           <Text style={c.btnCancelText}>キャンセル</Text>
@@ -208,9 +208,9 @@ export default function Reservations() {
   const userId  = user?.id ?? '';
   const now     = new Date();
 
-  // 自分が借主のリクエスト
+  // 自分が借りる人のリクエスト
   const asRenter = requests.filter(r => r.renter_id === userId);
-  // 自分が貸主のリクエスト（自分の台車へのリクエスト）
+  // 自分が貸す人のリクエスト（自分の台車へのリクエスト）
   const asLender = requests.filter(r => r.renter_id !== userId);
 
   // タブごとに振り分け（履歴：cancelled / rejected / accepted で期限切れ）
@@ -248,7 +248,7 @@ export default function Reservations() {
   return (
     <View style={s.container}>
 
-      {/* both の場合のみ 貸主/借主 切り替えバー */}
+      {/* both の場合のみ 貸す人/借りる人 切り替えバー */}
       {userType === 'both' && (
         <View style={s.roleRow}>
           {(['renter', 'lender'] as RoleTab[]).map(role => (

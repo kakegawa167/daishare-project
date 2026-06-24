@@ -17,16 +17,20 @@ async def sync_user(
     body: UserSyncRequest,
     user_id: str = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db),
-) -> User:
+) -> UserResponse:
     """ログイン後にSupabase UIDでユーザーを登録 or 取得する"""
     uid = uuid.UUID(user_id)
     result = await db.execute(select(User).where(User.id == uid))
     user = result.scalar_one_or_none()
 
+    is_new = False
     if not user:
         user = User(id=uid, email=body.email, display_name=body.display_name)
         db.add(user)
         await db.commit()
         await db.refresh(user)
+        is_new = True
 
-    return user
+    resp = UserResponse.model_validate(user)
+    resp.is_new = is_new
+    return resp

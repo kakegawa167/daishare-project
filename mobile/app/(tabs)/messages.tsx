@@ -8,7 +8,7 @@ import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'rea
 
 function ThreadCard({ req, userId }: { req: RentalRequest; userId: string }) {
   const isOwner = req.renter_id !== userId;
-  const otherName = isOwner ? (req.renter_name ?? '不明') : '貸主';
+  const otherName = isOwner ? (req.renter_name ?? '不明') : '貸す人';
   const start = new Date(req.start_date).toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric' });
   const end = new Date(req.end_date).toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric' });
   const createdAt = new Date(req.created_at);

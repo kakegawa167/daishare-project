@@ -32,5 +32,6 @@ class UserResponse(BaseModel):
     lending_address: str | None
     user_type: UserType
     expo_push_token: str | None
+    is_new: bool = False
 
     model_config = {"from_attributes": True}
