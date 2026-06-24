@@ -44,6 +44,7 @@ def _to_response(cart: Cart) -> CartResponse:
 async def search_carts(
     municipality: str | None = Query(None),
     station_id: int | None = Query(None),
+    owner_id: str | None = Query(None),
     category: str | None = Query(None),
     foldable: bool | None = Query(None),
     db: AsyncSession = Depends(get_db),
@@ -54,7 +55,9 @@ async def search_carts(
         .where(Cart.status == CartStatus.active)
         .order_by(Cart.id.desc())
     )
-    if station_id:
+    if owner_id:
+        stmt = stmt.where(Cart.owner_id == uuid.UUID(owner_id))
+    elif station_id:
         stmt = stmt.where(Cart.station_id == station_id)
     elif municipality:
         stmt = stmt.join(Station).where(Station.municipality == municipality)

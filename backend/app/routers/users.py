@@ -7,9 +7,21 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.auth import get_current_user_id
 from app.core.database import get_db
 from app.models.user import User
+from pydantic import BaseModel
+
 from app.schemas.user import PushTokenRequest, UserResponse, UserUpdateRequest
 
 router = APIRouter(prefix="/users", tags=["users"])
+
+
+class PublicUserResponse(BaseModel):
+    id: uuid.UUID
+    display_name: str
+    avatar_url: str | None
+    bio: str | None
+    user_type: str
+
+    model_config = {"from_attributes": True}
 
 
 async def _get_user_or_404(user_id: str, db: AsyncSession) -> User:
@@ -18,6 +30,14 @@ async def _get_user_or_404(user_id: str, db: AsyncSession) -> User:
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     return user
+
+
+@router.get("/{user_id}/profile", response_model=PublicUserResponse)
+async def get_user_profile(
+    user_id: str,
+    db: AsyncSession = Depends(get_db),
+) -> User:
+    return await _get_user_or_404(user_id, db)
 
 
 @router.get("/me", response_model=UserResponse)

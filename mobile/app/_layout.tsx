@@ -72,6 +72,7 @@ function RootLayoutNav() {
       <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
       <Stack.Screen name="profile" options={{ title: 'プロフィール', presentation: 'modal' }} />
       <Stack.Screen name="profile-edit" options={{ title: 'プロフィール編集' }} />
+      <Stack.Screen name="request-new" options={{ title: 'リクエスト送信', presentation: 'modal' }} />
     </Stack>
   );
 }
