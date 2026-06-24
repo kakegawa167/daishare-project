@@ -15,17 +15,24 @@ import {
 } from 'react-native';
 
 // ─── ステータス定義 ───────────────────────────────
-const STATUS_LABEL: Record<RequestStatus, string> = {
+const STATUS_LABEL: Record<string, string> = {
   pending:   '承認待ち',
   accepted:  '予約中',
   rejected:  '拒否',
   cancelled: 'キャンセル',
+  // 予約ステータス（reservation_status）
+  reserved:  '予約確定',
+  lent:      '貸出中',
+  returned:  '返却済み',
 };
-const STATUS_COLOR: Record<RequestStatus, string> = {
+const STATUS_COLOR: Record<string, string> = {
   pending:   '#f59e0b',
   accepted:  '#10b981',
   rejected:  '#ef4444',
   cancelled: '#9ca3af',
+  reserved:  '#10b981',
+  lent:      '#f59e0b',
+  returned:  '#6b7280',
 };
 
 type RoleTab = 'renter' | 'lender'; // both の場合に上部で切り替え
@@ -68,9 +75,9 @@ function RequestCard({
     <Pressable style={c.card} onPress={() => router.push(`/requests/${req.id}` as any)}>
       <View style={c.cardTop}>
         <Text style={c.cartTitle} numberOfLines={1}>{req.cart_title ?? '台車'}</Text>
-        <View style={[c.badge, { backgroundColor: STATUS_COLOR[req.status] + '20' }]}>
-          <Text style={[c.badgeText, { color: STATUS_COLOR[req.status] }]}>
-            {STATUS_LABEL[req.status]}
+        <View style={[c.badge, { backgroundColor: STATUS_COLOR[req.reservation_status ?? req.status] + '20' }]}>
+          <Text style={[c.badgeText, { color: STATUS_COLOR[req.reservation_status ?? req.status] }]}>
+            {STATUS_LABEL[req.reservation_status ?? req.status]}
           </Text>
         </View>
       </View>

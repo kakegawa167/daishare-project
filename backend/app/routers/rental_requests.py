@@ -12,7 +12,7 @@ from app.core.database import get_db
 from app.models.cart import Cart
 from app.models.message import Message
 from app.models.rental_request import RentalRequest, RequestStatus
-from app.models.reservation import Reservation
+from app.models.reservation import Reservation, ReservationStatus
 from app.models.user import User
 from app.schemas.cart import RentalRequestCreate, RentalRequestResponse, RentalRequestUpdate
 from app.services import notification_service
@@ -22,6 +22,7 @@ router = APIRouter(prefix="/rental-requests", tags=["rental-requests"])
 
 def _to_response(
     r: RentalRequest,
+    reservation_status: str | None = None,
     last_message_body: str | None = None,
     last_message_at: datetime | None = None,
     unread_count: int = 0,
@@ -42,6 +43,7 @@ def _to_response(
         station_name=r.cart.station.name if r.cart and r.cart.station else None,
         municipality=r.cart.station.municipality if r.cart and r.cart.station else None,
         lending_address=r.cart.lending_address if r.cart else None,
+        reservation_status=reservation_status,
         last_message_body=last_message_body,
         last_message_at=last_message_at,
         unread_count=unread_count,
@@ -87,8 +89,9 @@ async def list_requests(
     if not requests:
         return []
 
-    # メッセージを一括取得してスレッドサマリーを計算
     req_ids = [r.id for r in requests]
+
+    # メッセージを一括取得してスレッドサマリーを計算
     msgs_result = await db.execute(
         select(Message)
         .where(Message.rental_request_id.in_(req_ids))
@@ -103,9 +106,20 @@ async def list_requests(
         if not m.is_read and m.sender_id != uid:
             unread[m.rental_request_id] += 1
 
+    # 予約ステータスを一括取得（accepted なリクエストのみ）
+    res_status: dict[int, str] = {}
+    accepted_ids = [r.id for r in requests if r.status == RequestStatus.accepted]
+    if accepted_ids:
+        res_rows = await db.execute(
+            select(Reservation.rental_request_id, Reservation.status)
+            .where(Reservation.rental_request_id.in_(accepted_ids))
+        )
+        res_status = {row[0]: row[1].value for row in res_rows}
+
     return [
         _to_response(
             r,
+            reservation_status=res_status.get(r.id),
             last_message_body=last_msg[r.id].body if r.id in last_msg else None,
             last_message_at=last_msg[r.id].created_at if r.id in last_msg else None,
             unread_count=unread[r.id],

@@ -61,6 +61,7 @@ export interface RentalRequest {
   station_name: string | null;
   municipality: string | null;
   lending_address: string | null;
+  reservation_status: string | null;
   last_message_body: string | null;
   last_message_at: string | null;
   unread_count: number;

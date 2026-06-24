@@ -9,6 +9,7 @@ from sqlalchemy.orm import selectinload
 from app.core.auth import get_current_user_id
 from app.core.database import get_db
 from app.models.cart import Cart
+from app.models.message import Message
 from app.models.rental_request import RentalRequest
 from app.models.reservation import Reservation, ReservationStatus
 from app.schemas.message import ReservationResponse
@@ -101,6 +102,12 @@ async def start_lend(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Reservation is not in reserved status")
     r.status = ReservationStatus.lent
     r.lent_at = datetime.now(timezone.utc)
+    db.add(Message(
+        rental_request_id=r.rental_request_id,
+        sender_id=r.lender_id,
+        body="貸出が開始されました。",
+        is_system=True,
+    ))
     await notification_service.notify_lend_started(db, r.renter_id, r.id)
     await db.commit()
     return _to_response(r)
