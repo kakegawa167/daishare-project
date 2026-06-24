@@ -96,52 +96,33 @@ export default function Schedule() {
   const userId = user?.id ?? '';
   const now = new Date();
 
-  // 貸出・返却それぞれをイベントとして展開
-  const events: ScheduleEvent[] = [];
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const todayEnd   = new Date(todayStart.getTime() + 86400000);
+
+  // 全イベントを貸出・返却に展開して日付順にソート
+  const allEvents: ScheduleEvent[] = [];
   for (const res of reservations) {
     if (res.status === 'cancelled') continue;
-
-    // 貸出イベント: reserved または lent
     if (res.status === 'reserved' || res.status === 'lent') {
-      events.push({
-        key: `lend-${res.id}`,
-        type: 'lend',
-        reservation: res,
-        eventDate: new Date(res.start_date),
-      });
+      allEvents.push({ key: `lend-${res.id}`, type: 'lend', reservation: res, eventDate: new Date(res.start_date) });
+      allEvents.push({ key: `return-${res.id}`, type: 'return', reservation: res, eventDate: new Date(res.end_date) });
     }
-
-    // 返却イベント: lent（まだ返却前）または reserved（今後）
-    if (res.status === 'lent' || res.status === 'reserved') {
-      events.push({
-        key: `return-${res.id}`,
-        type: 'return',
-        reservation: res,
-        eventDate: new Date(res.end_date),
-      });
+    if (res.status === 'returned') {
+      allEvents.push({ key: `return-done-${res.id}`, type: 'return', reservation: res, eventDate: new Date(res.end_date) });
     }
   }
+  allEvents.sort((a, b) => a.eventDate.getTime() - b.eventDate.getTime());
 
-  // 過去の返却済みを別セクションに
-  const pastEvents: ScheduleEvent[] = reservations
-    .filter((r) => r.status === 'returned')
-    .map((res) => ({
-      key: `return-done-${res.id}`,
-      type: 'return' as EventType,
-      reservation: res,
-      eventDate: new Date(res.end_date),
-    }));
+  const todayEvents  = allEvents.filter((e) => e.eventDate >= todayStart && e.eventDate < todayEnd);
+  const futureEvents = allEvents.filter((e) => e.eventDate >= todayEnd);
+  const pastEvents   = allEvents.filter((e) => e.eventDate < todayStart);
 
-  events.sort((a, b) => a.eventDate.getTime() - b.eventDate.getTime());
-  pastEvents.sort((a, b) => b.eventDate.getTime() - a.eventDate.getTime());
+  const toItems = (evts: ScheduleEvent[]) => evts.map((e) => ({ kind: 'event' as const, event: e }));
 
   const sections: SectionItem[] = [
-    ...(events.length > 0
-      ? [{ kind: 'header' as const, label: '今後の貸出・返却' }, ...events.map((e) => ({ kind: 'event' as const, event: e }))]
-      : []),
-    ...(pastEvents.length > 0
-      ? [{ kind: 'header' as const, label: '過去の予約' }, ...pastEvents.map((e) => ({ kind: 'event' as const, event: e }))]
-      : []),
+    ...(todayEvents.length > 0  ? [{ kind: 'header' as const, label: '本日のスケジュール' },  ...toItems(todayEvents)]  : []),
+    ...(futureEvents.length > 0 ? [{ kind: 'header' as const, label: '今後のスケジュール' }, ...toItems(futureEvents)] : []),
+    ...(pastEvents.length > 0   ? [{ kind: 'header' as const, label: '過去の予約' },          ...toItems(pastEvents.slice().reverse())]  : []),
   ];
 
   if (loading) return <LoadingScreen />;
