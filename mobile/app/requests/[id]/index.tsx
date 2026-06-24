@@ -101,7 +101,6 @@ function EditRequestModal({
   const [startDate, setStartDate] = useState(new Date(req.start_date));
   const [endDate, setEndDate] = useState(new Date(req.end_date));
   const [quantity, setQuantity] = useState(String(req.quantity));
-  const [message, setMessage] = useState(req.message ?? '');
   const [showStart, setShowStart] = useState(false);
   const [showEnd, setShowEnd] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -117,7 +116,6 @@ function EditRequestModal({
         start_date: startDate.toISOString(),
         end_date: endDate.toISOString(),
         quantity: Number(quantity) || req.quantity,
-        message: message.trim() || null,
       });
       onSaved();
       onClose();
@@ -163,13 +161,6 @@ function EditRequestModal({
           style={s.editInput}
           value={quantity} onChangeText={setQuantity}
           keyboardType="number-pad" maxLength={3}
-        />
-
-        <Text style={s.editLabel}>備考・メモ</Text>
-        <TextInput
-          style={[s.editInput, { height: 80, textAlignVertical: 'top' }]}
-          value={message} onChangeText={setMessage} multiline maxLength={500}
-          placeholder="条件変更の理由など"
         />
 
         <Pressable style={[s.editSaveBtn, submitting && { opacity: 0.6 }]} onPress={handleSave} disabled={submitting}>
