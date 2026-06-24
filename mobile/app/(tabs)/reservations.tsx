@@ -62,18 +62,10 @@ function RequestCard({
     try { await api.post(`/rental-requests/${req.id}/reject`); onAction(); }
     catch { Alert.alert('エラー', '拒否に失敗しました'); }
   };
-  const handleCancel = async () => {
-    Alert.alert('キャンセル確認', 'このリクエストをキャンセルしますか？', [
-      { text: 'いいえ', style: 'cancel' },
-      { text: 'はい', style: 'destructive', onPress: async () => {
-        try { await api.post(`/rental-requests/${req.id}/cancel`); onAction(); }
-        catch { Alert.alert('エラー', 'キャンセルに失敗しました'); }
-      }},
-    ]);
-  };
+
 
   return (
-    <View style={c.card}>
+    <Pressable style={c.card} onPress={() => router.push(`/requests/${req.id}` as any)}>
       <View style={c.cardTop}>
         <Text style={c.cartTitle} numberOfLines={1}>{req.cart_title ?? '台車'}</Text>
         <View style={[c.badge, { backgroundColor: STATUS_COLOR[req.status] + '20' }]}>
@@ -83,7 +75,6 @@ function RequestCard({
         </View>
       </View>
 
-      {/* 相手方表示 */}
       {isLenderView && req.renter_name && (
         <Text style={c.meta}>👤 借りる人: {req.renter_name}</Text>
       )}
@@ -114,21 +105,7 @@ function RequestCard({
           </Pressable>
         </View>
       )}
-
-      {/* 借りる人アクション: pending のときキャンセル */}
-      {req.status === 'pending' && !isLenderView && (
-        <Pressable style={[c.btn, c.btnCancel]} onPress={(e) => { e.stopPropagation?.(); handleCancel(); }}>
-          <Text style={c.btnCancelText}>キャンセル</Text>
-        </Pressable>
-      )}
-
-      {/* 予約中・履歴はチャットへのリンクを強調 */}
-      <View style={c.footer}>
-        <Pressable style={c.chatBtn} onPress={() => router.push(`/requests/${req.id}` as any)}>
-          <Text style={c.chatBtnText}>💬 チャット・詳細を開く</Text>
-        </Pressable>
-      </View>
-    </View>
+    </Pressable>
   );
 }
 
@@ -340,12 +317,4 @@ const c = StyleSheet.create({
   btnAcceptText: { color: '#fff', fontWeight: '700', fontSize: 14 },
   btnReject: { backgroundColor: '#fee2e2' },
   btnRejectText: { color: '#ef4444', fontWeight: '700', fontSize: 14 },
-  btnCancel: { marginTop: 10, backgroundColor: '#f3f4f6' },
-  btnCancelText: { color: '#6b7280', fontWeight: '500', fontSize: 14 },
-  footer: { marginTop: 10, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: '#f3f4f6', paddingTop: 10 },
-  chatBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    backgroundColor: '#eff6ff', borderRadius: 10, paddingVertical: 9,
-  },
-  chatBtnText: { fontSize: 14, color: '#3b82f6', fontWeight: '700' },
 });
