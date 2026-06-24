@@ -126,7 +126,41 @@ async def complete_return(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Reservation is not in lent status")
     r.status = ReservationStatus.returned
     r.returned_at = datetime.now(timezone.utc)
+    db.add(Message(
+        rental_request_id=r.rental_request_id,
+        sender_id=r.lender_id,
+        body="返却が完了しました。",
+        is_system=True,
+    ))
     await notification_service.notify_returned(db, r.lender_id, r.id)
+    await db.commit()
+    return _to_response(r)
+
+
+@router.patch("/{reservation_id}", response_model=ReservationResponse)
+async def update_reservation(
+    reservation_id: int,
+    body: dict,
+    user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+) -> ReservationResponse:
+    r = await _get_reservation(reservation_id, db)
+    if str(r.lender_id) != user_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only lender can update reservation")
+    if r.status != ReservationStatus.lent:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Can only update reservation in lent status")
+    if "end_date" in body:
+        new_end = datetime.fromisoformat(body["end_date"].replace("Z", "+00:00"))
+        if new_end <= r.start_date:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="end_date must be after start_date")
+        old_end = r.end_date.strftime("%-m/%-d %-H:%M") if r.end_date else "-"
+        r.end_date = new_end
+        db.add(Message(
+            rental_request_id=r.rental_request_id,
+            sender_id=r.lender_id,
+            body=f"返却日時が変更されました。\n{old_end} → {new_end.strftime('%-m/%-d %-H:%M')}",
+            is_system=True,
+        ))
     await db.commit()
     return _to_response(r)
 

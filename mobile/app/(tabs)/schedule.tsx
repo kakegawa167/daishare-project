@@ -121,7 +121,7 @@ export default function Schedule() {
 
   const sections: SectionItem[] = [
     ...(todayEvents.length > 0  ? [{ kind: 'header' as const, label: '本日のスケジュール' },  ...toItems(todayEvents)]  : []),
-    ...(futureEvents.length > 0 ? [{ kind: 'header' as const, label: '今後のスケジュール' }, ...toItems(futureEvents)] : []),
+    ...(futureEvents.length > 0 ? [{ kind: 'header' as const, label: '明日以降のスケジュール' }, ...toItems(futureEvents)] : []),
     ...(pastEvents.length > 0   ? [{ kind: 'header' as const, label: '過去の予約' },          ...toItems(pastEvents.slice().reverse())]  : []),
   ];
 

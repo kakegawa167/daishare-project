@@ -1,5 +1,24 @@
 import { api } from '@/lib/api';
-import { RentalRequest } from '@/lib/types';
+import { RentalRequest, RequestStatus } from '@/lib/types';
+
+const STATUS_LABEL: Record<string, string> = {
+  pending:   '承認待ち',
+  accepted:  '予約中',
+  rejected:  '拒否',
+  cancelled: 'キャンセル',
+  reserved:  '予約確定',
+  lent:      '貸出中',
+  returned:  '返却済み',
+};
+const STATUS_COLOR: Record<string, string> = {
+  pending:   '#f59e0b',
+  accepted:  '#10b981',
+  rejected:  '#ef4444',
+  cancelled: '#9ca3af',
+  reserved:  '#10b981',
+  lent:      '#8b5cf6',
+  returned:  '#6b7280',
+};
 import { EmptyScreen, LoadingScreen } from '@/components/ScreenState';
 import { useAuthStore } from '@/store/authStore';
 import { router, useFocusEffect } from 'expo-router';
@@ -40,9 +59,19 @@ function ThreadCard({ req, userId }: { req: RentalRequest; userId: string }) {
 
       {/* メイン情報 */}
       <View style={s.body}>
-        {/* 1行目: 名前 + 時刻 */}
+        {/* 1行目: 名前 + ステータスバッジ + 時刻 */}
         <View style={s.row}>
           <Text style={s.name} numberOfLines={1}>{otherName}</Text>
+          {(() => {
+            const st = req.reservation_status ?? req.status;
+            const color = STATUS_COLOR[st] ?? '#9ca3af';
+            const label = STATUS_LABEL[st] ?? st;
+            return (
+              <View style={[s.statusBadge, { backgroundColor: color + '22' }]}>
+                <Text style={[s.statusBadgeText, { color }]}>{label}</Text>
+              </View>
+            );
+          })()}
           <Text style={s.time}>{timeStr}</Text>
         </View>
 
@@ -166,9 +195,11 @@ const s = StyleSheet.create({
   avatarText: { fontSize: 18, fontWeight: '700', color: '#3b82f6' },
 
   body: { flex: 1 },
-  row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 3 },
-  name: { fontSize: 15, fontWeight: '700', color: '#1a1a1a', flex: 1, marginRight: 8 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 3 },
+  name: { fontSize: 15, fontWeight: '700', color: '#1a1a1a', flex: 1 },
   time: { fontSize: 12, color: '#9ca3af', flexShrink: 0 },
+  statusBadge: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8, flexShrink: 0 },
+  statusBadgeText: { fontSize: 10, fontWeight: '700' },
 
   cartLine: { fontSize: 13, color: '#1d4ed8', fontWeight: '600', marginBottom: 1 },
   dateLine: { fontSize: 12, color: '#6b7280', marginBottom: 1 },

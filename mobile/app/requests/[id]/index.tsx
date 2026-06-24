@@ -131,6 +131,58 @@ function CartEditRow({ cart, qty, onChange }: { cart: Cart; qty: number; onChang
   );
 }
 
+// ─── 返却日時変更モーダル (貸出中) ────────────────────
+function EditReturnDateModal({
+  visible, reservation, onClose, onSaved,
+}: { visible: boolean; reservation: Reservation; onClose: () => void; onSaved: () => void }) {
+  const [endDate, setEndDate] = useState(new Date(reservation.end_date));
+  const [showPicker, setShowPicker] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  const fmtD = (d: Date) =>
+    d.toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+
+  const handleSave = async () => {
+    setSubmitting(true);
+    try {
+      await api.patch(`/reservations/${reservation.id}`, { end_date: endDate.toISOString() });
+      onSaved();
+      onClose();
+    } catch {
+      Alert.alert('エラー', '更新に失敗しました');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose} accessibilityViewIsModal>
+      <View style={s.editModal}>
+        <Text style={s.editTitle}>返却日時を変更</Text>
+
+        <Text style={s.editLabel}>新しい返却日時</Text>
+        <Pressable style={s.editDtBtn} onPress={() => setShowPicker(true)}>
+          <Text style={s.editDtBtnText}>📅 {fmtD(endDate)}</Text>
+        </Pressable>
+        {showPicker && (
+          <DateTimePicker
+            value={endDate} mode="datetime" display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+            minimumDate={new Date()}
+            onChange={(_, d) => { setShowPicker(false); if (d) setEndDate(d); }}
+          />
+        )}
+
+        <Pressable style={[s.editSaveBtn, submitting && { opacity: 0.6 }]} onPress={handleSave} disabled={submitting}>
+          {submitting ? <ActivityIndicator color="#fff" /> : <Text style={s.editSaveBtnText}>変更する</Text>}
+        </Pressable>
+        <Pressable style={s.reviewCancel} onPress={onClose}>
+          <Text style={s.reviewCancelText}>キャンセル</Text>
+        </Pressable>
+      </View>
+    </Modal>
+  );
+}
+
 // ─── リクエスト編集モーダル (貸主用) ──────────────────
 function EditRequestModal({
   visible, req, onClose, onSaved,
@@ -295,6 +347,7 @@ export default function RequestChat() {
   const [sending, setSending] = useState(false);
   const [showReview, setShowReview] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
+  const [showEditReturn, setShowEditReturn] = useState(false);
   const listRef = useRef<FlatList>(null);
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
@@ -486,6 +539,9 @@ export default function RequestChat() {
             <Pressable style={[s.actionBtn, { backgroundColor: '#3b82f6' }]} onPress={() => handleReservationAction('return')}>
               <Text style={s.actionBtnText}>📦 返却完了</Text>
             </Pressable>
+            <Pressable style={[s.actionBtn, { backgroundColor: '#f3f4f6' }]} onPress={() => setShowEditReturn(true)}>
+              <Text style={[s.actionBtnText, { color: '#374151' }]}>🗓 返却日時変更</Text>
+            </Pressable>
           </View>
         )}
         {res?.status === 'returned' && (
@@ -555,6 +611,14 @@ export default function RequestChat() {
       </View>
 
       {res && <ReviewModal reservationId={res.id} visible={showReview} onClose={() => setShowReview(false)} />}
+      {res && showEditReturn && (
+        <EditReturnDateModal
+          visible={showEditReturn}
+          reservation={res}
+          onClose={() => setShowEditReturn(false)}
+          onSaved={fetchAll}
+        />
+      )}
       {showEdit && request && (
         <EditRequestModal
           visible={showEdit}
