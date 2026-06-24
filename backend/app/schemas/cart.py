@@ -103,6 +103,7 @@ class RentalRequestResponse(BaseModel):
     created_at: datetime
     cart_title: str | None = None
     renter_name: str | None = None
+    lender_name: str | None = None
     station_name: str | None = None
     municipality: str | None = None
     lending_address: str | None = None

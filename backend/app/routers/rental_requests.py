@@ -31,6 +31,7 @@ def _to_response(r: RentalRequest) -> RentalRequestResponse:
         created_at=r.created_at,
         cart_title=r.cart.title if r.cart else None,
         renter_name=r.renter.display_name if r.renter else None,
+        lender_name=r.cart.owner.display_name if r.cart and r.cart.owner else None,
         station_name=r.cart.station.name if r.cart and r.cart.station else None,
         municipality=r.cart.station.municipality if r.cart and r.cart.station else None,
         lending_address=r.cart.lending_address if r.cart else None,
@@ -40,7 +41,11 @@ def _to_response(r: RentalRequest) -> RentalRequestResponse:
 async def _get_request_or_404(request_id: int, db: AsyncSession) -> RentalRequest:
     result = await db.execute(
         select(RentalRequest)
-        .options(selectinload(RentalRequest.cart).selectinload(Cart.station), selectinload(RentalRequest.renter))
+        .options(
+            selectinload(RentalRequest.cart).selectinload(Cart.station),
+            selectinload(RentalRequest.cart).selectinload(Cart.owner),
+            selectinload(RentalRequest.renter),
+        )
         .where(RentalRequest.id == request_id)
     )
     r = result.scalar_one_or_none()
@@ -58,7 +63,11 @@ async def list_requests(
     # 自分が借主のリクエスト、または自分の台車へのリクエスト
     stmt = (
         select(RentalRequest)
-        .options(selectinload(RentalRequest.cart).selectinload(Cart.station), selectinload(RentalRequest.renter))
+        .options(
+            selectinload(RentalRequest.cart).selectinload(Cart.station),
+            selectinload(RentalRequest.cart).selectinload(Cart.owner),
+            selectinload(RentalRequest.renter),
+        )
         .join(Cart)
         .where((RentalRequest.renter_id == uid) | (Cart.owner_id == uid))
         .order_by(RentalRequest.created_at.desc())

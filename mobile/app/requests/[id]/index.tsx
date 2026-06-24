@@ -2,7 +2,7 @@ import { api } from '@/lib/api';
 import { Message, RentalRequest, Reservation } from '@/lib/types';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/authStore';
-import { useLocalSearchParams } from 'expo-router';
+import { Stack, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -17,6 +17,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const STATUS_LABEL: Record<string, string> = {
   pending: '承認待ち',
@@ -98,14 +99,14 @@ function RequestInfoCard({ req, status }: { req: RentalRequest; status: string }
   return (
     <Pressable style={s.infoCard} onPress={() => setOpen((v) => !v)}>
       <View style={s.infoCardTop}>
-        <Text style={s.infoCartTitle} numberOfLines={1}>{req.cart_title ?? '台車'}</Text>
         <View style={[s.statusBadge, { backgroundColor: color + '20' }]}>
           <Text style={[s.statusBadgeText, { color }]}>{STATUS_LABEL[status] ?? status}</Text>
         </View>
-        <Text style={s.infoToggle}>{open ? '▲' : '▼'}</Text>
+        <Text style={s.infoToggleHint}>リクエスト詳細 {open ? '▲' : '▼'}</Text>
       </View>
       {open && (
         <View style={s.infoDetails}>
+          <Text style={s.infoRow}>🛒 台車: {req.cart_title ?? '台車'}</Text>
           <Text style={s.infoRow}>🕐 貸出希望: {fmtDT(req.start_date)}</Text>
           <Text style={s.infoRow}>🕐 返却希望: {fmtDT(req.end_date)}</Text>
           <Text style={s.infoRow}>📦 台数: {req.quantity}台</Text>
@@ -138,11 +139,11 @@ function MessageBubble({ msg, myId }: { msg: Message; myId: string }) {
     <View style={[s.bubbleWrap, isMine ? s.bubbleWrapMine : s.bubbleWrapTheirs]}>
       {!isMine && <Text style={s.senderName}>{msg.sender_name}</Text>}
       <View style={s.bubbleRow}>
-        {isMine && <Text style={[s.bubbleTime, { marginRight: 4 }]}>{time}</Text>}
+        {isMine && <Text style={[s.bubbleTime, { marginRight: 6 }]}>{time}</Text>}
         <View style={[s.bubble, isMine ? s.bubbleMine : s.bubbleTheirs]}>
           <Text style={[s.bubbleText, isMine && s.bubbleTextMine]}>{msg.body}</Text>
         </View>
-        {!isMine && <Text style={[s.bubbleTime, { marginLeft: 4 }]}>{time}</Text>}
+        {!isMine && <Text style={[s.bubbleTime, { marginLeft: 6 }]}>{time}</Text>}
       </View>
     </View>
   );
@@ -153,6 +154,7 @@ export default function RequestChat() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user } = useAuthStore();
   const myId = user?.id ?? '';
+  const insets = useSafeAreaInsets();
 
   const [request, setRequest] = useState<RentalRequest | null>(null);
   const [reservation, setReservation] = useState<Reservation | null>(null);
@@ -256,130 +258,137 @@ export default function RequestChat() {
   const currentStatus = res?.status ?? request.status;
   const canChat = ['pending', 'accepted', 'reserved', 'lent'].includes(request.status);
 
+  // 相手の名前をヘッダーに表示
+  const otherName = isLender
+    ? (request.renter_name ?? 'チャット')
+    : (request.lender_name ?? 'チャット');
+
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1, backgroundColor: '#e8edf2' }}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
-    >
-      {/* リクエスト条件カード */}
-      <RequestInfoCard req={request} status={currentStatus} />
+    <>
+      {/* ヘッダータイトルを相手のユーザー名に動的変更 */}
+      <Stack.Screen options={{ title: otherName }} />
 
-      {/* アクションボタン */}
-      {request.status === 'pending' && isLender && (
-        <View style={s.actionRow}>
-          <Pressable style={[s.actionBtn, { backgroundColor: '#10b981' }]} onPress={() => handleAction('accept')}>
-            <Text style={s.actionBtnTextLight}>✓ 承認する</Text>
-          </Pressable>
-          <Pressable style={[s.actionBtn, { backgroundColor: '#fee2e2' }]} onPress={() => handleAction('reject')}>
-            <Text style={[s.actionBtnTextLight, { color: '#ef4444' }]}>✕ 拒否する</Text>
-          </Pressable>
-        </View>
-      )}
-      {request.status === 'pending' && !isLender && (
-        <View style={s.actionRow}>
-          <Pressable style={[s.actionBtn, { backgroundColor: '#f3f4f6' }]} onPress={() => handleAction('cancel')}>
-            <Text style={[s.actionBtnTextLight, { color: '#6b7280' }]}>キャンセルする</Text>
-          </Pressable>
-        </View>
-      )}
-      {res?.status === 'reserved' && isLender && (
-        <View style={s.actionRow}>
-          <Pressable style={[s.actionBtn, { backgroundColor: '#8b5cf6' }]} onPress={() => handleReservationAction('lend')}>
-            <Text style={s.actionBtnTextLight}>🚀 貸出開始</Text>
-          </Pressable>
-          <Pressable style={[s.actionBtn, { backgroundColor: '#f3f4f6' }]} onPress={() => handleReservationAction('cancel')}>
-            <Text style={[s.actionBtnTextLight, { color: '#6b7280' }]}>キャンセル</Text>
-          </Pressable>
-        </View>
-      )}
-      {res?.status === 'lent' && isLender && (
-        <View style={s.actionRow}>
-          <Pressable style={[s.actionBtn, { backgroundColor: '#3b82f6' }]} onPress={() => handleReservationAction('return')}>
-            <Text style={s.actionBtnTextLight}>📦 返却完了</Text>
-          </Pressable>
-        </View>
-      )}
-      {res?.status === 'returned' && (
-        <View style={s.actionRow}>
-          <Pressable style={[s.actionBtn, { backgroundColor: '#fef3c7' }]} onPress={() => setShowReview(true)}>
-            <Text style={[s.actionBtnTextLight, { color: '#92400e' }]}>⭐ レビューを書く</Text>
-          </Pressable>
-        </View>
-      )}
+      <KeyboardAvoidingView
+        style={{ flex: 1, backgroundColor: '#e8edf2' }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? (insets.top + 44) : 0}
+      >
+        {/* リクエスト条件カード */}
+        <RequestInfoCard req={request} status={currentStatus} />
 
-      {/* メッセージ一覧 */}
-      <FlatList
-        ref={listRef}
-        data={messages}
-        keyExtractor={(m) => String(m.id)}
-        renderItem={({ item }) => <MessageBubble msg={item} myId={myId} />}
-        contentContainerStyle={s.msgList}
-        onLayout={() => listRef.current?.scrollToEnd({ animated: false })}
-        onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
-        ListEmptyComponent={
-          <View style={s.empty}><Text style={s.emptyText}>まだメッセージがありません{'\n'}最初のメッセージを送りましょう</Text></View>
-        }
-      />
+        {/* アクションボタン */}
+        {request.status === 'pending' && isLender && (
+          <View style={s.actionRow}>
+            <Pressable style={[s.actionBtn, { backgroundColor: '#10b981' }]} onPress={() => handleAction('accept')}>
+              <Text style={s.actionBtnText}>✓ 承認する</Text>
+            </Pressable>
+            <Pressable style={[s.actionBtn, { backgroundColor: '#fee2e2' }]} onPress={() => handleAction('reject')}>
+              <Text style={[s.actionBtnText, { color: '#ef4444' }]}>✕ 拒否する</Text>
+            </Pressable>
+          </View>
+        )}
+        {request.status === 'pending' && !isLender && (
+          <View style={s.actionRow}>
+            <Pressable style={[s.actionBtn, { backgroundColor: '#f3f4f6' }]} onPress={() => handleAction('cancel')}>
+              <Text style={[s.actionBtnText, { color: '#6b7280' }]}>キャンセルする</Text>
+            </Pressable>
+          </View>
+        )}
+        {res?.status === 'reserved' && isLender && (
+          <View style={s.actionRow}>
+            <Pressable style={[s.actionBtn, { backgroundColor: '#8b5cf6' }]} onPress={() => handleReservationAction('lend')}>
+              <Text style={s.actionBtnText}>🚀 貸出開始</Text>
+            </Pressable>
+            <Pressable style={[s.actionBtn, { backgroundColor: '#f3f4f6' }]} onPress={() => handleReservationAction('cancel')}>
+              <Text style={[s.actionBtnText, { color: '#6b7280' }]}>キャンセル</Text>
+            </Pressable>
+          </View>
+        )}
+        {res?.status === 'lent' && isLender && (
+          <View style={s.actionRow}>
+            <Pressable style={[s.actionBtn, { backgroundColor: '#3b82f6' }]} onPress={() => handleReservationAction('return')}>
+              <Text style={s.actionBtnText}>📦 返却完了</Text>
+            </Pressable>
+          </View>
+        )}
+        {res?.status === 'returned' && (
+          <View style={s.actionRow}>
+            <Pressable style={[s.actionBtn, { backgroundColor: '#fef3c7' }]} onPress={() => setShowReview(true)}>
+              <Text style={[s.actionBtnText, { color: '#92400e' }]}>⭐ レビューを書く</Text>
+            </Pressable>
+          </View>
+        )}
 
-      {res && <ReviewModal reservationId={res.id} visible={showReview} onClose={() => setShowReview(false)} />}
+        {/* メッセージ一覧 */}
+        <FlatList
+          ref={listRef}
+          data={messages}
+          keyExtractor={(m) => String(m.id)}
+          renderItem={({ item }) => <MessageBubble msg={item} myId={myId} />}
+          contentContainerStyle={s.msgList}
+          onLayout={() => listRef.current?.scrollToEnd({ animated: false })}
+          onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
+          ListEmptyComponent={
+            <View style={s.empty}>
+              <Text style={s.emptyText}>まだメッセージがありません{'\n'}最初のメッセージを送りましょう</Text>
+            </View>
+          }
+        />
 
-      {/* 入力欄 */}
-      {canChat && (
-        <View style={s.inputBar}>
-          <TextInput
-            style={s.input}
-            value={input}
-            onChangeText={setInput}
-            placeholder="メッセージを入力..."
-            placeholderTextColor="#9ca3af"
-            multiline
-            maxLength={500}
-            returnKeyType="default"
-          />
-          <Pressable
-            style={[s.sendBtn, (!input.trim() || sending) && s.sendBtnOff]}
-            onPress={handleSend}
-            disabled={!input.trim() || sending}
-          >
-            {sending
-              ? <ActivityIndicator color="#fff" size="small" />
-              : <Text style={s.sendBtnText}>送信</Text>
-            }
-          </Pressable>
-        </View>
-      )}
-    </KeyboardAvoidingView>
+        {res && <ReviewModal reservationId={res.id} visible={showReview} onClose={() => setShowReview(false)} />}
+
+        {/* 入力欄 */}
+        {canChat && (
+          <View style={[s.inputBar, { paddingBottom: Math.max(insets.bottom, 8) }]}>
+            <TextInput
+              style={s.input}
+              value={input}
+              onChangeText={setInput}
+              placeholder="メッセージを入力..."
+              placeholderTextColor="#9ca3af"
+              multiline
+              maxLength={500}
+            />
+            <Pressable
+              style={[s.sendBtn, (!input.trim() || sending) && s.sendBtnOff]}
+              onPress={handleSend}
+              disabled={!input.trim() || sending}
+            >
+              {sending
+                ? <ActivityIndicator color="#fff" size="small" />
+                : <Text style={s.sendBtnText}>送信</Text>
+              }
+            </Pressable>
+          </View>
+        )}
+      </KeyboardAvoidingView>
+    </>
   );
 }
 
 const s = StyleSheet.create({
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
 
-  // リクエスト条件カード
   infoCard: {
     backgroundColor: '#fff',
     borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#e5e7eb',
     paddingHorizontal: 14, paddingVertical: 10,
   },
   infoCardTop: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  infoCartTitle: { flex: 1, fontSize: 14, fontWeight: '700', color: '#111827' },
   statusBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 },
   statusBadgeText: { fontSize: 12, fontWeight: '700' },
-  infoToggle: { fontSize: 12, color: '#9ca3af' },
+  infoToggleHint: { flex: 1, textAlign: 'right', fontSize: 12, color: '#9ca3af' },
   infoDetails: { marginTop: 8, gap: 3 },
   infoRow: { fontSize: 13, color: '#6b7280', lineHeight: 20 },
 
-  // アクションボタン
   actionRow: {
     flexDirection: 'row', gap: 8, padding: 10,
     backgroundColor: '#f9fafb',
     borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#e5e7eb',
   },
   actionBtn: { flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: 'center' },
-  actionBtnTextLight: { color: '#fff', fontWeight: '700', fontSize: 14 },
+  actionBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
 
-  // メッセージ
   msgList: { flexGrow: 1, paddingHorizontal: 12, paddingVertical: 16, gap: 4 },
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 60 },
   emptyText: { fontSize: 14, color: '#9ca3af', textAlign: 'center', lineHeight: 22 },
@@ -395,20 +404,16 @@ const s = StyleSheet.create({
   bubbleWrapTheirs: { alignSelf: 'flex-start', alignItems: 'flex-start' },
   senderName: { fontSize: 11, color: '#9ca3af', marginBottom: 2, marginLeft: 4 },
   bubbleRow: { flexDirection: 'row', alignItems: 'flex-end' },
-  bubble: {
-    maxWidth: '100%', paddingHorizontal: 14, paddingVertical: 10,
-    borderRadius: 20,
-  },
+  bubble: { maxWidth: '100%', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 20 },
   bubbleMine: { backgroundColor: '#3b82f6', borderBottomRightRadius: 4 },
   bubbleTheirs: { backgroundColor: '#fff', borderBottomLeftRadius: 4 },
   bubbleText: { fontSize: 15, color: '#1f2937', lineHeight: 21 },
   bubbleTextMine: { color: '#fff' },
   bubbleTime: { fontSize: 11, color: '#9ca3af' },
 
-  // 入力欄
   inputBar: {
     flexDirection: 'row', alignItems: 'flex-end', gap: 8,
-    paddingHorizontal: 12, paddingVertical: 8, paddingBottom: Platform.OS === 'ios' ? 8 : 8,
+    paddingHorizontal: 10, paddingTop: 8,
     backgroundColor: '#fff',
     borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: '#e5e7eb',
   },
@@ -416,17 +421,16 @@ const s = StyleSheet.create({
     flex: 1,
     minHeight: 40, maxHeight: 120,
     backgroundColor: '#f3f4f6', borderRadius: 20,
-    paddingHorizontal: 14, paddingVertical: 10,
+    paddingHorizontal: 14, paddingTop: 10, paddingBottom: 10,
     fontSize: 15, color: '#111827', lineHeight: 20,
   },
   sendBtn: {
-    width: 40, height: 40, borderRadius: 20,
+    width: 40, height: 40, borderRadius: 20, marginBottom: 0,
     backgroundColor: '#3b82f6', alignItems: 'center', justifyContent: 'center',
   },
   sendBtnOff: { backgroundColor: '#93c5fd' },
   sendBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
 
-  // レビュー
   reviewModal: { flex: 1, padding: 24, backgroundColor: '#fff' },
   reviewTitle: { fontSize: 20, fontWeight: '700', marginBottom: 20 },
   reviewLabel: { fontSize: 14, fontWeight: '600', color: '#374151', marginTop: 16, marginBottom: 8 },
