@@ -294,6 +294,7 @@ export default function RequestChat() {
   const [showReview, setShowReview] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
   const listRef = useRef<FlatList>(null);
+  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
   const fetchAll = useCallback(async () => {
     try {
@@ -323,14 +324,19 @@ export default function RequestChat() {
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
   useEffect(() => {
+    // 既存チャンネルを確実に削除してから再作成（React StrictMode / hot reload 対策）
+    if (channelRef.current) {
+      supabase.removeChannel(channelRef.current);
+      channelRef.current = null;
+    }
+
     const channel = supabase
-      .channel(`messages:request:${id}`)
+      .channel(`messages:request:${id}:${Date.now()}`)
       .on('postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'messages', filter: `rental_request_id=eq.${id}` },
         (payload) => {
           const msg = payload.new as Message;
           setMessages((prev) => prev.some((m) => m.id === msg.id) ? prev : [...prev, msg]);
-          // 相手のメッセージが届いたら既読にする
           if (msg.sender_id !== myId) {
             api.post(`/rental-requests/${id}/messages/read`).catch(() => {});
           }
@@ -345,7 +351,12 @@ export default function RequestChat() {
         }
       )
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
+
+    channelRef.current = channel;
+    return () => {
+      supabase.removeChannel(channel);
+      channelRef.current = null;
+    };
   }, [id, myId]);
 
   const handleSend = async () => {
