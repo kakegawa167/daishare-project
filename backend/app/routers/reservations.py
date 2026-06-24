@@ -8,6 +8,8 @@ from sqlalchemy.orm import selectinload
 
 from app.core.auth import get_current_user_id
 from app.core.database import get_db
+from app.models.cart import Cart
+from app.models.rental_request import RentalRequest
 from app.models.reservation import Reservation, ReservationStatus
 from app.schemas.message import ReservationResponse
 from app.services import notification_service
@@ -15,7 +17,16 @@ from app.services import notification_service
 router = APIRouter(prefix="/reservations", tags=["reservations"])
 
 
+_EAGER = [
+    selectinload(Reservation.lender),
+    selectinload(Reservation.renter),
+    selectinload(Reservation.rental_request).selectinload(RentalRequest.cart).selectinload(Cart.station),
+]
+
+
 def _to_response(r: Reservation) -> ReservationResponse:
+    cart = r.rental_request.cart if r.rental_request else None
+    station = cart.station if cart else None
     return ReservationResponse(
         id=r.id,
         rental_request_id=r.rental_request_id,
@@ -32,17 +43,16 @@ def _to_response(r: Reservation) -> ReservationResponse:
         created_at=r.created_at,
         lender_name=r.lender.display_name if r.lender else None,
         renter_name=r.renter.display_name if r.renter else None,
+        cart_title=cart.title if cart else None,
+        station_name=station.name if station else None,
+        municipality=station.municipality if station else None,
+        lending_address=cart.lending_address if cart else None,
     )
 
 
 async def _get_reservation(reservation_id: int, db: AsyncSession) -> Reservation:
     result = await db.execute(
-        select(Reservation)
-        .options(
-            selectinload(Reservation.lender),
-            selectinload(Reservation.renter),
-        )
-        .where(Reservation.id == reservation_id)
+        select(Reservation).options(*_EAGER).where(Reservation.id == reservation_id)
     )
     r = result.scalar_one_or_none()
     if not r:
@@ -58,7 +68,7 @@ async def list_reservations(
     uid = uuid.UUID(user_id)
     result = await db.execute(
         select(Reservation)
-        .options(selectinload(Reservation.lender), selectinload(Reservation.renter))
+        .options(*_EAGER)
         .where((Reservation.lender_id == uid) | (Reservation.renter_id == uid))
         .order_by(Reservation.start_date.asc())
     )

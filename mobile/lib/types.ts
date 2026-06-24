@@ -93,4 +93,8 @@ export interface Reservation {
   created_at: string;
   lender_name: string | null;
   renter_name: string | null;
+  cart_title: string | null;
+  station_name: string | null;
+  municipality: string | null;
+  lending_address: string | null;
 }

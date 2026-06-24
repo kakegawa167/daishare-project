@@ -39,5 +39,9 @@ class ReservationResponse(BaseModel):
     created_at: datetime
     lender_name: str | None = None
     renter_name: str | None = None
+    cart_title: str | None = None
+    station_name: str | None = None
+    municipality: str | None = None
+    lending_address: str | None = None
 
     model_config = {"from_attributes": True}

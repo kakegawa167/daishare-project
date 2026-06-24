@@ -2,6 +2,7 @@ import { api } from '@/lib/api';
 import { EmptyScreen, LoadingScreen } from '@/components/ScreenState';
 import { useCallback, useEffect, useState } from 'react';
 import { useBadgeStore } from '@/store/badgeStore';
+import { router } from 'expo-router';
 import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 
 interface Notification {
@@ -51,12 +52,27 @@ export default function Notifications() {
     } catch {}
   };
 
+  const navigate = (n: Notification) => {
+    if (!n.related_id) return;
+    const t = n.type.toLowerCase();
+    if (t === 'message_received' || t === 'lend_started' || t === 'returned'
+        || t === 'reminder_lend_start' || t === 'reminder_return'
+        || t === 'request_accepted' || t === 'request_rejected'
+        || t === 'review_received') {
+      router.push(`/requests/${n.related_id}` as any);
+    } else {
+      // request_received / request_cancelled → 予約一覧
+      router.push('/(tabs)/reservations' as any);
+    }
+  };
+
   const handleTap = async (n: Notification) => {
     if (!n.is_read) {
       await api.post(`/notifications/${n.id}/read`).catch(() => {});
       setNotifications((prev) => prev.map((x) => x.id === n.id ? { ...x, is_read: true } : x));
       decrementNotification();
     }
+    navigate(n);
   };
 
   const unreadCount = notifications.filter((n) => !n.is_read).length;
