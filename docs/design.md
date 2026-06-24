@@ -1,7 +1,8 @@
 # ダイシェア モバイルアプリ 設計書
 
-> バージョン: 2.1.0  
+> バージョン: 2.3.0  
 > 作成日: 2026-06-23  
+> 最終更新: 2026-06-24  
 > 対象: MVP リリース
 
 ---
@@ -95,9 +96,25 @@
 2. FastAPI が messages テーブルに INSERT
 3. Supabase Realtime が INSERT を検知し、購読中のクライアントへ配信
 4. 相手のモバイルアプリがリアルタイムでメッセージを受信・表示
+5. 相手がチャットを開くと POST /messages/read で is_read=true に更新
+6. Supabase Realtime が UPDATE を検知し、送信者に既読を通知
+7. 送信者の画面で最後の既読メッセージに「既読」を表示
 
-※ モバイルアプリは Supabase JS SDK で messages テーブルを購読する
-※ RLS により当事者のみが購読可能
+※ messages テーブル: REPLICA IDENTITY FULL + supabase_realtime publication 設定済み
+※ Realtime 未達時のフォールバック: 5秒ポーリングで補完
+※ モバイルアプリは INSERT と UPDATE の両方を同一チャンネルで購読する
+```
+
+### 2.4 プッシュ通知フロー
+
+```
+1. FastAPI がイベント発生時に notification_service を呼び出す
+2. notification_service が Expo Push API へ送信（ExponentPushToken）
+3. Expo が APNs / FCM 経由でデバイスへ配信
+4. 通知データに type フィールドを含める:
+   - request_received → 予約一覧（リクエスト受信タブ）へ遷移
+   - message_received / request_accepted / その他 → チャット画面へ遷移
+5. アプリがキルド状態の場合は getLastNotificationResponseAsync で初回起動時に処理
 ```
 
 ---
@@ -408,7 +425,8 @@ REMINDER_RETURN     貸主・借主：返却時間リマインド
 rental_requests:
   pending ──[承認]──► accepted ──[予約自動作成]
           ──[拒否]──► rejected
-          ──[取消]──► cancelled
+          ──[取消]──► cancelled（貸主のみ）
+  ※ 借主はキャンセル不可。チャットで貸主に依頼する仕様
 
 reservations:
   RESERVED ──[貸出]──► LENT ──[返却]──► RETURNED ──[評価]──► reviews 作成
@@ -458,14 +476,15 @@ carts:
 
 #### Rental Requests
 
-| Method | Path                           | 説明                             |
-| ------ | ------------------------------ | -------------------------------- |
-| GET    | `/rental-requests`             | リクエスト一覧（自分関係のもの） |
-| GET    | `/rental-requests/{id}`        | リクエスト詳細                   |
-| POST   | `/rental-requests`             | リクエスト送信（借主のみ）       |
-| POST   | `/rental-requests/{id}/accept` | 承認（貸主のみ）→ 予約自動作成   |
-| POST   | `/rental-requests/{id}/reject` | 拒否（貸主のみ）                 |
-| POST   | `/rental-requests/{id}/cancel` | キャンセル（当事者）             |
+| Method | Path                           | 説明                                                              |
+| ------ | ------------------------------ | ----------------------------------------------------------------- |
+| GET    | `/rental-requests`             | リクエスト一覧（自分関係のもの）                                  |
+| GET    | `/rental-requests/{id}`        | リクエスト詳細（`cart_title`, `renter_name`, `lender_name`, `station_name`, `municipality`, `lending_address` 含む） |
+| POST   | `/rental-requests`             | リクエスト送信（借主のみ）                                        |
+| PATCH  | `/rental-requests/{id}`        | リクエスト内容編集（貸主のみ・pending 時のみ・日時/台数変更）     |
+| POST   | `/rental-requests/{id}/accept` | 承認（貸主のみ）→ 予約自動作成                                    |
+| POST   | `/rental-requests/{id}/reject` | 拒否（貸主のみ）                                                  |
+| POST   | `/rental-requests/{id}/cancel` | キャンセル（貸主のみ）                                            |
 
 #### Messages
 
@@ -707,16 +726,44 @@ active → inactive / inactive → active をトグル
 
 ---
 
+#### `/reservations` 予約一覧
+
+| 項目         | 内容                                                                    |
+| ------------ | ----------------------------------------------------------------------- |
+| タブ（貸主） | リクエスト受信 / 予約中 / 履歴                                          |
+| タブ（借主） | リクエスト送信 / 予約中 / 履歴                                          |
+| カード表示   | 台車名・ステータスバッジ・貸出/返却日時・台数・場所・住所・備考         |
+| カードタップ | → `/requests/[id]`（チャット画面）                                      |
+| 貸主ボタン   | 承認・拒否ボタン（pending 時のみカード内表示）                          |
+| 借主         | キャンセルボタンなし（チャットで貸主に依頼）                            |
+
+#### `/requests/[id]` チャット・取引画面
+
+| 項目           | 内容                                                                        |
+| -------------- | --------------------------------------------------------------------------- |
+| ヘッダー       | 相手のユーザー名（Stack.Screen の title に動的設定）                        |
+| リクエスト情報 | 台車名・日時・台数・場所・住所・備考を常時展開表示                          |
+| 貸主アクション | pending 時: 承認 / 編集 / 拒否 の3ボタン                                   |
+|                | 編集モーダル: 日時（DateTimePicker）・台車カード（+/- カウンター）         |
+|                | reserved 時: 貸出開始 / キャンセル                                         |
+|                | lent 時: 返却完了                                                           |
+|                | returned 時: レビューを書く                                                 |
+| チャット       | LINE 風バブル（自分: 右青・相手: 左白）                                     |
+| 既読表示       | 自分が送った最後の既読メッセージに「既読」表示                              |
+| リアルタイム   | Supabase Realtime（INSERT/UPDATE 購読）+ 5秒ポーリングフォールバック        |
+| Pull-to-refresh | 下スワイプでメッセージ + リクエスト情報を再取得                            |
+| キーボード     | `automaticallyAdjustKeyboardInsets` + KAV で入力欄が隠れない               |
+| 借主           | キャンセルボタンなし                                                        |
+
 #### その他のスタック画面
 
 | 画面                  | 説明                                              |
 | --------------------- | ------------------------------------------------- |
-| `/reservations`       | リクエスト一覧（受信/送信タブ・ステータス別表示） |
 | `/messages`           | メッセージスレッド一覧（未読バッジ）              |
 | `/schedule`           | 今後7日間 + 全予約一覧                            |
 | `/notifications`      | 通知一覧・既読管理                                |
-| `/requests/[id]`      | チャット・承認/拒否/貸出/返却/レビュー            |
 | `/search/[lender_id]` | 貸主詳細・台車一覧・リクエスト送信                |
+| `/request-new`        | リクエスト送信画面（日時選択・台車+/- 選択）      |
 
 ---
 
