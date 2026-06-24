@@ -247,7 +247,7 @@ function RequestInfoCard({ req, status }: { req: RentalRequest; status: string }
 }
 
 // ─── メッセージバブル ──────────────────────────────────
-function MessageBubble({ msg, myId }: { msg: Message; myId: string }) {
+function MessageBubble({ msg, myId, isLastRead }: { msg: Message; myId: string; isLastRead: boolean }) {
   const isMine = msg.sender_id === myId;
   const time = new Date(msg.created_at).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
 
@@ -263,7 +263,12 @@ function MessageBubble({ msg, myId }: { msg: Message; myId: string }) {
     <View style={[s.bubbleWrap, isMine ? s.bubbleWrapMine : s.bubbleWrapTheirs]}>
       {!isMine && <Text style={s.senderName}>{msg.sender_name}</Text>}
       <View style={s.bubbleRow}>
-        {isMine && <Text style={[s.bubbleTime, { marginRight: 6 }]}>{time}</Text>}
+        {isMine && (
+          <View style={s.bubbleMeta}>
+            {isLastRead && <Text style={s.readText}>既読</Text>}
+            <Text style={s.bubbleTime}>{time}</Text>
+          </View>
+        )}
         <View style={[s.bubble, isMine ? s.bubbleMine : s.bubbleTheirs]}>
           <Text style={[s.bubbleText, isMine && s.bubbleTextMine]}>{msg.body}</Text>
         </View>
@@ -325,12 +330,23 @@ export default function RequestChat() {
         (payload) => {
           const msg = payload.new as Message;
           setMessages((prev) => prev.some((m) => m.id === msg.id) ? prev : [...prev, msg]);
+          // 相手のメッセージが届いたら既読にする
+          if (msg.sender_id !== myId) {
+            api.post(`/rental-requests/${id}/messages/read`).catch(() => {});
+          }
           setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
+        }
+      )
+      .on('postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'messages', filter: `rental_request_id=eq.${id}` },
+        (payload) => {
+          const updated = payload.new as Message;
+          setMessages((prev) => prev.map((m) => m.id === updated.id ? { ...m, is_read: updated.is_read } : m));
         }
       )
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [id]);
+  }, [id, myId]);
 
   const handleSend = async () => {
     const body = input.trim();
@@ -442,7 +458,13 @@ export default function RequestChat() {
           ref={listRef}
           data={messages}
           keyExtractor={(m) => String(m.id)}
-          renderItem={({ item }) => <MessageBubble msg={item} myId={myId} />}
+          renderItem={({ item, index }) => {
+            // 自分が送った既読メッセージのうち最後の1件にだけ「既読」を表示
+            const isMine = item.sender_id === myId;
+            const isLastRead = isMine && item.is_read && !item.is_system &&
+              messages.slice(index + 1).every((m) => !m.is_read || m.sender_id !== myId || m.is_system);
+            return <MessageBubble msg={item} myId={myId} isLastRead={isLastRead} />;
+          }}
           contentContainerStyle={s.msgList}
           // iOS 15+: キーボード出現時にスクロールを自動調整
           automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
@@ -537,6 +559,8 @@ const s = StyleSheet.create({
   bubbleWrapTheirs: { alignSelf: 'flex-start', alignItems: 'flex-start' },
   senderName: { fontSize: 11, color: '#9ca3af', marginBottom: 2, marginLeft: 4 },
   bubbleRow: { flexDirection: 'row', alignItems: 'flex-end' },
+  bubbleMeta: { alignItems: 'flex-end', marginRight: 6, gap: 2 },
+  readText: { fontSize: 10, color: '#3b82f6', fontWeight: '600' },
   bubble: { maxWidth: '100%', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 20 },
   bubbleMine: { backgroundColor: '#3b82f6', borderBottomRightRadius: 4 },
   bubbleTheirs: { backgroundColor: '#fff', borderBottomLeftRadius: 4 },
