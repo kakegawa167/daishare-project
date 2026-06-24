@@ -104,3 +104,17 @@
 | 原因     | Card コンポーネントに `overflow: 'hidden'` が設定されており、ScrollView の内容がはみ出て表示されるのを妨げていた |
 | 対応方法 | Card の StyleSheet から `overflow: 'hidden'` を削除 |
 | 対象ファイル | `mobile/app/(tabs)/profile.tsx` の `s.card` スタイル |
+
+---
+
+## ERR-009 — Google Sign-In で "nonce in id_token" エラー (iPhone実機)
+
+| 項目     | 内容                                                                    |
+| -------- | ----------------------------------------------------------------------- |
+| 発生日時 | 2026-06-24                                                              |
+| 画面     | `/(auth)/login`                                                         |
+| 症状     | iPhoneでGoogleログイン後、「passed nonce and nonce in id_token should either both exist or not」エラーが表示されてログインできない |
+| 原因     | iOS の Google Sign-In SDK v7 が内部でナンスを自動生成して ID トークン（JWT）に埋め込む。しかし `@react-native-google-signin` v16 はこのナンスを JS 層に公開しないため、Supabase に渡せず検証失敗となる |
+| 対応方法 | ネイティブ Google Sign-In SDK を使う `signInWithIdToken` フローを廃止し、`expo-auth-session` + `expo-web-browser` を使った Web OAuth フロー（`supabase.auth.signInWithOAuth`）に切り替えた。ブラウザで Google 認証後、`daishare://auth/callback` にリダイレクトされ URL からトークンを取得する |
+| 注意点   | Supabase ダッシュボード → Authentication → URL Configuration → Redirect URLs に `daishare://auth/callback` を追加する必要がある |
+| 対象ファイル | `mobile/app/(auth)/login.tsx` |
