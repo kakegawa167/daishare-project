@@ -1,6 +1,6 @@
 # ダイシェア モバイルアプリ 設計書
 
-> バージョン: 2.3.0  
+> バージョン: 2.4.0  
 > 作成日: 2026-06-23  
 > 最終更新: 2026-06-24  
 > 対象: MVP リリース
@@ -271,21 +271,18 @@ users ──────┬── carts
 
 #### users
 
-| カラム        | 型          | 制約             | 説明                                        |
-| ------------- | ----------- | ---------------- | ------------------------------------------- |
-| id            | UUID        | PK               | Supabase Auth の `auth.users.id` と同一     |
-| display_name  | TEXT        | NOT NULL         | 表示名（アプリ上では「名前」と表示）        |
-| email         | TEXT        | UNIQUE, NOT NULL | メールアドレス                              |
-| google_id     | TEXT        | UNIQUE           | Google OAuth ID                             |
-| bio           | TEXT        |                  | 自己紹介                                    |
-| avatar_url    | TEXT        |                  | プロフィール画像URL（Supabase Storage）     |
-| user_type     | TEXT        | DEFAULT 'renter' | 'renter'（借主）/ 'lender'（貸主）/ 'both'  |
-| push_token    | TEXT        |                  | Expo Push Token                             |
-| created_at    | TIMESTAMPTZ | NOT NULL         |                                             |
-| deleted_at    | TIMESTAMPTZ |                  | 論理削除                                    |
-
-> **注**: `station_id`（拠点駅）・`lend_location_detail`（貸出場所詳細）カラムはDBには存在するが、
-> 現UIには表示しない（将来の拡張用として保持）。
+| カラム          | 型          | 制約             | 説明                                        |
+| --------------- | ----------- | ---------------- | ------------------------------------------- |
+| id              | UUID        | PK               | Supabase Auth の `auth.users.id` と同一     |
+| display_name    | VARCHAR(100)| NOT NULL         | 表示名（アプリ上では「名前」と表示）        |
+| email           | VARCHAR(255)| UNIQUE, NOT NULL | メールアドレス                              |
+| bio             | TEXT        |                  | 自己紹介                                    |
+| avatar_url      | TEXT        |                  | プロフィール画像URL（Supabase Storage）     |
+| user_type       | user_type   | DEFAULT 'renter' | 'renter'（借主）/ 'lender'（貸主）/ 'both'  |
+| expo_push_token | VARCHAR(255)|                  | Expo Push Token                             |
+| base_station_id | INTEGER     | FK(stations)     | 拠点駅（将来の拡張用）                      |
+| lending_address | TEXT        |                  | 貸出場所詳細（将来の拡張用）                |
+| is_active       | BOOLEAN     | DEFAULT true     | アカウント有効フラグ                        |
 
 #### carts
 
@@ -294,7 +291,7 @@ users ──────┬── carts
 | id              | SERIAL       | PK                  |                                               |
 | owner_id        | UUID         | FK(users), NOT NULL | 貸主ユーザーID                                |
 | title           | VARCHAR(200) | NOT NULL            | 台車タイトル                                  |
-| category        | TEXT         | NOT NULL            | カテゴリ（必須）                              |
+| category        | cart_category|                     | カテゴリ（任意）                              |
 | description     | TEXT         |                     | 説明（備考）                                  |
 | weight_kg       | NUMERIC      |                     | 重量(kg)                                      |
 | max_load_kg     | NUMERIC      |                     | 最大積載量(kg)                                |
@@ -334,44 +331,44 @@ users ──────┬── carts
 
 #### messages
 
-| カラム     | 型          | 制約                          | 説明 |
-| ---------- | ----------- | ----------------------------- | ---- |
-| id         | UUID        | PK                            |      |
-| request_id | UUID        | FK(rental_requests), NOT NULL |      |
-| sender_id  | UUID        | FK(users), NOT NULL           |      |
-| body       | TEXT        | NOT NULL                      |      |
-| is_read    | BOOLEAN     | DEFAULT false                 |      |
-| is_system  | BOOLEAN     | DEFAULT false                 |      |
-| created_at | TIMESTAMPTZ | NOT NULL                      |      |
+| カラム             | 型          | 制約                          | 説明                             |
+| ------------------ | ----------- | ----------------------------- | -------------------------------- |
+| id                 | SERIAL      | PK                            |                                  |
+| rental_request_id  | INTEGER     | FK(rental_requests), NOT NULL |                                  |
+| sender_id          | UUID        | FK(users), NOT NULL           |                                  |
+| body               | TEXT        | NOT NULL                      |                                  |
+| is_read            | BOOLEAN     | DEFAULT false                 |                                  |
+| is_system          | BOOLEAN     | DEFAULT false                 | システム通知メッセージか         |
+| created_at         | TIMESTAMPTZ | NOT NULL                      |                                  |
+
+> **Realtime設定**: `REPLICA IDENTITY FULL` + `supabase_realtime` publication 登録済み（UPDATE イベントも配信可能）
 
 #### reservations
 
-| カラム              | 型          | 制約                          | 説明                                   |
-| ------------------- | ----------- | ----------------------------- | -------------------------------------- |
-| id                  | UUID        | PK                            |                                        |
-| rental_request_id   | UUID        | FK(rental_requests), NOT NULL |                                        |
-| lender_id           | UUID        | FK(users), NOT NULL           |                                        |
-| renter_id           | UUID        | FK(users), NOT NULL           |                                        |
-| station_id          | INTEGER     | FK(stations), NOT NULL        |                                        |
-| start_at            | TIMESTAMPTZ | NOT NULL                      |                                        |
-| end_at              | TIMESTAMPTZ | NOT NULL                      |                                        |
-| confirmed_count     | INTEGER     | NOT NULL                      |                                        |
-| confirmed_price_jpy | INTEGER     | NOT NULL                      |                                        |
-| lend_at             | TIMESTAMPTZ |                               | 実際の貸出日時                         |
-| return_at           | TIMESTAMPTZ |                               | 実際の返却日時                         |
-| note                | TEXT        |                               |                                        |
-| status              | TEXT        | DEFAULT 'RESERVED'            | RESERVED / LENT / RETURNED / CANCELLED |
-| cancel_reason       | TEXT        |                               |                                        |
-| created_at          | TIMESTAMPTZ | NOT NULL                      |                                        |
+| カラム            | 型                  | 制約                                | 説明                                     |
+| ----------------- | ------------------- | ----------------------------------- | ---------------------------------------- |
+| id                | SERIAL              | PK                                  |                                          |
+| rental_request_id | INTEGER             | FK(rental_requests), NOT NULL, UNIQUE | 1リクエスト→1予約（1:1）               |
+| lender_id         | UUID                | FK(users), NOT NULL                 |                                          |
+| renter_id         | UUID                | FK(users), NOT NULL                 |                                          |
+| start_date        | TIMESTAMPTZ         | NOT NULL                            | 貸出開始日時                             |
+| end_date          | TIMESTAMPTZ         | NOT NULL                            | 返却予定日時                             |
+| quantity          | INTEGER             | NOT NULL                            | 確定台数                                 |
+| daily_rate        | NUMERIC(10,0)       | NOT NULL                            | 確定日額（円）                           |
+| lent_at           | TIMESTAMPTZ         |                                     | 実際の貸出日時                           |
+| returned_at       | TIMESTAMPTZ         |                                     | 実際の返却日時                           |
+| note              | TEXT                |                                     | 備考                                     |
+| status            | reservation_status  | DEFAULT 'reserved'                  | reserved / lent / returned / cancelled   |
+| created_at        | TIMESTAMPTZ         | server default now()                |                                          |
 
 #### reservation_carts
 
 | カラム         | 型          | 制約                       | 説明 |
 | -------------- | ----------- | -------------------------- | ---- |
-| id             | UUID        | PK                         |      |
-| reservation_id | UUID        | FK(reservations), NOT NULL |      |
+| id             | SERIAL      | PK                         |      |
+| reservation_id | INTEGER     | FK(reservations), NOT NULL |      |
 | cart_id        | INTEGER     | FK(carts), NOT NULL        |      |
-| created_at     | TIMESTAMPTZ | NOT NULL                   |      |
+| created_at     | TIMESTAMPTZ | server default now()       |      |
 
 **制約:** `(reservation_id, cart_id)` UNIQUE
 
@@ -379,30 +376,29 @@ users ──────┬── carts
 
 | カラム         | 型          | 制約                       | 説明                 |
 | -------------- | ----------- | -------------------------- | -------------------- |
-| id             | UUID        | PK                         |                      |
-| reservation_id | UUID        | FK(reservations), NOT NULL |                      |
+| id             | SERIAL      | PK                         |                      |
+| reservation_id | INTEGER     | FK(reservations), NOT NULL |                      |
 | reviewer_id    | UUID        | FK(users), NOT NULL        | 評価者               |
 | reviewee_id    | UUID        | FK(users), NOT NULL        | 被評価者             |
 | rating         | INTEGER     | CHECK(1-3), NOT NULL       | 1:悪い 2:普通 3:良い |
 | comment        | TEXT        | DEFAULT ''                 |                      |
-| created_at     | TIMESTAMPTZ | NOT NULL                   |                      |
-| updated_at     | TIMESTAMPTZ | NOT NULL                   |                      |
+| created_at     | TIMESTAMPTZ | server default now()       |                      |
 
 **制約:** `(reservation_id, reviewer_id)` UNIQUE（1予約につき1人1回のみ評価可）  
-**制限:** 返却済み（RETURNED）の予約に対してのみ作成可。更新・削除不可。
+**制限:** 返却済み（returned）の予約に対してのみ作成可。更新・削除不可。
 
 #### notifications
 
-| カラム     | 型          | 制約                | 説明                  |
-| ---------- | ----------- | ------------------- | --------------------- |
-| id         | UUID        | PK                  |                       |
-| user_id    | UUID        | FK(users), NOT NULL |                       |
-| type       | TEXT        | NOT NULL            | 下記参照              |
-| title      | TEXT        | NOT NULL            |                       |
-| body       | TEXT        | NOT NULL            |                       |
-| related_id | UUID        |                     | リクエストID / 予約ID |
-| is_read    | BOOLEAN     | DEFAULT false       |                       |
-| created_at | TIMESTAMPTZ | NOT NULL            |                       |
+| カラム     | 型               | 制約                | 説明                    |
+| ---------- | ---------------- | ------------------- | ----------------------- |
+| id         | SERIAL           | PK                  |                         |
+| user_id    | UUID             | FK(users), NOT NULL |                         |
+| type       | notification_type| NOT NULL            | 下記参照                |
+| title      | TEXT             | NOT NULL            |                         |
+| body       | TEXT             | NOT NULL            |                         |
+| related_id | INTEGER          |                     | リクエストID / 予約ID   |
+| is_read    | BOOLEAN          | DEFAULT false       |                         |
+| created_at | TIMESTAMPTZ      | server default now()|                         |
 
 **通知タイプ:**
 
@@ -425,12 +421,12 @@ REMINDER_RETURN     貸主・借主：返却時間リマインド
 rental_requests:
   pending ──[承認]──► accepted ──[予約自動作成]
           ──[拒否]──► rejected
-          ──[取消]──► cancelled（貸主のみ）
-  ※ 借主はキャンセル不可。チャットで貸主に依頼する仕様
+          ──[取消]──► cancelled（※ISS-008: 現在の実装は借主のみ・設計は貸主のみ・要修正）
+  ※ 借主はUIからキャンセル不可。チャットで貸主に依頼する仕様
 
 reservations:
-  RESERVED ──[貸出]──► LENT ──[返却]──► RETURNED ──[評価]──► reviews 作成
-           ──[取消]──► CANCELLED
+  reserved ──[貸出]──► lent ──[返却]──► returned ──[評価]──► reviews 作成
+           ──[取消]──► cancelled（reserved / lent どちらからでも可・当事者どちらでも可）
 
 carts:
   active ⇄ inactive  （貸主がトグルで随時切替）
@@ -448,12 +444,13 @@ carts:
 
 #### Auth / Users
 
-| Method | Path                   | 説明                                                                        |
-| ------ | ---------------------- | --------------------------------------------------------------------------- |
-| POST   | `/auth/sync`           | Supabaseログイン後のユーザー情報同期（usersテーブルへの初回登録含む）       |
-| GET    | `/users/me`            | 自分のプロフィール取得                                                      |
-| PUT    | `/users/me`            | プロフィール更新（display_name / bio / user_type / avatar_url）             |
-| PUT    | `/users/me/push-token` | Expo Push Token 登録・更新                                                  |
+| Method | Path                        | 説明                                                                        |
+| ------ | --------------------------- | --------------------------------------------------------------------------- |
+| POST   | `/auth/sync`                | Supabaseログイン後のユーザー情報同期（usersテーブルへの初回登録含む）       |
+| GET    | `/users/me`                 | 自分のプロフィール取得                                                      |
+| PUT    | `/users/me`                 | プロフィール更新（display_name / bio / user_type / avatar_url）             |
+| PUT    | `/users/me/push-token`      | Expo Push Token 登録・更新                                                  |
+| GET    | `/users/{user_id}/profile`  | 他ユーザーのパブリックプロフィール取得（認証不要）                          |
 
 #### Stations
 
@@ -466,7 +463,7 @@ carts:
 
 | Method | Path                      | 説明                                                         |
 | ------ | ------------------------- | ------------------------------------------------------------ |
-| GET    | `/carts`                  | 台車検索（?municipality, ?station_id, ?category, ?foldable）active のみ |
+| GET    | `/carts`                  | 台車検索（?municipality, ?station_id, ?owner_id, ?category, ?foldable）active のみ |
 | GET    | `/carts/mine`             | 自分の台車一覧（active/inactive 両方・id ASC順）             |
 | GET    | `/carts/{cart_id}`        | 台車詳細（station_name, municipality を含む）                |
 | POST   | `/carts`                  | 台車登録（認証ユーザー）                                     |
