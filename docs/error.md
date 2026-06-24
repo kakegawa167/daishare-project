@@ -5,6 +5,20 @@
 
 ---
 
+## ERR-014 — リクエスト承認時に 500 エラー（daily_rate NOT NULL 違反）
+
+| 項目     | 内容                                                                                        |
+| -------- | ------------------------------------------------------------------------------------------- |
+| 発生日時 | 2026-06-25                                                                                  |
+| 画面     | チャット画面 → 承認ボタン / `POST /rental-requests/{id}/accept`                             |
+| 症状     | 承認ボタンを押すと「操作に失敗しました」エラー。サーバーログに `null value in column "daily_rate" of relation "reservations" violates not-null constraint` |
+| 原因     | `accept_request` で予約作成時に `daily_rate=r.cart.daily_rate` を設定していたが、台車が `per_rental_rate` や `weekly_rate` のみ設定している場合 `daily_rate` が `None` になり NOT NULL 制約に違反する |
+| 対応方法 | `confirmed_rate = r.cart.daily_rate or r.cart.per_rental_rate or r.cart.weekly_rate or 0` で利用可能な料金を順に参照するよう修正 |
+| 注意点   | 将来的には `reservations.daily_rate` を `confirmed_rate` にリネームして意味を明確にすることを検討（ISS追加不要・設計上 daily_rate カラム名は維持） |
+| 対象ファイル | `backend/app/routers/rental_requests.py` |
+
+---
+
 ## ERR-001 — 台車登録後に台車管理・ホーム画面に反映されない
 
 | 項目     | 内容                                                                 |

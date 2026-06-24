@@ -171,6 +171,7 @@ async def accept_request(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Request is not pending")
     r.status = RequestStatus.accepted
     # 予約を自動作成
+    confirmed_rate = r.cart.daily_rate or r.cart.per_rental_rate or r.cart.weekly_rate or 0
     reservation = Reservation(
         rental_request_id=r.id,
         lender_id=r.cart.owner_id,
@@ -178,7 +179,7 @@ async def accept_request(
         start_date=r.start_date,
         end_date=r.end_date,
         quantity=r.quantity,
-        daily_rate=r.cart.daily_rate,
+        daily_rate=confirmed_rate,
     )
     db.add(reservation)
     # システムメッセージを追加
