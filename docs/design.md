@@ -484,7 +484,7 @@ carts:
 | PATCH  | `/rental-requests/{id}`        | リクエスト内容編集（貸主のみ・pending 時のみ・日時/台数変更）     |
 | POST   | `/rental-requests/{id}/accept` | 承認（貸主のみ）→ 予約自動作成                                    |
 | POST   | `/rental-requests/{id}/reject` | 拒否（貸主のみ）                                                  |
-| POST   | `/rental-requests/{id}/cancel` | キャンセル（貸主のみ）                                            |
+| POST   | `/rental-requests/{id}/cancel` | キャンセル（貸主のみ・※ISS-008 現在の実装は借主のみ・要修正）    |
 
 #### Messages
 

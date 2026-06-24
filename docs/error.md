@@ -107,6 +107,61 @@
 
 ---
 
+## ERR-010 — Supabase Realtime チャンネル "cannot add postgres_changes callbacks after subscribe()" エラー
+
+| 項目     | 内容                                                                                           |
+| -------- | ---------------------------------------------------------------------------------------------- |
+| 発生日時 | 2026-06-24                                                                                     |
+| 画面     | `/requests/[id]`（チャット画面）                                                               |
+| 症状     | Supabase Realtime の購読設定時に `cannot add postgres_changes callbacks after subscribe()` エラーが発生し、リアルタイム受信が動作しない |
+| 原因     | React StrictMode / ホットリロードで `useEffect` が2回実行される。`supabase.channel(同名)` は既に購読済みのチャンネルを返すため、`.on()` を後から追加しようとするとエラーになる |
+| 対応方法 | チャンネル名にタイムスタンプを付与してユニーク化（`messages:request:${id}:${Date.now()}`）。`useRef` でチャンネル参照を保持し、`useEffect` の先頭で既存チャンネルを `supabase.removeChannel()` してから新規作成する |
+| 注意点   | チャンネル名は同一コンポーネント内でも毎回ユニークにする必要がある。5秒ポーリングフォールバックも追加してRealtime未到達時の補完を実装 |
+| 対象ファイル | `mobile/app/requests/[id]/index.tsx` |
+
+---
+
+## ERR-011 — キーボードでメッセージ入力欄が隠れる
+
+| 項目     | 内容                                                                                      |
+| -------- | ----------------------------------------------------------------------------------------- |
+| 発生日時 | 2026-06-24                                                                                |
+| 画面     | `/requests/[id]`（チャット画面）                                                          |
+| 症状     | メッセージを入力しようとするとキーボードが表示され、入力欄がキーボードの後ろに隠れてしまう |
+| 原因     | `KeyboardAvoidingView` でスクリーン全体を囲っており `keyboardVerticalOffset` が不適切だった |
+| 対応方法 | `FlatList` に `automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}` を設定してリストのスクロール領域を自動調整。入力バーのみを `KeyboardAvoidingView behavior="padding" keyboardVerticalOffset={0}` で囲む構成に変更 |
+| 注意点   | `automaticallyAdjustKeyboardInsets` は iOS 15+ で有効。Androidは別途対応が必要 |
+| 対象ファイル | `mobile/app/requests/[id]/index.tsx` |
+
+---
+
+## ERR-012 — チャット画面のヘッダーに相手のユーザー名でなく台車名が表示される
+
+| 項目     | 内容                                                                          |
+| -------- | ----------------------------------------------------------------------------- |
+| 発生日時 | 2026-06-24                                                                    |
+| 画面     | `/requests/[id]`（チャット画面）                                              |
+| 症状     | チャット画面のヘッダータイトルが相手のユーザー名ではなく台車名になっていた   |
+| 原因     | バックエンドの `RentalRequestResponse` に `lender_name` フィールドがなく、フロントエンドも相手の名前を取得・表示していなかった |
+| 対応方法 | バックエンド: `Cart.owner` の `selectinload` を追加し `lender_name = r.cart.owner.display_name` をレスポンスに含める。フロントエンド: `Stack.Screen options={{ title: otherName }}` で動的ヘッダータイトルを設定 |
+| 対象ファイル | `backend/app/routers/rental_requests.py`, `backend/app/schemas/cart.py`, `mobile/lib/types.ts`, `mobile/app/requests/[id]/index.tsx` |
+
+---
+
+## ERR-013 — 通知タップでチャット画面が開かない（キルド状態）
+
+| 項目     | 内容                                                                                          |
+| -------- | --------------------------------------------------------------------------------------------- |
+| 発生日時 | 2026-06-24                                                                                    |
+| 画面     | プッシュ通知 → アプリ起動フロー                                                               |
+| 症状     | アプリがキルド状態のときに通知をタップしてもチャット画面に遷移しない                         |
+| 原因     | `addNotificationResponseReceivedListener` はアプリがメモリ上にある場合のみ機能する。キルド状態から起動した場合はリスナーが登録される前に通知イベントが消えてしまう |
+| 対応方法 | `Notifications.getLastNotificationResponseAsync()` でキルド状態からの起動を検出し、`setTimeout(300ms)` でナビゲーター準備完了後に遷移を実行。既存リスナーにも `setTimeout(100ms)` のディレイを追加 |
+| 注意点   | 通知タイプ `request_received` → 予約一覧、それ以外（メッセージ等）→ チャット画面 の型別遷移も同時に実装 |
+| 対象ファイル | `mobile/hooks/usePushNotifications.ts` |
+
+---
+
 ## ERR-009 — Google Sign-In で "nonce in id_token" エラー (iPhone実機)
 
 | 項目     | 内容                                                                    |
