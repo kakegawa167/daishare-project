@@ -1,6 +1,7 @@
 import { api } from '@/lib/api';
 import { Cart } from '@/lib/types';
 import { EmptyScreen, LoadingScreen } from '@/components/ScreenState';
+import { useAuthStore } from '@/store/authStore';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import {
@@ -119,6 +120,7 @@ function CartCard({
 
 // ─── メイン画面 ───────────────────────────────
 export default function Carts() {
+  const { user } = useAuthStore();
   const [carts, setCarts] = useState<Cart[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -178,6 +180,15 @@ export default function Carts() {
 
   return (
     <View style={s.container}>
+      {/* プラン超過警告バナー */}
+      {user?.is_over_limit && (
+        <View style={s.overLimitBanner}>
+          <Text style={s.overLimitText}>
+            ⚠️ プランを変更したため新規登録が制限されています。台車1台・地点1件以内にすると追加できます。
+          </Text>
+        </View>
+      )}
+
       {/* ツールバー */}
       {carts.length > 0 && (
         <View style={s.toolbar}>
@@ -285,6 +296,12 @@ const s = StyleSheet.create({
   price: { fontSize: 13, color: '#374151', fontWeight: '600', marginBottom: 6, marginTop: 3 },
 
   toggleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  overLimitBanner: {
+    backgroundColor: '#fff7ed', borderBottomWidth: 1, borderBottomColor: '#fed7aa',
+    paddingHorizontal: 16, paddingVertical: 12,
+  },
+  overLimitText: { fontSize: 13, color: '#92400e', lineHeight: 18 },
+
   statusLabel: { fontSize: 12, fontWeight: '700' },
   statusOn: { color: '#059669' },
   statusOff: { color: '#9ca3af' },

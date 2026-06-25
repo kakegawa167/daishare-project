@@ -7,9 +7,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.auth import get_current_user_id
 from app.core.database import get_db
 from app.models.user import User
-from pydantic import BaseModel
-
 from app.schemas.user import PushTokenRequest, UserResponse, UserUpdateRequest
+from app.services.plan_service import is_over_limit
+from pydantic import BaseModel
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -40,12 +40,20 @@ async def get_user_profile(
     return await _get_user_or_404(user_id, db)
 
 
+async def _user_response(user: User, db: AsyncSession) -> UserResponse:
+    over = await is_over_limit(user, db)
+    data = UserResponse.model_validate(user)
+    data.is_over_limit = over
+    return data
+
+
 @router.get("/me", response_model=UserResponse)
 async def get_me(
     user_id: str = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db),
-) -> User:
-    return await _get_user_or_404(user_id, db)
+) -> UserResponse:
+    user = await _get_user_or_404(user_id, db)
+    return await _user_response(user, db)
 
 
 @router.put("/me", response_model=UserResponse)
@@ -53,13 +61,13 @@ async def update_me(
     body: UserUpdateRequest,
     user_id: str = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db),
-) -> User:
+) -> UserResponse:
     user = await _get_user_or_404(user_id, db)
     for field, value in body.model_dump(exclude_none=True).items():
         setattr(user, field, value)
     await db.commit()
     await db.refresh(user)
-    return user
+    return await _user_response(user, db)
 
 
 @router.put("/me/push-token", response_model=UserResponse)
@@ -67,9 +75,9 @@ async def update_push_token(
     body: PushTokenRequest,
     user_id: str = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db),
-) -> User:
+) -> UserResponse:
     user = await _get_user_or_404(user_id, db)
     user.expo_push_token = body.expo_push_token
     await db.commit()
     await db.refresh(user)
-    return user
+    return await _user_response(user, db)

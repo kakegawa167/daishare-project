@@ -12,6 +12,7 @@ from app.models.rental_request import RentalRequest
 from app.models.user import User
 from app.schemas.message import MessageCreate, MessageResponse
 from app.services import notification_service
+from app.services.plan_service import is_over_limit
 
 router = APIRouter(prefix="/rental-requests/{request_id}/messages", tags=["messages"])
 
@@ -68,6 +69,16 @@ async def send_message(
     db: AsyncSession = Depends(get_db),
 ) -> MessageResponse:
     await _check_participant(request_id, user_id, db)
+
+    # プラン超過中の貸主はメッセージ送信不可
+    sender_result = await db.execute(select(User).where(User.id == uuid.UUID(user_id)))
+    sender_user = sender_result.scalar_one_or_none()
+    if sender_user and await is_over_limit(sender_user, db):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="PLAN_OVER_LIMIT",
+        )
+
     msg = Message(
         rental_request_id=request_id,
         sender_id=uuid.UUID(user_id),

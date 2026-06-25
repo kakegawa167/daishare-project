@@ -587,6 +587,8 @@ export default function RequestChat() {
   const res = reservation;
   const currentStatus = res?.status ?? request.status;
   const canChat = ['inquiry', 'pending', 'accepted', 'reserved', 'lent'].includes(request.status);
+  // 貸主かつプラン超過中はメッセージ送信不可
+  const isMessageBlocked = isLender && (user?.is_over_limit ?? false);
 
   const otherName = isLender
     ? (request.renter_name ?? 'チャット')
@@ -692,32 +694,40 @@ export default function RequestChat() {
 
         {/* 入力欄: KAVでキーボードの上に固定 */}
         {canChat && (
-          <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            keyboardVerticalOffset={0}
-          >
-            <View style={[s.inputBar, { paddingBottom: Math.max(insets.bottom, 8) }]}>
-              <TextInput
-                style={s.input}
-                value={input}
-                onChangeText={setInput}
-                placeholder="メッセージを入力..."
-                placeholderTextColor="#9ca3af"
-                multiline
-                maxLength={500}
-              />
-              <Pressable
-                style={[s.sendBtn, (!input.trim() || sending) && s.sendBtnOff]}
-                onPress={handleSend}
-                disabled={!input.trim() || sending}
-              >
-                {sending
-                  ? <ActivityIndicator color="#fff" size="small" />
-                  : <Text style={s.sendBtnText}>送信</Text>
-                }
-              </Pressable>
+          isMessageBlocked ? (
+            <View style={[s.inputBar, s.inputBarBlocked, { paddingBottom: Math.max(insets.bottom, 8) }]}>
+              <Text style={s.inputBlockedText}>
+                ⚠️ プランを変更したため送信が制限されています。台車1台・地点1件以内にすると送信できます。
+              </Text>
             </View>
-          </KeyboardAvoidingView>
+          ) : (
+            <KeyboardAvoidingView
+              behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+              keyboardVerticalOffset={0}
+            >
+              <View style={[s.inputBar, { paddingBottom: Math.max(insets.bottom, 8) }]}>
+                <TextInput
+                  style={s.input}
+                  value={input}
+                  onChangeText={setInput}
+                  placeholder="メッセージを入力..."
+                  placeholderTextColor="#9ca3af"
+                  multiline
+                  maxLength={500}
+                />
+                <Pressable
+                  style={[s.sendBtn, (!input.trim() || sending) && s.sendBtnOff]}
+                  onPress={handleSend}
+                  disabled={!input.trim() || sending}
+                >
+                  {sending
+                    ? <ActivityIndicator color="#fff" size="small" />
+                    : <Text style={s.sendBtnText}>送信</Text>
+                  }
+                </Pressable>
+              </View>
+            </KeyboardAvoidingView>
+          )
         )}
       </View>
 
@@ -846,6 +856,8 @@ const s = StyleSheet.create({
   },
   sendBtnOff: { backgroundColor: '#93c5fd' },
   sendBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+  inputBarBlocked: { flexDirection: 'column', alignItems: 'stretch', backgroundColor: '#fff7ed', borderTopColor: '#fed7aa' },
+  inputBlockedText: { fontSize: 13, color: '#92400e', lineHeight: 18, paddingVertical: 4 },
 
   // レビューモーダル
   reviewModal: { flex: 1, padding: 24, backgroundColor: '#fff' },

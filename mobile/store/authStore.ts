@@ -24,6 +24,9 @@ export interface AppUser {
   user_type: 'lender' | 'renter' | 'both';
   expo_push_token: string | null;
   is_new?: boolean;
+  plan: 'normal' | 'pro';
+  plan_expires_at: string | null;
+  is_over_limit: boolean;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({

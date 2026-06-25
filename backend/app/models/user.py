@@ -1,7 +1,8 @@
 import uuid
+from datetime import datetime
 from enum import Enum as PyEnum
 
-from sqlalchemy import Boolean, ForeignKey, String, Text
+from sqlalchemy import Boolean, DateTime, ForeignKey, String, Text
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -30,5 +31,7 @@ class User(Base):
     )
     expo_push_token: Mapped[str | None] = mapped_column(String(255), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    plan: Mapped[str] = mapped_column(String(20), nullable=False, default="normal")
+    plan_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     base_station: Mapped["Station | None"] = relationship(back_populates="users")  # noqa: F821

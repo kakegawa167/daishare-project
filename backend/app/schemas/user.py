@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime
 from pydantic import BaseModel, EmailStr
 
 from app.models.user import UserType
@@ -33,5 +34,8 @@ class UserResponse(BaseModel):
     user_type: UserType
     expo_push_token: str | None
     is_new: bool = False
+    plan: str = "normal"
+    plan_expires_at: datetime | None = None
+    is_over_limit: bool = False
 
     model_config = {"from_attributes": True}

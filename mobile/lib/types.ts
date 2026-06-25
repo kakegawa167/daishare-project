@@ -114,3 +114,20 @@ export interface Reservation {
   municipality: string | null;
   lending_address: string | null;
 }
+
+export type UserPlan = 'normal' | 'pro';
+
+export interface User {
+  id: string;
+  email: string;
+  display_name: string;
+  avatar_url: string | null;
+  bio: string | null;
+  user_type: 'renter' | 'lender' | 'both';
+  expo_push_token: string | null;
+  is_active: boolean;
+  is_new?: boolean;
+  plan: UserPlan;
+  plan_expires_at: string | null;
+  is_over_limit: boolean;
+}

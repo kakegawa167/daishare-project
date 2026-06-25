@@ -9,7 +9,9 @@ from app.core.auth import get_current_user_id
 from app.core.database import get_db
 from app.models.cart import Cart, CartLocation, CartStatus
 from app.models.station import Station
+from app.models.user import User
 from app.schemas.cart import CartCreateRequest, CartLocationResponse, CartResponse, CartUpdateRequest
+from app.services.plan_service import check_cart_limit, check_location_limit
 
 router = APIRouter(prefix="/carts", tags=["carts"])
 
@@ -136,8 +138,15 @@ async def create_cart(
     user_id: str = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db),
 ) -> CartResponse:
+    user_result = await db.execute(select(User).where(User.id == uuid.UUID(user_id)))
+    user = user_result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+    await check_cart_limit(user, db)
+    await check_location_limit(user, 0, len(body.locations), db)
+
     data = body.model_dump(exclude={"locations"})
-    # locations が送られてきた場合は先頭を station_id / lending_address に反映
     if body.locations:
         data["station_id"] = body.locations[0].station_id
         data["lending_address"] = body.locations[0].lending_address
@@ -168,6 +177,10 @@ async def update_cart(
         setattr(cart, field, value)
 
     if body.locations is not None:
+        user_result = await db.execute(select(User).where(User.id == uuid.UUID(user_id)))
+        user = user_result.scalar_one_or_none()
+        if user:
+            await check_location_limit(user, cart_id, len(body.locations), db)
         # 既存ロケーションを削除して差し替え
         for loc in list(cart.locations):
             await db.delete(loc)
