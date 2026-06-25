@@ -610,136 +610,249 @@ active → inactive / inactive → active をトグル
 
 ```
 (未認証)
-  └── /auth/login              Google ログイン画面
+  └── /(auth)/login            Google ログイン画面
 
 (認証済み・Bottom Tab 5タブ)
   ├── / (index)                ホーム（台車グリッド一覧 + 検索バー）
   │                              ※ useFocusEffect で再取得
-  ├── /reservations            予約一覧（受信/送信タブ）
+  ├── /reservations            予約一覧（リクエスト / 予約中 / 履歴 の3コンテンツタブ）
   ├── /messages                メッセージ（スレッド一覧）
-  ├── /schedule                スケジュール（今後/過去の予約）
+  ├── /schedule                スケジュール（今日 / 明日以降 / 履歴 セクション）
+  │                              ※ useFocusEffect で再取得
   └── /carts                   台車管理（自分の台車一覧・登録FAB）
                                  ※ useFocusEffect で再取得
 
   ヘッダー右アイコン（全タブ共通）
-  ├── 🔔 通知アイコン（未読バッジ付き） → /notifications
-  └── 👤 プロフィールアイコン          → /profile（モーダル）
+  ├── 🔔 通知アイコン（未読数バッジ・9+表示・30秒ポーリング） → /notifications
+  └── 👤 プロフィールアイコン → /profile（モーダル）
 
-(スタック画面)
-  ├── /profile                 プロフィール表示画面（モーダル）
-  ├── /profile-edit            プロフィール編集画面（スタック・戻るボタンあり）
+(スタック画面 / モーダル)
+  ├── /profile                 プロフィール表示（presentation: modal）
+  ├── /profile-edit            プロフィール編集（スタック）
   ├── /carts/new               台車登録フォーム
   ├── /carts/[id]/edit         台車編集フォーム
-  ├── /search/[lender_id]      貸主詳細・台車一覧・リクエスト送信
+  ├── /search/[lender_id]      貸主詳細・台車一覧
+  ├── /request-new             リクエスト送信（presentation: modal）
   ├── /requests/[id]           チャット・取引詳細
   └── /notifications           通知一覧・既読管理
 ```
 
-### 7.2 画面詳細
+### 7.2 画面遷移図
+
+```
+[未認証]
+  ↓ アプリ起動
+/(auth)/login
+  ↓ Googleログイン成功
+  ├─ is_new=true → /profile-edit（プロフィール設定を促す）
+  └─ 通常 → /(tabs)/index（ホーム）
+
+[ホーム: /(tabs)/index]
+  → 台車カードタップ → /search/[lender_id]?cart_id=N
+                          ↓ 借りたいボタン → /request-new?lender_id=X&cart_id=N
+                                               ↓ 送信成功 → /(tabs)/reservations
+                          ↓ 質問するボタン（InquiryModal） → /requests/[id]
+
+[予約一覧: /(tabs)/reservations]
+  → カードタップ → /requests/[id]（チャット・取引）
+
+[メッセージ: /(tabs)/messages]
+  → カードタップ → /requests/[id]（チャット・取引）
+
+[スケジュール: /(tabs)/schedule]
+  → EventCardタップ → /requests/[id]（チャット・取引）
+
+[台車管理: /(tabs)/carts]
+  → カードタップ → /carts/[id]/edit
+  → 登録FAB → /carts/new
+
+[チャット・取引: /requests/[id]]
+  ← 戻るボタン → 前の画面（reservations / messages / schedule）
+  → 予約確定後 → 同画面でステータス更新
+
+[通知: /notifications]
+  → 通知タップ → /requests/[id]（チャット系）
+               → /(tabs)/reservations（リクエスト系）
+               → /search/[自分のID]（レビュー受信）
+
+[ヘッダー共通]
+  🔔 → /notifications
+  👤 → /profile（モーダル）
+         → /profile-edit（プロフィール編集スタック）
+```
+
+### 7.3 画面詳細
 
 ---
 
-#### `/auth/login` ログイン画面
+#### `/(auth)/login` ログイン画面
 
-| 項目     | 内容                             |
-| -------- | -------------------------------- |
-| 表示条件 | 未認証時のみ                     |
-| 表示内容 | アプリロゴ、Googleでログインボタン |
-| 遷移先   | ログイン成功 → `/`（ホーム）      |
+| 項目     | 内容                                   |
+| -------- | -------------------------------------- |
+| 表示条件 | 未認証時のみ（セッションなし）         |
+| レイアウト | 中央揃え縦並び（flex: 1, justifyContent: center） |
+| 表示内容 | アプリロゴ / アプリ名「ダイシェア」 / キャッチコピー |
+|          | 「Googleでログイン」ボタン（白地・Googleロゴ・テキスト） |
+| 動作     | ボタンタップ → `supabase.auth.signInWithOAuth({ provider: 'google' })` |
+| 遷移先   | ログイン成功 → `is_new=true` なら `/profile-edit`、それ以外は `/(tabs)/` |
 
 ---
 
 #### `/ (index)` ホーム（台車検索）
 
-| 項目     | 内容                                                                                          |
-| -------- | --------------------------------------------------------------------------------------------- |
-| 表示条件 | 認証済み                                                                                      |
-| 表示内容 | 台車カードグリッド（active のみ）                                                             |
-| カード展開 | `cart_locations` が複数登録された台車は**地点数分のカードを個別に表示**（flatMap）          |
-| 並び順   | 登録順（id DESC）                                                                             |
-| 再取得   | useFocusEffect（タブフォーカス時に自動再取得）                                                |
-| タップ   | 台車カード → `/search/[lender_id]?cart_id={cart.id}`（その台車のみ表示）                     |
-| 空状態   | 条件を変えるよう促すメッセージ                                                                |
+| 項目       | 内容                                                                                      |
+| ---------- | ----------------------------------------------------------------------------------------- |
+| 表示条件   | 認証済み                                                                                  |
+| APIコール  | `GET /carts`（`?municipality=` / `?station_id=` / `?category=` / `?foldable=` で絞込）  |
+| 再取得     | `useFocusEffect`（タブフォーカス時に自動再取得）＋ Pull-to-refresh                       |
+| カード展開 | `buildCartItems` で `cart_locations` 分のカードを flatMap 展開                           |
+| 並び順     | 新しい順 / 価格安い順 / 価格高い順（ドロップダウン）。デフォルト: 新しい順（id DESC）    |
+| 空状態     | 🔍「台車が見つかりませんでした」＋「条件を変えてみてください」                           |
+
+**レイアウト（上から順）:**
+
+```
+┌─────────────────────────────────────────┐
+│  ┌────────────────────────────────────┐ │ ← 検索バー（bg white, hairline下線）
+│  │ 🔍 エリアで検索 ▾  [絞り込み(N)] │ │
+│  └────────────────────────────────────┘ │
+│  N件   [新しい順 ▾]  [≡ 絞り込み(N)] │ ← ツールバー（ListHeaderComponent）
+├─────────────────────────┬───────────────┤
+│  ┌─────────────────────┐│┌────────────┐│ ← 2カラムグリッド
+│  │   [台車画像]        │││  [画像]    ││
+│  │  タイトル           │││ タイトル   ││
+│  │  📍 市区町村 駅名   │││ 📍 場所    ││
+│  │  ¥1,000/日          │││ ¥2,000/日  ││
+│  └─────────────────────┘│└────────────┘│
+└─────────────────────────┴───────────────┘
+```
+
+**CartCard（グリッドセル）:**
+| 要素     | 仕様                                                                   |
+| -------- | ---------------------------------------------------------------------- |
+| サイズ   | 幅 = (screenWidth - 48) / 2、アスペクト比 1:1 のサムネイル            |
+| 画像     | `image_urls[0]` または 🛒 プレースホルダー（bg `#f3f4f6`）             |
+| タイトル | fontSize 13, fontWeight 600, 最大2行                                   |
+| 場所     | 📍 municipality + station_name（fontSize 11, 灰色）                   |
+| 価格     | daily_rate 優先 → weekly_rate → per_rental_rate（fontSize 15, bold）  |
+| タップ   | `/search/[cart.owner_id]?cart_id=${cart.id}`                          |
+
+**検索バー:**
+| 要素          | 動作                                                                |
+| ------------- | ------------------------------------------------------------------- |
+| 🔍 エリアピル | タップ → AreaModal。選択中は市区町村名表示 + ×（クリアボタン）     |
+| 絞り込みボタン | タップ → FilterModal。有効条件数を `(N)` バッジで表示              |
+
+**AreaModal（pageSheet・slide）:**
+- `GET /stations/municipalities` で一覧取得
+- エリアグループ自動分類（台車の全地点を検索対象に含む）:
+  - **東京23区**（「区」で終わる・東京都）
+  - **東京市部**（「市」で終わる・東京都）
+  - **神奈川県**
+  - **その他**
+- 各エリア行: 市区町村名 + 在庫件数バッジ（件数0はグレーアウト）
+- 「すべてのエリア」選択 → フィルタ解除
+
+**SortMenu（ドロップダウン）:**
+- 位置: `top:110, right:16`（絶対位置）
+- 選択肢: 新しい順 / 価格の安い順 / 価格の高い順
+- 選択中: bg `#eff6ff`、text `#3b82f6` + ✓
+
+**FilterModal（pageSheet・slide）:**
+| セクション       | 内容                                                                    |
+| ---------------- | ----------------------------------------------------------------------- |
+| 台車カテゴリー   | チップ選択（単一）: 手押し台車 / 平台車 / ハンドトラック / アウトドアワゴン / その他 |
+| スペック         | Switch「折りたたみ可能のみ」                                            |
+| 料金（日額）     | チップ選択: 上限なし / 〜¥1,000 / 〜¥3,000 / 〜¥5,000                  |
+| ヘッダー左       | 「リセット」ボタン（タイプ・折りたたみ・料金をクリア。エリアは保持）   |
+| フッターボタン   | 「この条件で絞り込む」→ 適用してモーダルを閉じる                        |
 
 **地点カード展開ロジック（`buildCartItems`）:**
-- `cart.locations` が空の場合はトップレベルの `station_id` / `municipality` を使用（後方互換）
-- エリアフィルタ（市区町村）が有効な場合は、その市区町村に一致する地点のカードのみ表示（他地点は非表示）
-- バックエンドの市区町村フィルタも `cart_locations` サブクエリで全地点を検索対象にしている
-
-**検索バー（テキスト入力なし）:**
-
-| ボタン       | 動作                                                                   |
-| ------------ | ---------------------------------------------------------------------- |
-| 📍 エリア    | エリア選択モーダルを開く。選択中は市区町村名を表示、× で解除          |
-| 絞り込み     | 絞り込みモーダルを開く。有効条件数を `(N)` バッジで表示               |
-
-**エリア選択モーダル:**
-- `/stations/municipalities` から市区町村一覧を取得
-- 以下のグループに自動分類して表示:
-  - **東京23区**: 千代田区・中央区・港区 … など23区
-  - **東京市部**: 武蔵野市・三鷹市など（`市` で終わる東京の自治体）
-  - **神奈川県**: 横浜市〜 / 川崎市〜
-  - **その他**: 上記以外
-- 「すべてのエリア」を選択すると絞り込み解除
-
-**絞り込みモーダル:**
-
-| 項目           | 内容                                                      |
-| -------------- | --------------------------------------------------------- |
-| 台車タイプ     | チップ選択（手押し台車 / 平台車 / ハンドトラック / アウトドアワゴン / その他）1択 |
-| 折りたたみ可能 | Switch（ON のみに絞り込む）                               |
-| リセット       | タイプ・折りたたみをリセット（エリアは保持）              |
-| この条件で検索 | 選択を確定してモーダルを閉じる                            |
-
-**アクティブフィルタ チップ（検索バー下）:**
-- 有効な絞り込み条件をチップとして横スクロールで表示
-- チップ右の × で個別解除
+- `cart.locations` が空ならトップレベルの `station_id` / `municipality` を使用（後方互換）
+- エリアフィルタ有効時は一致する地点のカードのみ表示
+- バックエンド側も `cart_locations` サブクエリで全地点を検索対象にする
 
 ---
 
 #### `/carts` 台車管理
 
-| 項目           | 内容                                                         |
-| -------------- | ------------------------------------------------------------ |
-| 表示条件       | 認証済み                                                     |
-| 表示内容       | 自分の台車一覧（active / inactive 両方表示）                 |
-| デフォルト並び順 | 登録が早い順（id ASC）                                     |
-| 並び替えオプション | 登録順↑ / 登録順↓ / 価格安い順 / 価格高い順（ドロップダウン） |
-| 各カード       | 台車名、料金、ステータスラベル（公開中/非公開）、在庫台数（📦 N台）|
-|                | 登録地点一覧（📍 市区町村 · 駅名 を地点数分表示）            |
-|                | Switch: 公開/非公開トグル → `PATCH /carts/{id}/status`      |
-|                | カードタップ → `/carts/[id]/edit`（編集画面）                |
-|                | 🗑 ボタン（カードタップのstopPropagation）→ 削除確認 → DELETE |
-| FAB            | 「台車を登録」ボタン（画面下部全幅） → `/carts/new`          |
-| 再取得         | useFocusEffect（登録・編集後の戻り時に自動再取得）           |
-| 空状態         | 台車なしメッセージ + 登録ボタン                              |
+| 項目             | 内容                                                                  |
+| ---------------- | --------------------------------------------------------------------- |
+| 表示条件         | 認証済み（自分の台車のみ）                                            |
+| APIコール        | `GET /carts/mine`（active / inactive 両方）                           |
+| 並び順           | 登録順↑（id ASC）デフォルト。ドロップダウンで 登録順↓ / 価格安↑ / 価格高↑ に切替 |
+| 再取得           | `useFocusEffect`                                                      |
+| 空状態           | 🛒「台車が登録されていません」＋「台車を登録する」ボタン              |
+
+**カードレイアウト:**
+```
+┌────────────────────────────────────┐
+│  [台車名]              [公開中/非公開 Badge]  🗑 │
+│  ¥1,000/日  📦 在庫3台                          │
+│  📍 千代田区 / 神田駅                            │
+│  📍 台東区 / 浅草駅                              │
+│  ─────────────────────────────────────         │
+│  公開中 [──●──] ←→ [──○──] 非公開  [Switch]   │
+└────────────────────────────────────┘
+```
+
+| 要素            | 仕様                                                              |
+| --------------- | ----------------------------------------------------------------- |
+| ステータスバッジ | 公開中: bg `#d1fae5`, text `#065f46` / 非公開: bg `#f3f4f6`, text `#6b7280` |
+| 在庫            | 📦 N台（fontSize 12）                                            |
+| 地点一覧        | 📍 municipality · station_name（`cart_locations` 分だけ全表示）  |
+| 公開Switch      | `PATCH /carts/{id}/status`。トグル即時反映                        |
+| カードタップ    | → `/carts/[id]/edit`                                             |
+| 🗑 削除ボタン   | タップイベント stopPropagation → Alert「削除しますか？」→ `DELETE /carts/{id}` |
+| FAB             | 「台車を登録する」全幅ボタン（画面下部固定） → `/carts/new`       |
 
 ---
 
 #### `/carts/new` 台車登録フォーム
 
-| セクション | フィールド                                         | バリデーション      |
-| ---------- | -------------------------------------------------- | ------------------- |
-| 基本情報   | タイトル（テキスト）                               | 必須                |
-|            | カテゴリ（チップ選択）                             | 必須                |
-| スペック   | 重量(kg)、最大積載量(kg)、横幅(cm)、奥行(cm)      | 任意・数値          |
-|            | 折りたたみ可否（Switch）                           | 任意                |
-| 価格       | 日額 / 週額 / 1回あたり（各テキスト入力）          | いずれか1つ以上必須 |
-| 貸出場所   | 駅（モーダルピッカー）                             | 必須                |
-|            | 場所の詳細（テキスト）                             | 任意                |
-| 備考       | フリーテキスト                                     | 任意                |
+**APIコール:** `POST /carts`（成功後 `router.back()`）
 
-**駅選択モーダル:** 市区町村一覧 → 駅一覧 の2段階選択。選択済みは駅名を表示。
+| セクション   | フィールド                                          | バリデーション      |
+| ------------ | --------------------------------------------------- | ------------------- |
+| 基本情報     | タイトル（TextInput）                               | 必須                |
+|              | カテゴリ（チップ選択・単一）                        | 必須                |
+|              | 台数（数値入力）                                    | 必須・1以上         |
+| スペック     | 重量(kg)、最大積載量(kg)、横幅(cm)、奥行(cm)       | 任意・数値          |
+|              | 折りたたみ可否（Switch）                            | 任意                |
+| 価格         | 日額 / 週額 / 1回あたり（TextInput・keyboardType numeric） | いずれか1つ以上必須 |
+| 貸出場所     | 駅（StationPicker モーダル）                        | 最低1件必須         |
+|              | 場所の詳細（TextInput）                             | 任意                |
+|              | 「＋ 場所を追加」ボタン（複数地点登録可）           | ―                  |
+| 画像         | 最大N枚（Supabase Storage へアップロード）          | 任意                |
+| 備考         | フリーテキスト（multiline）                         | 任意                |
+| 送信ボタン   | 「登録する」                                        | ―                   |
+
+**StationPicker（モーダル）:**
+1. 市区町村一覧（`GET /stations/municipalities`）をリスト表示
+2. 市区町村選択 → 駅一覧（`GET /stations?municipality=X`）をリスト表示
+3. 駅を選択して確定
+
+**カテゴリ選択肢（ChipSelect）:**
+| 値              | 表示ラベル       |
+| --------------- | ---------------- |
+| `hand_truck`    | 手押し台車       |
+| `flat_cart`     | 平台車           |
+| `hand_dolly`    | ハンドトラック   |
+| `outdoor_wagon` | アウトドアワゴン |
+| `other`         | その他           |
 
 ---
 
 #### `/carts/[id]/edit` 台車編集フォーム
 
-台車登録フォームと同一構成。差分:
-- 台車データをAPIから取得してフォームに初期値設定
-- `station_id` / `station_name` / `municipality` から駅ピッカーを選択済み状態で表示
-- 送信ボタンラベル: 「更新する」
-- 保存成功後: `router.back()`（台車管理画面へ戻る）
+台車登録フォームと同一構成（`CartForm` コンポーネント共用）。差分:
+
+| 項目           | 内容                                                |
+| -------------- | --------------------------------------------------- |
+| 初期値         | `GET /carts/{id}` で取得してフォームに反映          |
+| 駅ピッカー     | 既存の `station_id` / `station_name` / `municipality` を選択済み状態で表示 |
+| 送信ボタン     | 「更新する」→ `PUT /carts/{id}` → `router.back()` |
+| 削除ボタン     | 画面下部「削除する」→ 確認ダイアログ → `DELETE /carts/{id}` → `router.back()` |
 
 ---
 
@@ -799,14 +912,58 @@ active → inactive / inactive → active をトグル
 
 #### `/reservations` 予約一覧
 
-| 項目         | 内容                                                                    |
-| ------------ | ----------------------------------------------------------------------- |
-| タブ（貸主） | リクエスト受信 / 予約中 / 履歴                                          |
-| タブ（借主） | リクエスト送信 / 予約中 / 履歴                                          |
-| カード表示   | 台車名・ステータスバッジ・貸出/返却日時・台数・場所・住所・備考         |
-| カードタップ | → `/requests/[id]`（チャット画面）                                      |
-| 貸主ボタン   | 承認・拒否ボタン（pending 時のみカード内表示）                          |
-| 借主         | キャンセルボタンなし（チャットで貸主に依頼）                            |
+| 項目       | 内容                                                        |
+| ---------- | ----------------------------------------------------------- |
+| APIコール  | `GET /rental-requests`（自分が関係するもの全件）            |
+| 再取得     | `useFocusEffect` ＋ Pull-to-refresh                         |
+
+**ロール切り替えバー（user_type が `both` の場合のみ上部表示）:**
+- 「借りる」/ 「貸す」ボタン（ピル型）
+
+**コンテンツタブ（3本）:**
+
+| ロール    | タブ1          | タブ2   | タブ3 |
+| --------- | -------------- | ------- | ----- |
+| 借主      | リクエスト送信 | 予約中  | 履歴  |
+| 貸主      | リクエスト受信 | 予約中  | 履歴  |
+
+**振り分けロジック:**
+| コンテンツタブ | 含まれるステータス                                                     |
+| -------------- | ---------------------------------------------------------------------- |
+| リクエスト     | `status === 'pending'`（+ `inquiry` も表示対象）                       |
+| 予約中         | `status === 'accepted'` かつ `reservation_status` が `reserved` / `lent` |
+| 履歴           | `status === 'cancelled'` / `rejected` または `reservation_status === 'returned'` |
+
+**各タブのバッジ:** タブ名の右に件数バッジ（選択中: 青、非選択: グレー）
+
+**RequestCard レイアウト:**
+```
+┌─────────────────────────────────────────┐
+│ [台車名]                    [ステータスBadge] │
+│ 👤 借りる人: 田中 太郎（貸主視点のみ）      │
+│ 🕐 貸出希望: 6/25 10:00                     │
+│ 🕐 返却希望: 6/26 18:00                     │
+│ 📦 台数: 2台                                 │
+│ 📍 千代田区 / 神田駅                         │
+│ 🏠 〇〇ビル1F                               │
+│ 💬 "メッセージプレビュー..."                 │
+│ [承認] [拒否]  ← pending かつ 貸主視点のみ │
+└─────────────────────────────────────────┘
+```
+
+**ステータスバッジ色:**
+| status/reservation_status | ラベル     | 色                    |
+| ------------------------- | ---------- | --------------------- |
+| inquiry                   | 問い合わせ中 | `#6366f1`           |
+| pending                   | 承認待ち   | `#f59e0b`             |
+| reserved                  | 予約確定   | `#10b981`             |
+| lent                      | 貸出中     | `#f59e0b`             |
+| returned                  | 返却済み   | `#6b7280`             |
+| rejected                  | 拒否       | `#ef4444`             |
+| cancelled                 | キャンセル | `#9ca3af`             |
+
+- カードタップ → `/requests/[id]`
+- 借主: キャンセルボタンなし（チャットで貸主に依頼）
 
 #### `/requests/[id]` チャット・取引画面
 
@@ -833,15 +990,199 @@ active → inactive / inactive → active をトグル
 - `onSubmit(start, end, qty)` コールバックで呼び出し元が API 呼び出し
 - formalize と direct-reserve の両方で共用
 
-#### その他のスタック画面
+---
 
-| 画面                  | 説明                                                                                      |
-| --------------------- | ----------------------------------------------------------------------------------------- |
-| `/messages`           | メッセージスレッド一覧（未読バッジ・ステータスバッジ・日程未定時は「（日程未定）」表示） |
-| `/schedule`           | 今後7日間 + 全予約一覧（今日 / 明日以降 / 履歴 セクション）                              |
-| `/notifications`      | 通知一覧・既読管理                                                                        |
-| `/search/[lender_id]` | 貸主詳細・台車一覧（`cart_id` クエリで1台車に絞込可）・リクエスト送信・質問モーダル      |
-| `/request-new`        | リクエスト送信画面（日時選択・台車+/-選択）。`cart_id` 指定時はその台車と地点のみ表示    |
+#### `/messages` メッセージ一覧
+
+| 項目      | 内容                                                                |
+| --------- | ------------------------------------------------------------------- |
+| APIコール | `GET /rental-requests`（rejected / cancelled を除外してソート）     |
+| ソート    | `last_message_at` 降順（なければ `created_at`）                    |
+| 再取得    | `useFocusEffect` ＋ Pull-to-refresh                                 |
+
+**ThreadCard レイアウト:**
+```
+┌────────────────────────────────────────────────┐
+│ [Avatar] 田中 太郎   [ステータスBadge]   10:30  │
+│          🛒 台車タイトル × 2台                   │
+│          🕐 6/25 10:00 〜 6/26 18:00            │
+│            （日程未定の場合: 「（日程未定）」）   │
+│          📍 千代田区 / 神田駅                    │
+│          最後のメッセージ本文...    [未読数 Badge]│
+└────────────────────────────────────────────────┘
+```
+
+| 要素             | 仕様                                                           |
+| ---------------- | -------------------------------------------------------------- |
+| Avatar           | 相手の名前の頭文字（bg `#dbeafe`, text `#3b82f6`）            |
+| 時刻表示         | 当日 → HH:MM / 7日以内 → N日前 / それ以上 → M/D              |
+| ステータスバッジ | `reservation_status ?? status` で判定（予約一覧と同じ色）     |
+| 未読バッジ       | 緑（`#22c55e`）・99超は「99+」                                 |
+| タップ           | → `/requests/[id]`                                            |
+
+---
+
+#### `/schedule` スケジュール
+
+| 項目      | 内容                                                           |
+| --------- | -------------------------------------------------------------- |
+| APIコール | `GET /reservations`                                            |
+| 再取得    | `useFocusEffect` ＋ Pull-to-refresh                            |
+
+**イベント展開ロジック:**
+各予約（cancelled 除く）から **貸出イベント** と **返却イベント** の2つを生成する。
+
+| イベント種別 | `eventDate`   | 判定（activeEvents / historyEvents）                              |
+| ------------ | ------------- | ----------------------------------------------------------------- |
+| 貸出 (lend)  | `start_date`  | `status=reserved` → active / `status=lent or returned` → history |
+| 返却 (return)| `end_date`    | `status=returned` → history / それ以外 → active                  |
+
+過去日時になったが未完了の active イベントも history に移動。
+
+**セクション構成（FlatList）:**
+1. **「本日のスケジュール」** ヘッダー（当日のイベントがある場合）
+2. 当日の EventCard
+3. **「明日以降のスケジュール」** ヘッダー（未来イベントがある場合）
+4. 未来の EventCard（日時昇順）
+5. **「スケジュール履歴（N件）」** 折りたたみトグル
+6. 履歴 EventCard（日時降順、`historyOpen === true` のみ表示）
+7. 空状態: 📅「予定がありません」
+
+**EventCard レイアウト:**
+```
+┌──────────────────────────────────────┐
+│ ▌  [貸出/返却 Badge]  台車名 × N台   │ ← 左端のアクセントバー（5px幅）
+│    貸出時間: 2026/6/25 10:00         │
+│    📍 千代田区 / 神田駅              │
+│    🏠 〇〇ビル1F                    │
+└──────────────────────────────────────┘
+```
+
+| 要素         | 仕様                                                        |
+| ------------ | ----------------------------------------------------------- |
+| アクセントバー | 貸出: `#3b82f6`（青）/ 返却: `#10b981`（緑）/ 過去: `#9ca3af`（灰） |
+| バッジ       | 「貸出」/ 「返却」（背景 = アクセント色 + 20%透過）         |
+| 過去カード   | `opacity: 0.75`                                            |
+| タップ       | → `/requests/[rental_request_id]`                          |
+
+---
+
+#### `/search/[lender_id]` 貸主詳細
+
+| 項目       | 内容                                                                   |
+| ---------- | ---------------------------------------------------------------------- |
+| URLパラメータ | `lender_id`（必須）、`cart_id`（任意 — 特定台車のみ表示）          |
+| APIコール  | `GET /users/{lender_id}/profile`、`GET /carts?owner_id={lender_id}`、`GET /users/{lender_id}/reviews` （並列） |
+| 絞込       | `cart_id` 指定時は `allCarts.filter(c => c.id === cart_id)` を表示   |
+
+**レイアウト（FlatList + ListHeaderComponent）:**
+```
+┌───────────────────────────────────┐
+│  [Avatar 72px]  貸主名           │ ← プロフィールカード
+│               ⭐ 4.5（3件）      │
+│               自己紹介テキスト   │
+├───────────────────────────────────┤
+│  レビュー（最大3件表示）          │
+│  😊 良い  "コメント..."  田中さん │
+├───────────────────────────────────┤
+│  台車一覧                         │
+│  ┌─────────────────────────────┐  │
+│  │ [台車画像 160px高]          │  │ ← CartCard
+│  │ 台車タイトル                │  │
+│  │ カテゴリチップ              │  │
+│  │ 説明（2行）                 │  │
+│  │ ¥1,000/日                   │  │
+│  │ 📦 2台  折りたたみ可        │  │
+│  │ 📍 千代田区 / 神田駅        │  │
+│  └─────────────────────────────┘  │
+└───────────────────────────────────┘
+
+ [💬 質問する]   [🛒 借りたい]    ← 固定フッター
+```
+
+| 要素             | 仕様                                                                              |
+| ---------------- | --------------------------------------------------------------------------------- |
+| 平均評価         | レビューがある場合のみ表示（⭐ X.X（N件））                                       |
+| レビュー評価絵文字 | 1: 😞 悪い / 2: 😐 普通 / 3: 😊 良い                                           |
+| レビュー表示数   | 最大3件                                                                           |
+| 質問するボタン   | InquiryModal を表示（`cart_id` を渡す）                                           |
+| 借りたいボタン   | `/request-new?lender_id={id}&cart_id={id}` へ遷移（モーダル）                   |
+
+---
+
+#### `/request-new` リクエスト送信（モーダル）
+
+| 項目       | 内容                                                                        |
+| ---------- | --------------------------------------------------------------------------- |
+| URLパラメータ | `lender_id`（必須）、`cart_id`（任意 — 台車を1つに絞込）              |
+| APIコール（並列） | `GET /users/{lender_id}/profile`、`GET /carts?owner_id={lender_id}` |
+| 送信       | `POST /rental-requests`（選択台車×地点ごと）→ Alert → `router.replace('/(tabs)/reservations')` |
+
+**レイアウト（ScrollView, padding 16）:**
+```
+┌─────────────────────────────────────────┐
+│ [Avatar] 貸主名                         │ ← 貸主行
+├─────────────────────────────────────────┤
+│  貸出希望日  [📅 6/25 水]  [🕐 10:00]  │ ← 日付/時刻ピッカー
+│  返却希望日  [📅 6/26 木]  [🕐 18:00]  │
+├─────────────────────────────────────────┤
+│ 台車を選ぶ              [合計 N 台選択中]│
+│  📍 千代田区 / 神田駅                   │ ← 地点ヘッダー
+│  [サムネ] 台車タイトル  ¥1,000/日      │ ← CartSelectRow
+│           在庫3台        [−][1][＋]     │
+├─────────────────────────────────────────┤
+│ メッセージ（任意）                       │
+│ [テキスト入力 100px高]                   │
+├─────────────────────────────────────────┤
+│ [  リクエストを送信する（N台）  ]       │ ← 送信ボタン（disabled: qty=0時）
+└─────────────────────────────────────────┘
+```
+
+| 要素            | 仕様                                                                        |
+| --------------- | --------------------------------------------------------------------------- |
+| 日付デフォルト  | 貸出: 翌日 00:00 / 返却: 翌々日 00:00                                       |
+| DateTimePicker  | 日付ボタン・時刻ボタンを個別タップ（iOS: compact / Android: default）       |
+| 地点グループ    | `locationGroups`（cart × location の組み合わせ）で展開                     |
+| CartSelectRow   | サムネ56px + タイトル + 在庫数 + ±ステッパー（在庫上限で＋disabled）      |
+| 選択カード強調  | qty > 0 時: border `#3b82f6`、bg `#eff6ff`                                 |
+| 送信バリデーション | qty = 0 → Alert / endDate ≤ startDate → Alert                          |
+
+---
+
+#### `/notifications` 通知一覧
+
+| 項目      | 内容                                                        |
+| --------- | ----------------------------------------------------------- |
+| APIコール | `GET /notifications`                                        |
+| 再取得    | 画面マウント時 ＋ Pull-to-refresh                            |
+| 空状態    | 🔔「通知がありません」                                       |
+
+**レイアウト:**
+```
+┌─────────────────────────────────────────┐
+│ すべて既読にする（N件）                  │ ← 未読がある場合のみ表示（bg white）
+├─────────────────────────────────────────┤
+│ ● [タイトル]                       [✕] │ ← 未読: ●ドット + bg #eff6ff
+│   本文テキスト                          │    既読: ドットなし + bg white
+│   6/25 10:30                            │
+├─────────────────────────────────────────┤
+│   [タイトル]                       [✕] │
+│   本文テキスト                          │
+│   6/24 15:00                            │
+└─────────────────────────────────────────┘
+```
+
+**通知タップ時のナビゲーション:**
+| 通知タイプ                                                               | 遷移先                          |
+| ------------------------------------------------------------------------ | ------------------------------- |
+| `review_received`                                                        | `/search/[自分のuser_id]`       |
+| `message_received` / `lend_started` / `returned` / `reminder_*` / `request_accepted` / `request_rejected` | `/requests/[related_id]` |
+| `request_received` / `request_cancelled` / その他                       | `/(tabs)/reservations`          |
+
+**操作:**
+- 未読カードタップ → `POST /notifications/{id}/read`（既読化）→ ナビゲーション
+- ✕ボタン → `DELETE /notifications/{id}`（リストから削除）
+- 「すべて既読にする」→ `POST /notifications/read-all`
 
 ---
 
@@ -869,16 +1210,18 @@ active → inactive / inactive → active をトグル
 
 ---
 
-### 7.3 共通UI仕様
+### 7.4 共通UI仕様
 
-| 要素             | 仕様                                                            |
-| ---------------- | --------------------------------------------------------------- |
-| ヘッダー         | 全タブ共通で 🔔（未読バッジ）・👤 アイコン表示                 |
-| 未読バッジ       | Zustand `badgeStore` で管理、Realtime で自動更新               |
-| エラー状態       | `ErrorScreen` コンポーネント（再試行ボタン付き）               |
-| 空状態           | `EmptyScreen` コンポーネント（説明テキスト + 行動ボタン）      |
-| ローディング     | `ActivityIndicator` または `LoadingScreen`                     |
-| 再取得タイミング | タブフォーカス時は `useFocusEffect`、定期ポーリングは不要       |
+| 要素             | 仕様                                                                     |
+| ---------------- | ------------------------------------------------------------------------ |
+| ヘッダー         | 全タブ共通で 🔔（未読バッジ）・👤 アイコン表示（右上、gap 8）           |
+| 未読バッジ       | Zustand `badgeStore` で管理、30秒ポーリング ＋ AppState resume で更新  |
+| エラー状態       | `EmptyScreen` コンポーネント（icon="⚠️" + 再試行ボタン）               |
+| 空状態           | `EmptyScreen` コンポーネント（icon / message / subMessage / action）    |
+| ローディング     | `LoadingScreen`（`ActivityIndicator` 中央配置）                         |
+| 再取得タイミング | タブ画面: `useFocusEffect`。モーダル・スタック: `useEffect`             |
+| Pull-to-refresh  | 全一覧画面で共通実装（`RefreshControl`, tintColor `#3b82f6`）           |
+| システムメッセージ | チャット画面でグレー中央揃え表示（`is_system === true` の Message）   |
 
 ---
 
@@ -1064,3 +1407,202 @@ cart-rental-ios/
 | **Phase 3** | 2週間  | メッセージ・承認フロー・予約管理                                |
 | **Phase 4** | 1週間  | スケジュール・通知・プッシュ通知                                |
 | **Phase 5** | 1週間  | テスト・UI調整・App Store申請準備                               |
+
+---
+
+## 13. UIデザイントークン
+
+### 13.1 カラーパレット
+
+| トークン名       | HEX       | 用途                               |
+| ---------------- | --------- | ---------------------------------- |
+| Primary Blue     | `#3b82f6` | ボタン・バッジ・アクティブタブ・リンク |
+| Primary Light    | `#eff6ff` | 選択状態カード背景・アクティブチップBG |
+| Success Green    | `#10b981` | 承認・返却完了・在庫バッジ・予約確定  |
+| Warning Amber    | `#f59e0b` | 承認待ち・貸出中                   |
+| Error Red        | `#ef4444` | 拒否・削除・通知未読バッジ         |
+| Indigo           | `#6366f1` | inquiry（問い合わせ中）ステータス  |
+| Purple           | `#8b5cf6` | 貸出中ステータス（messages）       |
+| Gray 400         | `#9ca3af` | 非アクティブテキスト・キャンセル   |
+| Gray 500         | `#6b7280` | メタ情報テキスト                   |
+| Gray 700         | `#374151` | 本文テキスト（読了済みメッセージ） |
+| Gray 900         | `#111827` | 見出し・主要テキスト               |
+| Border           | `#e5e7eb` | カード枠・区切り線（hairline）     |
+| BG Light         | `#f9fafb` | 画面背景（一覧系）                 |
+| BG White         | `#ffffff` | カード背景・ヘッダー背景           |
+| Unread Badge     | `#22c55e` | メッセージ未読バッジ（緑）         |
+
+### 13.2 タイポグラフィ
+
+| 用途             | fontSize | fontWeight | color     |
+| ---------------- | -------- | ---------- | --------- |
+| 大見出し         | 20       | 800        | `#111827` |
+| 中見出し         | 16       | 700        | `#111827` |
+| 本文（強調）     | 15       | 600        | `#111827` |
+| 本文             | 14       | 400        | `#374151` |
+| 補足・メタ       | 13       | 400        | `#6b7280` |
+| ラベル・バッジ   | 12       | 700        | （色別）  |
+| 小ラベル         | 11–10    | 600        | `#9ca3af` |
+| 価格             | 15–16    | 800        | `#3b82f6` |
+
+### 13.3 コンポーネント共通スペック
+
+| コンポーネント   | 仕様                                                            |
+| ---------------- | --------------------------------------------------------------- |
+| カード           | borderRadius 12–14、bg white、shadow(opacity 0.05–0.08)        |
+| ボタン（主）     | height 52–54、borderRadius 12–14、bg `#3b82f6`、text white bold |
+| ボタン（副）     | border 2px `#3b82f6`、bg white                                 |
+| チップ（選択中） | bg `#eff6ff`、border `#3b82f6`、text `#3b82f6`                 |
+| チップ（非選択） | bg `#f3f4f6`、border `#e5e7eb`、text `#374151`                 |
+| Switch           | activeThumbColor white / activeTrackColor `#3b82f6`            |
+| Tab Bar          | height 80、paddingBottom 20、active `#3b82f6`、inactive `#9ca3af` |
+| ヘッダー         | bg white、borderBottom hairline `#e5e7eb`                      |
+
+---
+
+## 14. フロントエンド型定義（`mobile/lib/types.ts`）
+
+### 14.1 Enum / Union Types
+
+```typescript
+type CartStatus    = 'active' | 'inactive' | 'deleted';
+type CartCategory  = 'hand_truck' | 'flat_cart' | 'hand_dolly' | 'outdoor_wagon' | 'other';
+type RequestStatus = 'inquiry' | 'pending' | 'accepted' | 'rejected' | 'cancelled';
+type ReservationStatus = 'reserved' | 'lent' | 'returned' | 'cancelled';
+type UserType      = 'renter' | 'lender' | 'both';
+```
+
+### 14.2 主要インターフェース
+
+```typescript
+interface CartLocation {
+  id: number;
+  station_id: number;
+  station_name: string;
+  municipality: string;
+  lending_address: string | null;
+}
+
+interface Cart {
+  id: number;
+  owner_id: string;
+  title: string;
+  category: CartCategory | null;
+  description: string | null;
+  weight_kg: number | null;
+  max_load_kg: number | null;
+  width_cm: number | null;
+  length_cm: number | null;
+  foldable: boolean;
+  daily_rate: number | null;
+  weekly_rate: number | null;
+  per_rental_rate: number | null;
+  quantity: number;
+  image_urls: string[];
+  station_id: number | null;
+  lending_address: string | null;
+  status: CartStatus;
+  // 結合フィールド（APIレスポンスに含まれる）
+  owner_name: string | null;
+  station_name: string | null;
+  municipality: string | null;
+  locations: CartLocation[];  // cart_locations テーブルから
+}
+
+interface RentalRequest {
+  id: number;
+  cart_id: number;
+  renter_id: string;
+  quantity: number;
+  start_date: string | null;   // ISO8601。inquiry 時は null
+  end_date: string | null;     // ISO8601。inquiry 時は null
+  message: string | null;
+  status: RequestStatus;
+  created_at: string;
+  // 結合フィールド
+  cart_title: string | null;
+  renter_name: string | null;
+  lender_name: string | null;
+  station_name: string | null;
+  municipality: string | null;
+  lending_address: string | null;
+  reservation_status: ReservationStatus | null;
+  last_message_body: string | null;
+  last_message_at: string | null;
+  unread_count: number;
+}
+
+interface Message {
+  id: number;
+  rental_request_id: number;
+  sender_id: string;
+  body: string;
+  is_read: boolean;
+  is_system: boolean;
+  created_at: string;
+  sender_name: string | null;
+}
+
+interface Reservation {
+  id: number;
+  rental_request_id: number;
+  lender_id: string;
+  renter_id: string;
+  start_date: string;
+  end_date: string;
+  quantity: number;
+  daily_rate: number;
+  lent_at: string | null;
+  returned_at: string | null;
+  note: string | null;
+  status: ReservationStatus;
+  created_at: string;
+  // 結合フィールド
+  lender_name: string | null;
+  renter_name: string | null;
+  cart_title: string | null;
+  station_name: string | null;
+  municipality: string | null;
+  lending_address: string | null;
+}
+
+interface User {
+  id: string;
+  display_name: string;
+  email: string;
+  bio: string | null;
+  avatar_url: string | null;
+  user_type: UserType;
+  expo_push_token: string | null;
+  is_active: boolean;
+  is_new?: boolean;  // 初回登録フラグ（プロフィール設定誘導用）
+}
+
+interface Notification {
+  id: number;
+  user_id: string;
+  type: string;   // NotificationType enum の文字列値
+  title: string;
+  body: string;
+  related_id: number | null;
+  is_read: boolean;
+  created_at: string;
+}
+```
+
+### 14.3 Zustand ストア
+
+| ストア       | ファイル           | 状態                                                         |
+| ------------ | ------------------ | ------------------------------------------------------------ |
+| `authStore`  | `store/authStore.ts` | `user: User \| null`、`setUser`、`syncUser`（`GET /users/me`） |
+| `badgeStore` | `store/badgeStore.ts` | `unreadNotifications: number`、`clearNotifications`、`fetchUnread`（`GET /notifications?unread=true`）|
+
+### 14.4 価格優先順位（全画面共通）
+
+```
+effectivePrice = daily_rate ?? weekly_rate ?? per_rental_rate ?? 0
+表示ラベル:
+  daily_rate  → "¥N / 日"
+  weekly_rate → "¥N / 週"
+  per_rental_rate → "¥N / 回"
+```
