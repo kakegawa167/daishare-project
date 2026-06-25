@@ -1,8 +1,8 @@
 # ダイシェア モバイルアプリ 設計書
 
-> バージョン: 2.4.0  
+> バージョン: 2.5.0  
 > 作成日: 2026-06-23  
-> 最終更新: 2026-06-24  
+> 最終更新: 2026-06-25  
 > 対象: MVP リリース
 
 ---
@@ -231,7 +231,9 @@ EXPO_PUBLIC_API_URL=http://localhost:8000 | https://api-staging.daishere.app
 ### 5.1 ER図（概略）
 
 ```
-lines ──── stations ──── carts ──────────── owner(users)
+lines ──── stations ──── carts ──── cart_locations ──── stations
+                │           │
+                │     (owner: users)
                 │
                 ├─── rental_requests ──── messages
                 │           │
@@ -315,19 +317,41 @@ users ──────┬── carts
 
 **価格バリデーション:** `daily_rate` / `weekly_rate` / `per_rental_rate` のうち少なくとも1つは必須。
 
+#### cart_locations
+
+> 台車の貸出拠点を複数登録するためのテーブル。1台車 → N拠点。
+
+| カラム          | 型          | 制約                | 説明                               |
+| --------------- | ----------- | ------------------- | ---------------------------------- |
+| id              | SERIAL      | PK                  |                                    |
+| cart_id         | INTEGER     | FK(carts), NOT NULL | 対象台車                           |
+| station_id      | INTEGER     | FK(stations)        | 貸出拠点駅                         |
+| lending_address | TEXT        |                     | 貸出場所の詳細住所                 |
+| sort_order      | INTEGER     | DEFAULT 0           | 表示順                             |
+| created_at      | TIMESTAMPTZ | server default now()|                                    |
+
+> `carts.station_id` / `carts.lending_address` は後方互換のため残存。`cart_locations` が登録されている場合はそちらが優先される。
+
 #### rental_requests
 
-| カラム     | 型             | 制約                 | 説明                                      |
-| ---------- | -------------- | -------------------- | ----------------------------------------- |
-| id         | SERIAL         | PK                   |                                           |
-| cart_id    | INTEGER        | FK(carts), NOT NULL  | 対象台車                                  |
-| renter_id  | UUID           | FK(users), NOT NULL  | 借主ユーザーID                            |
-| quantity   | INTEGER        | DEFAULT 1, NOT NULL  | 希望台数                                  |
-| start_date | TIMESTAMPTZ    | NOT NULL             | 貸出開始日時                              |
-| end_date   | TIMESTAMPTZ    | NOT NULL             | 返却日時                                  |
-| message    | TEXT           |                      | 借主からのメッセージ                      |
-| status     | request_status | DEFAULT 'pending'    | pending / accepted / rejected / cancelled |
-| created_at | TIMESTAMPTZ    | server default now() |                                           |
+| カラム     | 型             | 制約                 | 説明                                                      |
+| ---------- | -------------- | -------------------- | --------------------------------------------------------- |
+| id         | SERIAL         | PK                   |                                                           |
+| cart_id    | INTEGER        | FK(carts), NOT NULL  | 対象台車                                                  |
+| renter_id  | UUID           | FK(users), NOT NULL  | 借主ユーザーID                                            |
+| quantity   | INTEGER        | DEFAULT 1, NOT NULL  | 希望台数                                                  |
+| start_date | TIMESTAMPTZ    | NULL許可             | 貸出開始日時（inquiry 時は NULL）                         |
+| end_date   | TIMESTAMPTZ    | NULL許可             | 返却日時（inquiry 時は NULL）                             |
+| message    | TEXT           |                      | 借主からのメッセージ                                      |
+| status     | request_status | DEFAULT 'pending'    | inquiry / pending / accepted / rejected / cancelled       |
+| created_at | TIMESTAMPTZ    | server default now() |                                                           |
+
+**request_status enum:**
+- `inquiry`: 日程未定の問い合わせ（メッセージスレッドのみ作成）
+- `pending`: 日程確定済みリクエスト・承認待ち
+- `accepted`: 承認済み（reservationが存在する）
+- `rejected`: 拒否
+- `cancelled`: キャンセル
 
 #### messages
 
@@ -418,10 +442,19 @@ REMINDER_RETURN     貸主・借主：返却時間リマインド
 ### 5.3 ステータス遷移
 
 ```
-rental_requests:
-  pending ──[承認]──► accepted ──[予約自動作成]
-          ──[拒否]──► rejected
-          ──[取消]──► cancelled（貸主のみ）→ 借主に通知
+rental_requests（問い合わせ起点フロー）:
+  ─── 問い合わせ（inquiry）起点 ─────────────────────────────────
+  [借主が質問] → inquiry
+    inquiry ──[借主が日程を決めて予約リクエスト送信]──► pending
+                POST /rental-requests/{id}/formalize
+    inquiry ──[貸主が直接予約を確定]──────────────────► accepted（+ reservation reserved）
+                POST /rental-requests/{id}/direct-reserve
+
+  ─── 通常リクエスト起点 ───────────────────────────────────────
+  [借主がリクエスト送信（日程あり）] → pending
+    pending ──[承認]──► accepted ──[予約自動作成（reserved）]
+            ──[拒否]──► rejected
+            ──[取消]──► cancelled（貸主のみ）→ 借主に通知
   ※ 借主はキャンセル不可。チャットで貸主に依頼する仕様
 
 reservations:
@@ -473,15 +506,17 @@ carts:
 
 #### Rental Requests
 
-| Method | Path                           | 説明                                                              |
-| ------ | ------------------------------ | ----------------------------------------------------------------- |
-| GET    | `/rental-requests`             | リクエスト一覧（自分関係のもの）                                  |
-| GET    | `/rental-requests/{id}`        | リクエスト詳細（`cart_title`, `renter_name`, `lender_name`, `station_name`, `municipality`, `lending_address` 含む） |
-| POST   | `/rental-requests`             | リクエスト送信（借主のみ）                                        |
-| PATCH  | `/rental-requests/{id}`        | リクエスト内容編集（貸主のみ・pending 時のみ・日時/台数変更）     |
-| POST   | `/rental-requests/{id}/accept` | 承認（貸主のみ）→ 予約自動作成                                    |
-| POST   | `/rental-requests/{id}/reject` | 拒否（貸主のみ）                                                  |
-| POST   | `/rental-requests/{id}/cancel` | キャンセル（貸主のみ）→ 借主に通知                                |
+| Method | Path                                  | 説明                                                                                             |
+| ------ | ------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| GET    | `/rental-requests`                    | リクエスト一覧（自分関係のもの）                                                                 |
+| GET    | `/rental-requests/{id}`               | リクエスト詳細（`cart_title`, `renter_name`, `lender_name`, `station_name`, `municipality`, `lending_address` 含む） |
+| POST   | `/rental-requests`                    | リクエスト送信（借主のみ）。`start_date`/`end_date` 省略時は `inquiry` ステータスで作成          |
+| PATCH  | `/rental-requests/{id}`               | リクエスト内容編集（貸主のみ・pending 時のみ・日時/台数変更）                                   |
+| POST   | `/rental-requests/{id}/accept`        | 承認（貸主のみ）→ 予約自動作成                                                                   |
+| POST   | `/rental-requests/{id}/reject`        | 拒否（貸主のみ）                                                                                 |
+| POST   | `/rental-requests/{id}/cancel`        | キャンセル（貸主のみ）→ 借主に通知                                                               |
+| POST   | `/rental-requests/{id}/formalize`     | 借主が inquiry → pending に昇格（日程・台数を確定）                                              |
+| POST   | `/rental-requests/{id}/direct-reserve`| 貸主が直接予約確定（inquiry/pending → accepted + reservation reserved 作成）                     |
 
 #### Messages
 
@@ -519,6 +554,16 @@ carts:
 
 ### 6.2 主要APIの詳細
 
+#### POST `/rental-requests`（問い合わせモード）
+
+```
+リクエストボディの start_date / end_date が省略された場合:
+1. rental_requests.status = 'inquiry' で作成
+2. messages にシステムメッセージを追加（「問い合わせが届きました」）
+3. 貸主へ通知（REQUEST_RECEIVED: "問い合わせが届きました"）
+4. 作成したリクエストIDを返す → モバイルはそのままチャット画面へ遷移
+```
+
 #### POST `/rental-requests/{id}/accept`
 
 ```
@@ -526,6 +571,28 @@ carts:
 2. reservations を作成
 3. システムメッセージを messages に作成
 4. 借主への通知（REQUEST_ACCEPTED）を作成・送信
+```
+
+#### POST `/rental-requests/{id}/formalize`
+
+```
+ボディ: { start_date, end_date, quantity }
+1. 本人（renter）かつ status = 'inquiry' であることを確認
+2. rental_requests.start_date / end_date / quantity を更新
+3. status を 'pending' に更新
+4. システムメッセージを messages に追加
+5. 貸主への通知（REQUEST_RECEIVED）を送信
+```
+
+#### POST `/rental-requests/{id}/direct-reserve`
+
+```
+ボディ: { start_date, end_date, quantity }
+1. 台車オーナー（lender）かつ status が 'inquiry' または 'pending' であることを確認
+2. rental_requests を accepted に更新
+3. reservations を status = 'reserved' で作成
+4. システムメッセージを messages に追加
+5. 借主への通知（REQUEST_ACCEPTED）を送信
 ```
 
 #### PATCH `/carts/{id}/status`
@@ -584,14 +651,20 @@ active → inactive / inactive → active をトグル
 
 #### `/ (index)` ホーム（台車検索）
 
-| 項目     | 内容                                                            |
-| -------- | --------------------------------------------------------------- |
-| 表示条件 | 認証済み                                                        |
-| 表示内容 | 台車カードグリッド（active のみ）                              |
-| 並び順   | 登録順（id DESC）                                               |
-| 再取得   | useFocusEffect（タブフォーカス時に自動再取得）                  |
-| タップ   | 台車カード → `/search/[lender_id]`                              |
-| 空状態   | 条件を変えるよう促すメッセージ                                  |
+| 項目     | 内容                                                                                          |
+| -------- | --------------------------------------------------------------------------------------------- |
+| 表示条件 | 認証済み                                                                                      |
+| 表示内容 | 台車カードグリッド（active のみ）                                                             |
+| カード展開 | `cart_locations` が複数登録された台車は**地点数分のカードを個別に表示**（flatMap）          |
+| 並び順   | 登録順（id DESC）                                                                             |
+| 再取得   | useFocusEffect（タブフォーカス時に自動再取得）                                                |
+| タップ   | 台車カード → `/search/[lender_id]?cart_id={cart.id}`（その台車のみ表示）                     |
+| 空状態   | 条件を変えるよう促すメッセージ                                                                |
+
+**地点カード展開ロジック（`buildCartItems`）:**
+- `cart.locations` が空の場合はトップレベルの `station_id` / `municipality` を使用（後方互換）
+- エリアフィルタ（市区町村）が有効な場合は、その市区町村に一致する地点のカードのみ表示（他地点は非表示）
+- バックエンドの市区町村フィルタも `cart_locations` サブクエリで全地点を検索対象にしている
 
 **検索バー（テキスト入力なし）:**
 
@@ -632,7 +705,8 @@ active → inactive / inactive → active をトグル
 | 表示内容       | 自分の台車一覧（active / inactive 両方表示）                 |
 | デフォルト並び順 | 登録が早い順（id ASC）                                     |
 | 並び替えオプション | 登録順↑ / 登録順↓ / 価格安い順 / 価格高い順（ドロップダウン） |
-| 各カード       | 台車名、料金、ステータスラベル（公開中/非公開）              |
+| 各カード       | 台車名、料金、ステータスラベル（公開中/非公開）、在庫台数（📦 N台）|
+|                | 登録地点一覧（📍 市区町村 · 駅名 を地点数分表示）            |
 |                | Switch: 公開/非公開トグル → `PATCH /carts/{id}/status`      |
 |                | カードタップ → `/carts/[id]/edit`（編集画面）                |
 |                | 🗑 ボタン（カードタップのstopPropagation）→ 削除確認 → DELETE |
@@ -736,31 +810,62 @@ active → inactive / inactive → active をトグル
 
 #### `/requests/[id]` チャット・取引画面
 
-| 項目           | 内容                                                                        |
-| -------------- | --------------------------------------------------------------------------- |
-| ヘッダー       | 相手のユーザー名（Stack.Screen の title に動的設定）                        |
-| リクエスト情報 | 台車名・日時・台数・場所・住所・備考を常時展開表示                          |
-| 貸主アクション | pending 時: 承認 / 編集 / 拒否 の3ボタン                                   |
-|                | 編集モーダル: 日時（DateTimePicker）・台車カード（+/- カウンター）         |
-|                | reserved 時: 貸出開始 / キャンセル                                         |
-|                | lent 時: 返却完了                                                           |
-|                | returned 時: レビューを書く                                                 |
-| チャット       | LINE 風バブル（自分: 右青・相手: 左白）                                     |
-| 既読表示       | 自分が送った最後の既読メッセージに「既読」表示                              |
-| リアルタイム   | Supabase Realtime（INSERT/UPDATE 購読）+ 5秒ポーリングフォールバック        |
-| Pull-to-refresh | 下スワイプでメッセージ + リクエスト情報を再取得                            |
-| キーボード     | `automaticallyAdjustKeyboardInsets` + KAV で入力欄が隠れない               |
-| 借主           | キャンセルボタンなし                                                        |
+| 項目           | 内容                                                                                        |
+| -------------- | ------------------------------------------------------------------------------------------- |
+| ヘッダー       | 相手のユーザー名（Stack.Screen の title に動的設定）                                        |
+| リクエスト情報 | 台車名・日時（inquiry 時は「日程未定」）・台数・場所・住所・備考を常時展開表示              |
+| **inquiry 時アクション（借主）** | 「📋 予約リクエストを送る」ボタン → DateQtyModal → `POST /{id}/formalize` |
+| **inquiry 時アクション（貸主）** | 「✅ 予約を確定する」ボタン → DateQtyModal → `POST /{id}/direct-reserve`  |
+| 貸主アクション | pending 時: 承認 / 編集 / 拒否 の3ボタン                                                   |
+|                | 編集モーダル（DateQtyModal）: 日時（DateTimePicker）・台数（+/- カウンター）               |
+|                | reserved 時: 貸出開始 / キャンセル                                                         |
+|                | lent 時: 返却完了                                                                           |
+|                | returned 時: レビューを書く                                                                 |
+| チャット       | LINE 風バブル（自分: 右青・相手: 左白）。システムメッセージはグレー中央揃え                 |
+| 既読表示       | 自分が送った最後の既読メッセージに「既読」表示                                              |
+| リアルタイム   | Supabase Realtime（INSERT/UPDATE 購読）+ 5秒ポーリングフォールバック                        |
+| Pull-to-refresh | 下スワイプでメッセージ + リクエスト情報を再取得                                            |
+| キーボード     | `automaticallyAdjustKeyboardInsets` + KAV で入力欄が隠れない                               |
+| 借主           | キャンセルボタンなし                                                                        |
+
+**DateQtyModal（共通コンポーネント）:**
+- 貸出開始日時・返却日時（DateTimePicker）と台数（+/- カウンター）を入力
+- `onSubmit(start, end, qty)` コールバックで呼び出し元が API 呼び出し
+- formalize と direct-reserve の両方で共用
 
 #### その他のスタック画面
 
-| 画面                  | 説明                                              |
-| --------------------- | ------------------------------------------------- |
-| `/messages`           | メッセージスレッド一覧（未読バッジ）              |
-| `/schedule`           | 今後7日間 + 全予約一覧                            |
-| `/notifications`      | 通知一覧・既読管理                                |
-| `/search/[lender_id]` | 貸主詳細・台車一覧・リクエスト送信                |
-| `/request-new`        | リクエスト送信画面（日時選択・台車+/- 選択）      |
+| 画面                  | 説明                                                                                      |
+| --------------------- | ----------------------------------------------------------------------------------------- |
+| `/messages`           | メッセージスレッド一覧（未読バッジ・ステータスバッジ・日程未定時は「（日程未定）」表示） |
+| `/schedule`           | 今後7日間 + 全予約一覧（今日 / 明日以降 / 履歴 セクション）                              |
+| `/notifications`      | 通知一覧・既読管理                                                                        |
+| `/search/[lender_id]` | 貸主詳細・台車一覧（`cart_id` クエリで1台車に絞込可）・リクエスト送信・質問モーダル      |
+| `/request-new`        | リクエスト送信画面（日時選択・台車+/-選択）。`cart_id` 指定時はその台車と地点のみ表示    |
+
+---
+
+#### 質問（inquiry）フロー
+
+```
+1. 借主が「💬 質問する」ボタンをタップ（/search/[lender_id] 画面）
+2. InquiryModal が表示（cart_id を渡す）
+3. 借主がメッセージを入力 → 「送信する」
+4. POST /rental-requests { cart_id, message }  ← start_date/end_date 省略
+5. バックエンドが status=inquiry でリクエスト作成、初期システムメッセージを追加
+6. 貸主へ「問い合わせが届きました」通知を送信
+7. アプリが /requests/{id} チャット画面へ遷移
+
+チャット画面での次のアクション:
+  借主: 「📋 予約リクエストを送る」
+    → DateQtyModal（日程・台数入力）→ POST /rental-requests/{id}/formalize
+    → status が pending に昇格 → 通常の承認フローへ
+
+  貸主: 「✅ 予約を確定する」
+    → DateQtyModal（日程・台数入力）→ POST /rental-requests/{id}/direct-reserve
+    → status が accepted に昇格 + reservation(reserved) 作成
+    → 借主へ REQUEST_ACCEPTED 通知
+```
 
 ---
 
@@ -932,6 +1037,7 @@ cart-rental-ios/
 
 | イベント               | 送信先     | 通知タイプ          |
 | ---------------------- | ---------- | ------------------- |
+| 問い合わせ受信         | 貸主       | REQUEST_RECEIVED（タイトル: "問い合わせが届きました"）|
 | リクエスト受信         | 貸主       | REQUEST_RECEIVED    |
 | リクエスト承認         | 借主       | REQUEST_ACCEPTED    |
 | リクエスト拒否         | 借主       | REQUEST_REJECTED    |
