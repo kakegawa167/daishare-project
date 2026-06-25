@@ -109,7 +109,7 @@ function CartSelectRow({
 
 // ─── メイン ────────────────────────────────────────────
 export default function RequestNew() {
-  const { lender_id } = useLocalSearchParams<{ lender_id: string }>();
+  const { lender_id, cart_id } = useLocalSearchParams<{ lender_id: string; cart_id?: string }>();
   const [profile, setProfile] = useState<LenderProfile | null>(null);
   const [carts, setCarts] = useState<Cart[]>([]);
   const [loading, setLoading] = useState(true);
@@ -124,15 +124,25 @@ export default function RequestNew() {
   const [quantities, setQuantities] = useState<Record<number, number>>({});
   const [message, setMessage] = useState('');
 
-  // 台車をstation_idでグループ化
-  const stations = useMemo(() => {
-    const map = new Map<number | null, Cart[]>();
+  // 台車 × 場所 のグループ（複数地点対応）
+  const locationGroups = useMemo(() => {
+    type Group = { key: string; cart: Cart; locLabel: string; address: string | null };
+    const groups: Group[] = [];
     for (const c of carts) {
-      const key = c.station_id;
-      if (!map.has(key)) map.set(key, []);
-      map.get(key)!.push(c);
+      const locs = c.locations && c.locations.length > 0
+        ? c.locations
+        : [{ id: 0, station_id: c.station_id, station_name: c.station_name, municipality: c.municipality, lending_address: c.lending_address }];
+      for (let i = 0; i < locs.length; i++) {
+        const loc = locs[i];
+        groups.push({
+          key: `${c.id}-${i}`,
+          cart: c,
+          locLabel: [loc.municipality, loc.station_name].filter(Boolean).join(' / ') || '場所未設定',
+          address: loc.lending_address ?? null,
+        });
+      }
     }
-    return Array.from(map.entries());
+    return groups;
   }, [carts]);
 
   const totalSelected = useMemo(
@@ -148,14 +158,15 @@ export default function RequestNew() {
           api.get<Cart[]>('/carts', { params: { owner_id: lender_id } }),
         ]);
         setProfile(profileRes.data);
-        setCarts(cartsRes.data);
+        const allCarts: Cart[] = cartsRes.data;
+        setCarts(cart_id ? allCarts.filter((c) => String(c.id) === cart_id) : allCarts);
       } catch {
         Alert.alert('エラー', '情報の取得に失敗しました');
       } finally {
         setLoading(false);
       }
     })();
-  }, [lender_id]);
+  }, [lender_id, cart_id]);
 
   const handleSubmit = async () => {
     if (totalSelected === 0) { Alert.alert('エラー', '台車を1台以上選択してください'); return; }
@@ -231,30 +242,21 @@ export default function RequestNew() {
         )}
       </View>
 
-      {stations.map(([stationId, stCarts]) => {
-        const first = stCarts[0];
-        return (
-          <View key={stationId ?? 'none'} style={s.stationGroup}>
-            {/* 貸出場所 */}
-            <View style={s.stationHeader}>
-              <Text style={s.stationName}>
-                📍 {[first.municipality, first.station_name].filter(Boolean).join(' / ') || '場所未設定'}
-              </Text>
-              {first.lending_address ? (
-                <Text style={s.stationAddress}>{first.lending_address}</Text>
-              ) : null}
-            </View>
-            {stCarts.map((cart) => (
-              <CartSelectRow
-                key={cart.id}
-                cart={cart}
-                qty={quantities[cart.id] ?? 0}
-                onChange={(v) => setQuantities((prev) => ({ ...prev, [cart.id]: v }))}
-              />
-            ))}
+      {locationGroups.map((group) => (
+        <View key={group.key} style={s.stationGroup}>
+          <View style={s.stationHeader}>
+            <Text style={s.stationName}>📍 {group.locLabel}</Text>
+            {group.address ? (
+              <Text style={s.stationAddress}>{group.address}</Text>
+            ) : null}
           </View>
-        );
-      })}
+          <CartSelectRow
+            cart={group.cart}
+            qty={quantities[group.cart.id] ?? 0}
+            onChange={(v) => setQuantities((prev) => ({ ...prev, [group.cart.id]: v }))}
+          />
+        </View>
+      ))}
 
       {/* メッセージ */}
       <Text style={s.fieldLabel}>メッセージ（任意）</Text>

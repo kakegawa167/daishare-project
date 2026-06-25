@@ -29,7 +29,7 @@ function CartCard({ item }: { item: CartLocationCard }) {
   const address = location?.lending_address ?? cart.lending_address;
 
   return (
-    <Pressable style={styles.card} onPress={() => router.push(`/search/${cart.owner_id}`)}>
+    <Pressable style={styles.card} onPress={() => router.push(`/search/${cart.owner_id}?cart_id=${cart.id}` as any)}>
       {cart.image_urls.length > 0 && (
         <Image source={{ uri: cart.image_urls[0] }} style={styles.cardImage} />
       )}

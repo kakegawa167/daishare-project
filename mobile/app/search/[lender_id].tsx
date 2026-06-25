@@ -132,7 +132,7 @@ function CartCard({ cart }: { cart: Cart }) {
 
 // ─── メイン ────────────────────────────────────────────
 export default function LenderDetail() {
-  const { lender_id } = useLocalSearchParams<{ lender_id: string }>();
+  const { lender_id, cart_id } = useLocalSearchParams<{ lender_id: string; cart_id?: string }>();
   const [profile, setProfile] = useState<LenderProfile | null>(null);
   const [carts, setCarts] = useState<Cart[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
@@ -148,7 +148,8 @@ export default function LenderDetail() {
           api.get<Review[]>(`/users/${lender_id}/reviews`),
         ]);
         setProfile(profileRes.data);
-        setCarts(cartsRes.data);
+        const allCarts: Cart[] = cartsRes.data;
+        setCarts(cart_id ? allCarts.filter((c) => String(c.id) === cart_id) : allCarts);
         setReviews(reviewsRes.data);
       } catch {
         Alert.alert('エラー', '情報の取得に失敗しました');
@@ -156,7 +157,7 @@ export default function LenderDetail() {
         setLoading(false);
       }
     })();
-  }, [lender_id]);
+  }, [lender_id, cart_id]);
 
   if (loading) return <View style={s.center}><ActivityIndicator size="large" color="#3b82f6" /></View>;
 
@@ -225,7 +226,7 @@ export default function LenderDetail() {
         </Pressable>
         <Pressable
           style={[s.footerBtn, s.footerBtnPrimary]}
-          onPress={() => router.push(`/request-new?lender_id=${lender_id}` as any)}
+          onPress={() => router.push(`/request-new?lender_id=${lender_id}${cart_id ? `&cart_id=${cart_id}` : ''}` as any)}
         >
           <Text style={s.footerBtnPrimaryText}>🛒 借りたい</Text>
         </Pressable>
