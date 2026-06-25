@@ -1,3 +1,4 @@
+import { MaterialIcons } from '@expo/vector-icons';
 import { api } from '@/lib/api';
 import { Reservation, ReservationStatus } from '@/lib/types';
 import { EmptyScreen, LoadingScreen } from '@/components/ScreenState';
@@ -75,7 +76,7 @@ export default function Schedule() {
   ];
 
   if (loading) return <LoadingScreen />;
-  if (error) return <EmptyScreen icon="⚠️" message="予約の取得に失敗しました" action={{ label: '再試行', onPress: fetchReservations }} />;
+  if (error) return <EmptyScreen icon={<MaterialIcons name="error-outline" size={56} color="#d1d5db" />} message="予約の取得に失敗しました" action={{ label: '再試行', onPress: fetchReservations }} />;
 
   return (
     <FlatList
@@ -86,7 +87,7 @@ export default function Schedule() {
         return <ReservationCard res={item.data as Reservation} />;
       }}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchReservations(); }} />}
-      ListEmptyComponent={<EmptyScreen icon="📅" message="予約がありません" subMessage="台車をレンタルするとここに表示されます" />}
+      ListEmptyComponent={<EmptyScreen icon={<MaterialIcons name="calendar-today" size={56} color="#d1d5db" />} message="予約がありません" subMessage="台車をレンタルするとここに表示されます" />}
       contentContainerStyle={sections.length === 0 ? { flex: 1 } : { paddingBottom: 24 }}
       style={{ backgroundColor: '#f5f5f5' }}
     />

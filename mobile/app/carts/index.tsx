@@ -1,3 +1,4 @@
+import { MaterialIcons } from '@expo/vector-icons';
 import { api } from '@/lib/api';
 import { Cart } from '@/lib/types';
 import { EmptyScreen, LoadingScreen } from '@/components/ScreenState';
@@ -34,7 +35,10 @@ function CartCard({ cart, onDelete }: { cart: Cart; onDelete: (id: number) => vo
       <View style={styles.cardBody}>
         <Text style={styles.cardTitle}>{cart.title}</Text>
         {cart.station_name && (
-          <Text style={styles.cardMeta}>📍 {cart.municipality} / {cart.station_name}</Text>
+          <View style={styles.metaRow}>
+            <MaterialIcons name="place" size={13} color="#9ca3af" />
+            <Text style={styles.cardMeta}>{cart.municipality} / {cart.station_name}</Text>
+          </View>
         )}
         <Text style={styles.cardMeta}>
           {cart.daily_rate != null ? `¥${cart.daily_rate.toLocaleString()} / 日` : cart.weekly_rate != null ? `¥${cart.weekly_rate.toLocaleString()} / 週` : `¥${(cart.per_rental_rate ?? 0).toLocaleString()} / 回`}
@@ -89,7 +93,7 @@ export default function MyCarts() {
   };
 
   if (loading) return <LoadingScreen />;
-  if (error) return <EmptyScreen icon="⚠️" message="台車一覧の取得に失敗しました" action={{ label: '再試行', onPress: fetchCarts }} />;
+  if (error) return <EmptyScreen icon={<MaterialIcons name="error-outline" size={56} color="#d1d5db" />} message="台車一覧の取得に失敗しました" action={{ label: '再試行', onPress: fetchCarts }} />;
 
   return (
     <View style={styles.container}>
@@ -100,7 +104,7 @@ export default function MyCarts() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchCarts(); }} />}
         ListEmptyComponent={
           <EmptyScreen
-            icon="🛒"
+            icon={<MaterialIcons name="shopping-cart" size={56} color="#d1d5db" />}
             message="台車が登録されていません"
             subMessage="「台車を登録」ボタンから追加しましょう"
           />
@@ -132,7 +136,8 @@ const styles = StyleSheet.create({
   cardImage: { width: '100%', height: 160, resizeMode: 'cover' },
   cardBody: { padding: 12 },
   cardTitle: { fontSize: 16, fontWeight: '600', marginBottom: 4 },
-  cardMeta: { fontSize: 13, color: '#666', marginBottom: 2 },
+  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 3, marginBottom: 2 },
+  cardMeta: { fontSize: 13, color: '#666' },
   badge: { alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10, fontSize: 12, marginTop: 6 },
   badgeActive: { backgroundColor: '#d1fae5', color: '#065f46' },
   badgeInactive: { backgroundColor: '#f3f4f6', color: '#6b7280' },

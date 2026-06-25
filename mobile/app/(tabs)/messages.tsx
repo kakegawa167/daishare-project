@@ -84,7 +84,7 @@ function ThreadCard({ req, userId }: { req: RentalRequest; userId: string }) {
 
         {/* 3行目: 貸出〜返却時間 */}
         <Text style={s.dateLine} numberOfLines={1}>
-          {req.start_date && req.end_date ? `🕐 ${fmtDT(req.start_date)} 〜 ${fmtDT(req.end_date)}` : '（日程未定）'}
+          {req.start_date && req.end_date ? `${fmtDT(req.start_date)} 〜 ${fmtDT(req.end_date)}` : '（日程未定）'}
         </Text>
 
         {/* 4行目: 場所 */}

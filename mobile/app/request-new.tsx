@@ -39,10 +39,12 @@ function DateTimeField({
       <Text style={s.fieldLabel}>{label}</Text>
       <View style={s.dtRow}>
         <Pressable style={s.dtBtn} onPress={() => setShowDate(true)}>
-          <Text style={s.dtBtnText}>🗓 {value.toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric', weekday: 'short' })}</Text>
+          <MaterialIcons name="calendar-today" size={14} color="#3b82f6" />
+          <Text style={s.dtBtnText}>{value.toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric', weekday: 'short' })}</Text>
         </Pressable>
         <Pressable style={s.dtBtn} onPress={() => setShowTime(true)}>
-          <Text style={s.dtBtnText}>🕐 {value.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })}</Text>
+          <MaterialIcons name="access-time" size={14} color="#3b82f6" />
+          <Text style={s.dtBtnText}>{value.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })}</Text>
         </Pressable>
       </View>
       {showDate && (
@@ -317,6 +319,7 @@ const s = StyleSheet.create({
   dtBtn: {
     flex: 1, backgroundColor: '#f3f4f6', borderRadius: 10,
     paddingVertical: 10, paddingHorizontal: 12, alignItems: 'center',
+    flexDirection: 'row', justifyContent: 'center', gap: 5,
   },
   dtBtnText: { fontSize: 14, fontWeight: '600', color: '#374151' },
 

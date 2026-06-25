@@ -90,8 +90,18 @@ function RequestCard({
         </View>
       )}
 
-      {req.start_date ? <Text style={c.meta}>🕐 貸出希望: {fmtDT(req.start_date)}</Text> : null}
-      {req.end_date ? <Text style={c.meta}>🕐 返却希望: {fmtDT(req.end_date)}</Text> : null}
+      {req.start_date ? (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 2 }}>
+          <MaterialIcons name="access-time" size={13} color="#6b7280" />
+          <Text style={c.meta}>貸出希望: {fmtDT(req.start_date)}</Text>
+        </View>
+      ) : null}
+      {req.end_date ? (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 2 }}>
+          <MaterialIcons name="access-time" size={13} color="#6b7280" />
+          <Text style={c.meta}>返却希望: {fmtDT(req.end_date)}</Text>
+        </View>
+      ) : null}
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 2 }}>
         <MaterialIcons name="inventory-2" size={13} color="#6b7280" />
         <Text style={c.meta}>台数: {req.quantity}台</Text>

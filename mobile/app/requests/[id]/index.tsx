@@ -168,7 +168,10 @@ function EditReturnDateModal({
 
         <Text style={s.editLabel}>新しい返却日時</Text>
         <Pressable style={s.editDtBtn} onPress={() => setShowPicker(true)}>
-          <Text style={s.editDtBtnText}>🗓 {fmtD(endDate)}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <MaterialIcons name="calendar-today" size={15} color="#3b82f6" />
+            <Text style={s.editDtBtnText}>{fmtD(endDate)}</Text>
+          </View>
         </Pressable>
         {showPicker && (
           <DateTimePicker
@@ -241,7 +244,10 @@ function EditRequestModal({
 
         <Text style={s.editLabel}>貸出希望日時</Text>
         <Pressable style={s.editDtBtn} onPress={() => setShowStart(true)}>
-          <Text style={s.editDtBtnText}>🗓 {fmtD(startDate)}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <MaterialIcons name="calendar-today" size={15} color="#3b82f6" />
+            <Text style={s.editDtBtnText}>{fmtD(startDate)}</Text>
+          </View>
         </Pressable>
         {showStart && (
           <DateTimePicker
@@ -252,7 +258,10 @@ function EditRequestModal({
 
         <Text style={s.editLabel}>返却希望日時</Text>
         <Pressable style={s.editDtBtn} onPress={() => setShowEnd(true)}>
-          <Text style={s.editDtBtnText}>🗓 {fmtD(endDate)}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <MaterialIcons name="calendar-today" size={15} color="#3b82f6" />
+            <Text style={s.editDtBtnText}>{fmtD(endDate)}</Text>
+          </View>
         </Pressable>
         {showEnd && (
           <DateTimePicker
@@ -330,7 +339,10 @@ function DateQtyModal({
 
         <Text style={s.editLabel}>貸出希望日時</Text>
         <Pressable style={s.editDtBtn} onPress={() => setShowStart(true)}>
-          <Text style={s.editDtBtnText}>🗓 {fmtD(startDate)}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <MaterialIcons name="calendar-today" size={15} color="#3b82f6" />
+            <Text style={s.editDtBtnText}>{fmtD(startDate)}</Text>
+          </View>
         </Pressable>
         {showStart && (
           <DateTimePicker value={startDate} mode="datetime" display={Platform.OS === 'ios' ? 'spinner' : 'default'}
@@ -339,7 +351,10 @@ function DateQtyModal({
 
         <Text style={s.editLabel}>返却希望日時</Text>
         <Pressable style={s.editDtBtn} onPress={() => setShowEnd(true)}>
-          <Text style={s.editDtBtnText}>🗓 {fmtD(endDate)}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <MaterialIcons name="calendar-today" size={15} color="#3b82f6" />
+            <Text style={s.editDtBtnText}>{fmtD(endDate)}</Text>
+          </View>
         </Pressable>
         {showEnd && (
           <DateTimePicker value={endDate} mode="datetime" display={Platform.OS === 'ios' ? 'spinner' : 'default'}
@@ -381,8 +396,18 @@ function RequestInfoCard({ req, status }: { req: RentalRequest; status: string }
         </View>
       </View>
       <View style={s.infoDetails}>
-        {req.start_date ? <Text style={s.infoRow}>🕐 貸出希望: {fmtDT(req.start_date)}</Text> : null}
-        {req.end_date ? <Text style={s.infoRow}>🕐 返却希望: {fmtDT(req.end_date)}</Text> : null}
+        {req.start_date ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+            <MaterialIcons name="access-time" size={13} color="#6b7280" />
+            <Text style={s.infoRow}>貸出希望: {fmtDT(req.start_date)}</Text>
+          </View>
+        ) : null}
+        {req.end_date ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+            <MaterialIcons name="access-time" size={13} color="#6b7280" />
+            <Text style={s.infoRow}>返却希望: {fmtDT(req.end_date)}</Text>
+          </View>
+        ) : null}
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
           <MaterialIcons name="inventory-2" size={13} color="#6b7280" />
           <Text style={s.infoRow}>台数: {req.quantity}台</Text>
@@ -633,7 +658,8 @@ export default function RequestChat() {
         {request.status === 'inquiry' && !isLender && (
           <View style={s.actionRow}>
             <Pressable style={[s.actionBtn, { backgroundColor: '#3b82f6', flex: 1 }]} onPress={() => setShowFormalize(true)}>
-              <Text style={s.actionBtnText}>📋 予約リクエストを送る</Text>
+              <MaterialIcons name="assignment" size={16} color="#fff" />
+              <Text style={s.actionBtnText}>予約リクエストを送る</Text>
             </Pressable>
           </View>
         )}
@@ -642,7 +668,8 @@ export default function RequestChat() {
         {request.status === 'inquiry' && isLender && (
           <View style={s.actionRow}>
             <Pressable style={[s.actionBtn, { backgroundColor: '#10b981', flex: 1 }]} onPress={() => setShowDirectReserve(true)}>
-              <Text style={s.actionBtnText}>✅ 予約を確定する</Text>
+              <MaterialIcons name="check-circle-outline" size={16} color="#fff" />
+              <Text style={s.actionBtnText}>予約を確定する</Text>
             </Pressable>
           </View>
         )}
@@ -651,13 +678,16 @@ export default function RequestChat() {
         {request.status === 'pending' && isLender && (
           <View style={s.actionRow}>
             <Pressable style={[s.actionBtn, { backgroundColor: '#10b981' }]} onPress={() => handleAction('accept')}>
-              <Text style={s.actionBtnText}>✓ 承認</Text>
+              <MaterialIcons name="check" size={16} color="#fff" />
+              <Text style={s.actionBtnText}>承認</Text>
             </Pressable>
             <Pressable style={[s.actionBtn, { backgroundColor: '#3b82f6' }]} onPress={() => setShowEdit(true)}>
-              <Text style={s.actionBtnText}>✏️ 編集</Text>
+              <MaterialIcons name="edit" size={16} color="#fff" />
+              <Text style={s.actionBtnText}>編集</Text>
             </Pressable>
             <Pressable style={[s.actionBtn, { backgroundColor: '#fee2e2' }]} onPress={() => handleAction('reject')}>
-              <Text style={[s.actionBtnText, { color: '#ef4444' }]}>✕ 拒否</Text>
+              <MaterialIcons name="close" size={16} color="#ef4444" />
+              <Text style={[s.actionBtnText, { color: '#ef4444' }]}>拒否</Text>
             </Pressable>
           </View>
         )}
@@ -666,7 +696,8 @@ export default function RequestChat() {
         {res?.status === 'reserved' && isLender && (
           <View style={s.actionRow}>
             <Pressable style={[s.actionBtn, { backgroundColor: '#8b5cf6' }]} onPress={() => handleReservationAction('lend')}>
-              <Text style={s.actionBtnText}>🚀 貸出開始</Text>
+              <MaterialIcons name="local-shipping" size={16} color="#fff" />
+              <Text style={s.actionBtnText}>貸出開始</Text>
             </Pressable>
             <Pressable style={[s.actionBtn, { backgroundColor: '#f3f4f6' }]} onPress={() => handleReservationAction('cancel')}>
               <Text style={[s.actionBtnText, { color: '#6b7280' }]}>キャンセル</Text>
@@ -676,17 +707,20 @@ export default function RequestChat() {
         {res?.status === 'lent' && isLender && (
           <View style={s.actionRow}>
             <Pressable style={[s.actionBtn, { backgroundColor: '#3b82f6' }]} onPress={() => handleReservationAction('return')}>
-              <Text style={s.actionBtnText}>📦 返却完了</Text>
+              <MaterialIcons name="assignment-return" size={16} color="#fff" />
+              <Text style={s.actionBtnText}>返却完了</Text>
             </Pressable>
             <Pressable style={[s.actionBtn, { backgroundColor: '#f3f4f6' }]} onPress={() => setShowEditReturn(true)}>
-              <Text style={[s.actionBtnText, { color: '#374151' }]}>🗓 返却日時変更</Text>
+              <MaterialIcons name="edit-calendar" size={16} color="#374151" />
+              <Text style={[s.actionBtnText, { color: '#374151' }]}>返却日変更</Text>
             </Pressable>
           </View>
         )}
         {res?.status === 'returned' && (
           <View style={s.actionRow}>
             <Pressable style={[s.actionBtn, { backgroundColor: '#fef3c7' }]} onPress={() => setShowReview(true)}>
-              <Text style={[s.actionBtnText, { color: '#92400e' }]}>⭐ レビューを書く</Text>
+              <MaterialIcons name="star-outline" size={16} color="#92400e" />
+              <Text style={[s.actionBtnText, { color: '#92400e' }]}>レビューを書く</Text>
             </Pressable>
           </View>
         )}
@@ -836,7 +870,7 @@ const s = StyleSheet.create({
     backgroundColor: '#f9fafb',
     borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#e5e7eb',
   },
-  actionBtn: { flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: 'center' },
+  actionBtn: { flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 5 },
   actionBtnText: { color: '#fff', fontWeight: '700', fontSize: 13 },
 
   msgList: { flexGrow: 1, paddingHorizontal: 12, paddingVertical: 16, gap: 4 },
