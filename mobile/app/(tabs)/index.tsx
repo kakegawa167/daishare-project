@@ -86,10 +86,31 @@ function activeFilterCount(f: FilterState): number {
   return [f.category, f.foldable, f.maxDailyRate].filter(v => v !== null).length;
 }
 
+// 1台車 × 1地点 の表示単位
+interface CartItem {
+  cart: Cart;
+  locLabel: string;
+  cardKey: string;
+}
+
+function buildCartItems(carts: Cart[]): CartItem[] {
+  return carts.flatMap((cart) => {
+    const locs = cart.locations && cart.locations.length > 0
+      ? cart.locations
+      : [{ municipality: cart.municipality, station_name: cart.station_name }];
+    return locs.map((loc, i) => ({
+      cart,
+      locLabel: [loc.municipality, loc.station_name].filter(Boolean).join(' '),
+      cardKey: `${cart.id}-${i}`,
+    }));
+  });
+}
+
 // ─── 台車カード ───────────────────────────────────
-function CartCard({ cart }: { cart: Cart }) {
+function CartCard({ item }: { item: CartItem }) {
+  const { cart, locLabel } = item;
   return (
-    <Pressable style={s.card} onPress={() => router.push(`/search/${cart.owner_id}` as any)}>
+    <Pressable style={s.card} onPress={() => router.push(`/search/${cart.owner_id}?cart_id=${cart.id}` as any)}>
       <View style={s.imageWrap}>
         {cart.image_urls.length > 0 ? (
           <Image source={{ uri: cart.image_urls[0] }} style={s.image} resizeMode="cover" />
@@ -101,9 +122,9 @@ function CartCard({ cart }: { cart: Cart }) {
       </View>
       <View style={s.cardBody}>
         <Text style={s.cardTitle} numberOfLines={2}>{cart.title}</Text>
-        {cart.station_name && (
-          <Text style={s.cardMeta} numberOfLines={1}>📍 {cart.municipality} {cart.station_name}</Text>
-        )}
+        {locLabel ? (
+          <Text style={s.cardMeta} numberOfLines={1}>📍 {locLabel}</Text>
+        ) : null}
         <Text style={s.cardPrice}>
           {cart.daily_rate != null
             ? <>{`¥${cart.daily_rate.toLocaleString()}`}<Text style={s.cardPriceSuffix}>/日</Text></>
@@ -128,11 +149,20 @@ function AreaModal({
 }) {
   const [groups, setGroups] = useState<AreaGroup[]>([]);
 
-  // 市区町村ごとの台車数（allCarts から集計）
+  // 市区町村ごとの台車数（全ロケーション対象）
   const countByMuni = useMemo(() => {
     const map: Record<string, number> = {};
     for (const c of allCarts) {
-      if (c.municipality) map[c.municipality] = (map[c.municipality] ?? 0) + 1;
+      const locs = c.locations && c.locations.length > 0
+        ? c.locations
+        : c.municipality ? [{ municipality: c.municipality }] : [];
+      const seen = new Set<string>();
+      for (const loc of locs) {
+        if (loc.municipality && !seen.has(loc.municipality)) {
+          seen.add(loc.municipality);
+          map[loc.municipality] = (map[loc.municipality] ?? 0) + 1;
+        }
+      }
     }
     return map;
   }, [allCarts]);
@@ -364,6 +394,7 @@ export default function Home() {
 
   const filterCount = activeFilterCount(filter);
   const sortLabel   = SORT_OPTIONS.find(o => o.key === sortKey)?.label ?? '新しい順';
+  const displayedItems = useMemo(() => buildCartItems(displayedCarts), [displayedCarts]);
 
   if (loading) return <LoadingScreen />;
 
@@ -391,13 +422,13 @@ export default function Home() {
         </View>
       ) : (
         <FlatList
-          data={displayedCarts}
-          keyExtractor={item => String(item.id)}
+          data={displayedItems}
+          keyExtractor={item => item.cardKey}
           numColumns={2}
           columnWrapperStyle={s.row}
-          contentContainerStyle={displayedCarts.length === 0 ? s.emptyContainer : s.listContent}
+          contentContainerStyle={displayedItems.length === 0 ? s.emptyContainer : s.listContent}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#3b82f6" />}
-          renderItem={({ item }) => <CartCard cart={item} />}
+          renderItem={({ item }) => <CartCard item={item} />}
           ListEmptyComponent={
             <View style={s.fill}>
               <EmptyScreen icon="🔍" message="台車が見つかりませんでした" subMessage="条件を変えてみてください" />
@@ -406,7 +437,7 @@ export default function Home() {
           ListHeaderComponent={
             <View style={s.toolbar}>
               {/* 件数 */}
-              <Text style={s.count}>{displayedCarts.length}件</Text>
+              <Text style={s.count}>{displayedItems.length}件</Text>
 
               <View style={s.toolbarRight}>
                 {/* ソート */}
