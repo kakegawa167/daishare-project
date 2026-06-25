@@ -1,3 +1,4 @@
+import { MaterialIcons } from '@expo/vector-icons';
 import { api } from '@/lib/api';
 import { Cart, CartLocation } from '@/lib/types';
 import { router } from 'expo-router';
@@ -37,10 +38,16 @@ function CartCard({ item }: { item: CartLocationCard }) {
         <Text style={styles.cardTitle}>{cart.title}</Text>
         <Text style={styles.cardOwner}>{cart.owner_name ?? '不明'}</Text>
         {locLabel ? (
-          <Text style={styles.cardMeta}>📍 {locLabel}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, marginBottom: 2 }}>
+            <MaterialIcons name="place" size={13} color="#6b7280" />
+            <Text style={[styles.cardMeta, { marginBottom: 0 }]}>{locLabel}</Text>
+          </View>
         ) : null}
         {address ? (
-          <Text style={styles.cardMeta} numberOfLines={1}>🏠 {address}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, marginBottom: 2 }}>
+            <MaterialIcons name="home" size={13} color="#6b7280" />
+            <Text style={[styles.cardMeta, { marginBottom: 0 }]} numberOfLines={1}>{address}</Text>
+          </View>
         ) : null}
         <View style={styles.cardFooter}>
           <Text style={styles.cardRate}>

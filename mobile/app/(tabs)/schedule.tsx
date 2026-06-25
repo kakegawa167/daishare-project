@@ -1,8 +1,9 @@
+import { MaterialIcons } from '@expo/vector-icons';
 import { api } from '@/lib/api';
 import { Reservation } from '@/lib/types';
 import { EmptyScreen, LoadingScreen } from '@/components/ScreenState';
 import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 
 type EventType = 'lend' | 'return';
@@ -50,8 +51,18 @@ function EventCard({ event }: { event: ScheduleEvent }) {
           <Text style={s.timeLabel}>{timeLabel}</Text>
           <Text style={[s.timeValue, { color: accent }]}>{fmtDT(timeValue)}</Text>
         </View>
-        {location ? <Text style={s.location}>📍 {location}</Text> : null}
-        {res.lending_address ? <Text style={s.location}>🏠 {res.lending_address}</Text> : null}
+        {location ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 }}>
+            <MaterialIcons name="place" size={12} color="#6b7280" />
+            <Text style={s.location}>{location}</Text>
+          </View>
+        ) : null}
+        {res.lending_address ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 }}>
+            <MaterialIcons name="home" size={12} color="#6b7280" />
+            <Text style={s.location}>{res.lending_address}</Text>
+          </View>
+        ) : null}
       </View>
     </Pressable>
   );
@@ -156,7 +167,7 @@ export default function Schedule() {
   ];
 
   if (loading) return <LoadingScreen />;
-  if (error) return <EmptyScreen icon="⚠️" message="予約の取得に失敗しました" action={{ label: '再試行', onPress: fetch }} />;
+  if (error) return <EmptyScreen icon={<MaterialIcons name="warning-amber" size={56} color="#d1d5db" />} message="予約の取得に失敗しました" action={{ label: '再試行', onPress: fetch }} />;
 
   return (
     <FlatList
@@ -186,7 +197,7 @@ export default function Schedule() {
       }
       contentContainerStyle={sections.length === 0 ? s.empty : s.list}
       ListEmptyComponent={
-        <EmptyScreen icon="📅" message="予定がありません" subMessage="リクエストが承認されると貸出・返却の予定が表示されます" />
+        <EmptyScreen icon={<MaterialIcons name="calendar-today" size={56} color="#d1d5db" />} message="予定がありません" subMessage="リクエストが承認されると貸出・返却の予定が表示されます" />
       }
       style={s.container}
     />

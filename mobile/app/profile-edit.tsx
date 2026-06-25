@@ -1,5 +1,6 @@
+import { MaterialIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -146,14 +147,14 @@ export default function ProfileEditScreen() {
       <SectionTitle label="利用タイプ" />
       <View style={s.typeCards}>
         {([
-          { value: 'renter', emoji: '📦', label: '借りる', desc: '台車を借りてお得に活用' },
-          { value: 'lender', emoji: '🏷️', label: '貸す',   desc: '台車を貸して副収入を獲得' },
-        ] as { value: UserType; emoji: string; label: string; desc: string }[]).map(({ value, emoji, label, desc }) => {
+          { value: 'renter', icon: 'shopping-bag' as const, label: '借りる', desc: '台車を借りてお得に活用' },
+          { value: 'lender', icon: 'sell' as const, label: '貸す',   desc: '台車を貸して副収入を獲得' },
+        ] as { value: UserType; icon: React.ComponentProps<typeof MaterialIcons>['name']; label: string; desc: string }[]).map(({ value, icon, label, desc }) => {
           const sel = form.user_type === value;
           return (
             <Pressable key={value} style={[s.typeCard, sel && s.typeCardSel]}
               onPress={() => setForm((f) => ({ ...f, user_type: value }))}>
-              <Text style={s.typeCardEmoji}>{emoji}</Text>
+              <MaterialIcons name={icon} size={28} color={sel ? '#1d4ed8' : '#9ca3af'} style={{ marginBottom: 4 }} />
               <Text style={[s.typeCardLabel, sel && s.typeCardLabelSel]}>{label}</Text>
               <Text style={[s.typeCardDesc, sel && s.typeCardDescSel]}>{desc}</Text>
               {sel && <View style={s.typeCardCheck}><Text style={s.typeCardCheckText}>✓</Text></View>}
@@ -209,7 +210,6 @@ const s = StyleSheet.create({
     position: 'relative',
   },
   typeCardSel: { borderColor: '#3b82f6', backgroundColor: '#eff6ff' },
-  typeCardEmoji: { fontSize: 28, marginBottom: 4 },
   typeCardLabel: { fontSize: 17, fontWeight: '800', color: '#374151' },
   typeCardLabelSel: { color: '#1d4ed8' },
   typeCardDesc: { fontSize: 11, color: '#9ca3af', textAlign: 'center', lineHeight: 15 },

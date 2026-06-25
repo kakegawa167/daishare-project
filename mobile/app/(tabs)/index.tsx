@@ -1,3 +1,4 @@
+import { MaterialIcons } from '@expo/vector-icons';
 import { api } from '@/lib/api';
 import { Cart, CartCategory } from '@/lib/types';
 import { EmptyScreen, LoadingScreen } from '@/components/ScreenState';
@@ -120,14 +121,17 @@ function CartCard({ item }: { item: CartItem }) {
           <Image source={{ uri: cart.image_urls[0] }} style={s.image} resizeMode="cover" />
         ) : (
           <View style={s.imagePlaceholder}>
-            <Text style={s.imagePlaceholderIcon}>🛒</Text>
+            <MaterialIcons name="shopping-cart" size={40} color="#9ca3af" />
           </View>
         )}
       </View>
       <View style={s.cardBody}>
         <Text style={s.cardTitle} numberOfLines={2}>{cart.title}</Text>
         {locLabel ? (
-          <Text style={s.cardMeta} numberOfLines={1}>📍 {locLabel}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, marginBottom: 6 }}>
+            <MaterialIcons name="place" size={12} color="#9ca3af" />
+            <Text style={[s.cardMeta, { marginBottom: 0 }]} numberOfLines={1}>{locLabel}</Text>
+          </View>
         ) : null}
         <Text style={s.cardPrice}>
           {cart.daily_rate != null
@@ -408,7 +412,7 @@ export default function Home() {
       {/* ── 検索バー（エリアのみ） ── */}
       <View style={s.searchBar}>
         <Pressable style={s.searchBtn} onPress={() => setAreaModal(true)}>
-          <Text style={s.searchIcon}>🔍</Text>
+          <MaterialIcons name="search" size={18} color="#9ca3af" />
           <Text style={[s.searchText, municipality ? s.searchTextActive : null]} numberOfLines={1}>
             {municipality ?? 'エリアで検索'}
           </Text>
@@ -422,7 +426,7 @@ export default function Home() {
 
       {error ? (
         <View style={s.fill}>
-          <EmptyScreen icon="⚠️" message="台車の取得に失敗しました" action={{ label: '再試行', onPress: () => fetchCarts() }} />
+          <EmptyScreen icon={<MaterialIcons name="warning-amber" size={56} color="#d1d5db" />} message="台車の取得に失敗しました" action={{ label: '再試行', onPress: () => fetchCarts() }} />
         </View>
       ) : (
         <FlatList
@@ -435,7 +439,7 @@ export default function Home() {
           renderItem={({ item }) => <CartCard item={item} />}
           ListEmptyComponent={
             <View style={s.fill}>
-              <EmptyScreen icon="🔍" message="台車が見つかりませんでした" subMessage="条件を変えてみてください" />
+              <EmptyScreen icon={<MaterialIcons name="search-off" size={56} color="#d1d5db" />} message="台車が見つかりませんでした" subMessage="条件を変えてみてください" />
             </View>
           }
           ListHeaderComponent={
@@ -502,7 +506,6 @@ const s = StyleSheet.create({
     paddingHorizontal: 14, paddingVertical: 10,
     borderWidth: 1, borderColor: '#e5e7eb',
   },
-  searchIcon: { fontSize: 15, color: '#9ca3af' },
   searchText: { flex: 1, fontSize: 15, color: '#9ca3af', fontWeight: '500' },
   searchTextActive: { color: '#111827', fontWeight: '600' },
   searchClear: { fontSize: 18, color: '#6b7280', fontWeight: '700', paddingHorizontal: 2 },
@@ -532,7 +535,6 @@ const s = StyleSheet.create({
   imageWrap: { width: '100%', aspectRatio: 1, backgroundColor: '#f3f4f6' },
   image: { width: '100%', height: '100%' },
   imagePlaceholder: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#f0f0f0' },
-  imagePlaceholderIcon: { fontSize: 40 },
   cardBody: { padding: 10 },
   cardTitle: { fontSize: 13, fontWeight: '600', color: '#1a1a1a', marginBottom: 4, lineHeight: 18 },
   cardMeta: { fontSize: 11, color: '#6b7280', marginBottom: 6 },

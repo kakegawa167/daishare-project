@@ -1,9 +1,10 @@
+import { MaterialIcons } from '@expo/vector-icons';
 import { api } from '@/lib/api';
 import { RentalRequest, RequestStatus } from '@/lib/types';
 import { EmptyScreen, LoadingScreen } from '@/components/ScreenState';
 import { useAuthStore } from '@/store/authStore';
 import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   Alert,
   FlatList,
@@ -83,22 +84,37 @@ function RequestCard({
       </View>
 
       {isLenderView && req.renter_name && (
-        <Text style={c.meta}>👤 借りる人: {req.renter_name}</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 2 }}>
+          <MaterialIcons name="person-outline" size={13} color="#6b7280" />
+          <Text style={c.meta}>借りる人: {req.renter_name}</Text>
+        </View>
       )}
 
       {req.start_date ? <Text style={c.meta}>🕐 貸出希望: {fmtDT(req.start_date)}</Text> : null}
       {req.end_date ? <Text style={c.meta}>🕐 返却希望: {fmtDT(req.end_date)}</Text> : null}
-      <Text style={c.meta}>📦 台数: {req.quantity}台</Text>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 2 }}>
+        <MaterialIcons name="inventory-2" size={13} color="#6b7280" />
+        <Text style={c.meta}>台数: {req.quantity}台</Text>
+      </View>
 
       {(req.municipality || req.station_name) && (
-        <Text style={c.meta}>📍 {[req.municipality, req.station_name].filter(Boolean).join(' / ')}</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 2 }}>
+          <MaterialIcons name="place" size={13} color="#6b7280" />
+          <Text style={c.meta}>{[req.municipality, req.station_name].filter(Boolean).join(' / ')}</Text>
+        </View>
       )}
       {req.lending_address ? (
-        <Text style={c.meta}>🏠 {req.lending_address}</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 2 }}>
+          <MaterialIcons name="home" size={13} color="#6b7280" />
+          <Text style={c.meta}>{req.lending_address}</Text>
+        </View>
       ) : null}
 
       {req.message ? (
-        <Text style={c.msgPreview}>💬 {req.message}</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 4, marginTop: 6 }}>
+          <MaterialIcons name="chat-bubble-outline" size={13} color="#9ca3af" style={{ marginTop: 1 }} />
+          <Text style={[c.msgPreview, { flex: 1, marginTop: 0 }]}>{req.message}</Text>
+        </View>
       ) : null}
 
       {/* 貸す人アクション: pending のとき承認/拒否 */}
@@ -127,7 +143,7 @@ function RequestList({
   onAction: () => void;
   refreshing: boolean;
   onRefresh: () => void;
-  emptyIcon: string;
+  emptyIcon: React.ReactNode;
   emptyMessage: string;
   emptySubMessage: string;
 }) {
@@ -251,19 +267,19 @@ export default function Reservations() {
 
   const tabs = isLenderView ? LENDER_TABS : RENTER_TABS;
 
-  const emptyConfig: Record<ContentTab, { icon: string; message: string; sub: string }> = {
+  const emptyConfig: Record<ContentTab, { icon: React.ReactNode; message: string; sub: string }> = {
     request: isLenderView
-      ? { icon: '📨', message: '受信リクエストはありません', sub: '台車へのリクエストが届くとここに表示されます' }
-      : { icon: '📤', message: '送信済みリクエストはありません', sub: 'ホームから台車を探してリクエストしてみましょう' },
-    booked: { icon: '📋', message: '予約中の台車はありません', sub: '' },
-    history: { icon: '📁', message: '履歴はありません', sub: '' },
+      ? { icon: <MaterialIcons name="move-to-inbox" size={56} color="#d1d5db" />, message: '受信リクエストはありません', sub: '台車へのリクエストが届くとここに表示されます' }
+      : { icon: <MaterialIcons name="send" size={56} color="#d1d5db" />, message: '送信済みリクエストはありません', sub: 'ホームから台車を探してリクエストしてみましょう' },
+    booked: { icon: <MaterialIcons name="event-note" size={56} color="#d1d5db" />, message: '予約中の台車はありません', sub: '' },
+    history: { icon: <MaterialIcons name="history" size={56} color="#d1d5db" />, message: '履歴はありません', sub: '' },
   };
 
   const handleRefresh = () => { setRefreshing(true); fetch(); };
 
   if (loading) return <LoadingScreen />;
   if (error) return (
-    <EmptyScreen icon="⚠️" message="取得に失敗しました" action={{ label: '再試行', onPress: fetch }} />
+    <EmptyScreen icon={<MaterialIcons name="warning-amber" size={56} color="#d1d5db" />} message="取得に失敗しました" action={{ label: '再試行', onPress: fetch }} />
   );
 
   return (

@@ -1,6 +1,8 @@
 import { Tabs, router } from 'expo-router';
 import { useEffect } from 'react';
-import { AppState, Pressable, Text, View, StyleSheet } from 'react-native';
+import { AppState, Pressable, View, StyleSheet } from 'react-native';
+import { MaterialIcons } from '@expo/vector-icons';
+import { Text } from 'react-native';
 
 import { useBadgeStore } from '@/store/badgeStore';
 import { useAuthStore } from '@/store/authStore';
@@ -14,7 +16,7 @@ function HeaderRight() {
         onPress={() => router.push('/notifications')}
         accessibilityLabel={`通知${unread > 0 ? `、未読${unread}件` : ''}`}
       >
-        <Text style={styles.headerIcon}>🔔</Text>
+        <MaterialIcons name="notifications-none" size={24} color="#374151" />
         {unread > 0 && (
           <View style={styles.dot}>
             <Text style={styles.dotText}>{unread > 9 ? '9+' : unread}</Text>
@@ -26,7 +28,7 @@ function HeaderRight() {
         onPress={() => router.push('/profile')}
         accessibilityLabel="プロフィール"
       >
-        <Text style={styles.headerIcon}>👤</Text>
+        <MaterialIcons name="person-outline" size={24} color="#374151" />
       </Pressable>
     </View>
   );
@@ -68,8 +70,8 @@ export default function TabLayout() {
         options={{
           title: 'ホーム',
           headerTitle: 'ダイシェア',
-          tabBarIcon: ({ focused }) => (
-            <Text style={[styles.tabIcon, { opacity: focused ? 1 : 0.5 }]}>🏠</Text>
+          tabBarIcon: ({ color }) => (
+            <MaterialIcons name="home" size={24} color={color} />
           ),
         }}
       />
@@ -77,8 +79,8 @@ export default function TabLayout() {
         name="reservations"
         options={{
           title: '予約一覧',
-          tabBarIcon: ({ focused }) => (
-            <Text style={[styles.tabIcon, { opacity: focused ? 1 : 0.5 }]}>📋</Text>
+          tabBarIcon: ({ color }) => (
+            <MaterialIcons name="event-note" size={24} color={color} />
           ),
         }}
       />
@@ -86,8 +88,8 @@ export default function TabLayout() {
         name="messages"
         options={{
           title: 'メッセージ',
-          tabBarIcon: ({ focused }) => (
-            <Text style={[styles.tabIcon, { opacity: focused ? 1 : 0.5 }]}>💬</Text>
+          tabBarIcon: ({ color }) => (
+            <MaterialIcons name="chat-bubble-outline" size={24} color={color} />
           ),
         }}
       />
@@ -95,8 +97,8 @@ export default function TabLayout() {
         name="schedule"
         options={{
           title: 'スケジュール',
-          tabBarIcon: ({ focused }) => (
-            <Text style={[styles.tabIcon, { opacity: focused ? 1 : 0.5 }]}>📅</Text>
+          tabBarIcon: ({ color }) => (
+            <MaterialIcons name="calendar-today" size={24} color={color} />
           ),
         }}
       />
@@ -104,8 +106,8 @@ export default function TabLayout() {
         name="carts"
         options={{
           title: '台車管理',
-          tabBarIcon: ({ focused }) => (
-            <Text style={[styles.tabIcon, { opacity: focused ? 1 : 0.5 }]}>🛒</Text>
+          tabBarIcon: ({ color }) => (
+            <MaterialIcons name="shopping-cart" size={24} color={color} />
           ),
         }}
       />
@@ -125,7 +127,6 @@ const styles = StyleSheet.create({
     paddingTop: 8,
   },
   tabLabel: { fontSize: 10, fontWeight: '600' },
-  tabIcon: { fontSize: 22 },
   header: {
     backgroundColor: '#fff',
     shadowColor: 'transparent',
@@ -136,7 +137,6 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 20, fontWeight: '800', color: '#3b82f6' },
   headerRight: { flexDirection: 'row', alignItems: 'center', marginRight: 12, gap: 8 },
   headerBtn: { padding: 6, position: 'relative' },
-  headerIcon: { fontSize: 22 },
   dot: {
     position: 'absolute',
     top: 2,

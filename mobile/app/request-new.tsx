@@ -1,3 +1,4 @@
+import { MaterialIcons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { api } from '@/lib/api';
 import { Cart } from '@/lib/types';
@@ -38,7 +39,7 @@ function DateTimeField({
       <Text style={s.fieldLabel}>{label}</Text>
       <View style={s.dtRow}>
         <Pressable style={s.dtBtn} onPress={() => setShowDate(true)}>
-          <Text style={s.dtBtnText}>📅 {value.toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric', weekday: 'short' })}</Text>
+          <Text style={s.dtBtnText}>🗓 {value.toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric', weekday: 'short' })}</Text>
         </Pressable>
         <Pressable style={s.dtBtn} onPress={() => setShowTime(true)}>
           <Text style={s.dtBtnText}>🕐 {value.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })}</Text>
@@ -79,7 +80,7 @@ function CartSelectRow({
         <Image source={{ uri: cart.image_urls[0] }} style={s.cartThumb} />
       ) : (
         <View style={[s.cartThumb, s.cartThumbPlaceholder]}>
-          <Text style={{ fontSize: 20 }}>🛒</Text>
+          <MaterialIcons name="shopping-cart" size={24} color="#9ca3af" />
         </View>
       )}
       <View style={s.cartRowInfo}>
@@ -245,7 +246,10 @@ export default function RequestNew() {
       {locationGroups.map((group) => (
         <View key={group.key} style={s.stationGroup}>
           <View style={s.stationHeader}>
-            <Text style={s.stationName}>📍 {group.locLabel}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+              <MaterialIcons name="place" size={14} color="#374151" />
+              <Text style={s.stationName}>{group.locLabel}</Text>
+            </View>
             {group.address ? (
               <Text style={s.stationAddress}>{group.address}</Text>
             ) : null}

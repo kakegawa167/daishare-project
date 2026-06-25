@@ -1,3 +1,5 @@
+import { MaterialIcons } from '@expo/vector-icons';
+import React from 'react';
 import { api } from '@/lib/api';
 import { EmptyScreen, LoadingScreen } from '@/components/ScreenState';
 import { useCallback, useEffect, useState } from 'react';
@@ -84,7 +86,7 @@ export default function Notifications() {
   const unreadCount = notifications.filter((n) => !n.is_read).length;
 
   if (loading) return <LoadingScreen />;
-  if (error) return <EmptyScreen icon="⚠️" message="通知の取得に失敗しました" action={{ label: '再試行', onPress: fetchNotifications }} />;
+  if (error) return <EmptyScreen icon={<MaterialIcons name="warning-amber" size={56} color="#d1d5db" />} message="通知の取得に失敗しました" action={{ label: '再試行', onPress: fetchNotifications }} />;
 
   return (
     <View style={{ flex: 1, backgroundColor: '#f5f5f5' }}>
@@ -112,7 +114,7 @@ export default function Notifications() {
           </Pressable>
         )}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchNotifications(); }} />}
-        ListEmptyComponent={<EmptyScreen icon="🔔" message="通知がありません" subMessage="リクエストやメッセージが届くとここに表示されます" />}
+        ListEmptyComponent={<EmptyScreen icon={<MaterialIcons name="notifications-none" size={56} color="#d1d5db" />} message="通知がありません" subMessage="リクエストやメッセージが届くとここに表示されます" />}
         contentContainerStyle={notifications.length === 0 ? { flex: 1 } : { paddingBottom: 24 }}
       />
     </View>

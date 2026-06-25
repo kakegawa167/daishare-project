@@ -1,3 +1,4 @@
+import { MaterialIcons } from '@expo/vector-icons';
 import { api } from '@/lib/api';
 import { Cart } from '@/lib/types';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -32,7 +33,8 @@ interface Review {
   reviewer_name: string | null;
 }
 
-const RATING_EMOJI = ['', '😞', '😐', '😊'];
+const RATING_LABEL = ['', '悪い', '普通', '良い'];
+const RATING_COLOR = ['', '#ef4444', '#f59e0b', '#10b981'];
 const CATEGORY_LABEL: Record<string, string> = {
   hand_truck: '手押し台車',
   flat_cart: '平台車',
@@ -112,12 +114,18 @@ function CartCard({ cart }: { cart: Cart }) {
         )}
         {cart.description ? <Text style={s.cartDesc} numberOfLines={2}>{cart.description}</Text> : null}
         <Text style={s.cartRate}>{rate}</Text>
-        <Text style={s.cartMeta}>📦 {cart.quantity}台 {cart.foldable ? '・折りたたみ可' : ''}</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+          <MaterialIcons name="inventory-2" size={12} color="#9ca3af" />
+          <Text style={s.cartMeta}>{cart.quantity}台 {cart.foldable ? '・折りたたみ可' : ''}</Text>
+        </View>
         {(cart.station_name || cart.lending_address) && (
-          <Text style={s.cartMeta}>
-            📍 {[cart.municipality, cart.station_name].filter(Boolean).join(' / ')}
-            {cart.lending_address ? `\n   ${cart.lending_address}` : ''}
-          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 3, marginTop: 2 }}>
+            <MaterialIcons name="place" size={12} color="#9ca3af" style={{ marginTop: 2 }} />
+            <Text style={s.cartMeta}>
+              {[cart.municipality, cart.station_name].filter(Boolean).join(' / ')}
+              {cart.lending_address ? `\n${cart.lending_address}` : ''}
+            </Text>
+          </View>
         )}
       </View>
     </View>
@@ -173,7 +181,10 @@ export default function LenderDetail() {
         <View style={s.profileInfo}>
           <Text style={s.profileName}>{profile?.display_name ?? '貸す人'}</Text>
           {avgRating && (
-            <Text style={s.profileRating}>⭐ {avgRating}（{reviews.length}件のレビュー）</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+              <MaterialIcons name="star" size={14} color="#f59e0b" />
+              <Text style={s.profileRating}>{avgRating}（{reviews.length}件のレビュー）</Text>
+            </View>
           )}
           {profile?.bio ? <Text style={s.profileBio}>{profile.bio}</Text> : null}
         </View>
@@ -185,7 +196,10 @@ export default function LenderDetail() {
           <Text style={s.sectionTitle}>レビュー</Text>
           {reviews.slice(0, 3).map((r) => (
             <View key={r.id} style={s.reviewCard}>
-              <Text style={s.reviewRating}>{RATING_EMOJI[r.rating]} {['', '悪い', '普通', '良い'][r.rating]}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 4 }}>
+                <MaterialIcons name="star" size={14} color={RATING_COLOR[r.rating]} />
+                <Text style={s.reviewRating}>{RATING_LABEL[r.rating]}</Text>
+              </View>
               {r.comment ? <Text style={s.reviewComment}>{r.comment}</Text> : null}
               <Text style={s.reviewAuthor}>{r.reviewer_name ?? '匿名'}</Text>
             </View>
@@ -216,13 +230,19 @@ export default function LenderDetail() {
           style={[s.footerBtn, s.footerBtnOutline]}
           onPress={() => setInquiryVisible(true)}
         >
-          <Text style={s.footerBtnOutlineText}>💬 質問する</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <MaterialIcons name="chat-bubble-outline" size={16} color="#3b82f6" />
+            <Text style={s.footerBtnOutlineText}>質問する</Text>
+          </View>
         </Pressable>
         <Pressable
           style={[s.footerBtn, s.footerBtnPrimary]}
           onPress={() => router.push(`/request-new?lender_id=${lender_id}${cart_id ? `&cart_id=${cart_id}` : ''}` as any)}
         >
-          <Text style={s.footerBtnPrimaryText}>🛒 借りたい</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <MaterialIcons name="shopping-cart" size={16} color="#fff" />
+            <Text style={s.footerBtnPrimaryText}>借りたい</Text>
+          </View>
         </Pressable>
       </View>
 

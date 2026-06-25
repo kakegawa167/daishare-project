@@ -1,3 +1,4 @@
+import { MaterialIcons } from '@expo/vector-icons';
 import { api } from '@/lib/api';
 import { Cart, Message, RentalRequest, Reservation } from '@/lib/types';
 import { supabase } from '@/lib/supabase';
@@ -74,7 +75,7 @@ function ReviewModal({ reservationId, visible, onClose }: { reservationId: numbe
           {([3, 2, 1] as const).map((v) => (
             <Pressable key={v} style={[s.ratingBtn, rating === v && s.ratingBtnActive]} onPress={() => setRating(v)}>
               <Text style={[s.ratingBtnText, rating === v && s.ratingBtnTextActive]}>
-                {v === 3 ? '⭐⭐⭐ 良い' : v === 2 ? '⭐⭐ 普通' : '⭐ 悪い'}
+                {v === 3 ? '★★★ 良い' : v === 2 ? '★★ 普通' : '★ 悪い'}
               </Text>
             </Pressable>
           ))}
@@ -109,7 +110,10 @@ function CartEditRow({ cart, qty, onChange }: { cart: Cart; qty: number; onChang
         <Text style={s.cartRowTitle} numberOfLines={1}>{cart.title}</Text>
         <Text style={s.cartRowRate}>{rate} ・ 在庫{cart.quantity}台</Text>
         {(cart.municipality || cart.station_name) && (
-          <Text style={s.cartRowMeta}>📍 {[cart.municipality, cart.station_name].filter(Boolean).join(' / ')}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+            <MaterialIcons name="place" size={11} color="#9ca3af" />
+            <Text style={s.cartRowMeta}>{[cart.municipality, cart.station_name].filter(Boolean).join(' / ')}</Text>
+          </View>
         )}
       </View>
       <View style={s.counter}>
@@ -164,7 +168,7 @@ function EditReturnDateModal({
 
         <Text style={s.editLabel}>新しい返却日時</Text>
         <Pressable style={s.editDtBtn} onPress={() => setShowPicker(true)}>
-          <Text style={s.editDtBtnText}>📅 {fmtD(endDate)}</Text>
+          <Text style={s.editDtBtnText}>🗓 {fmtD(endDate)}</Text>
         </Pressable>
         {showPicker && (
           <DateTimePicker
@@ -237,7 +241,7 @@ function EditRequestModal({
 
         <Text style={s.editLabel}>貸出希望日時</Text>
         <Pressable style={s.editDtBtn} onPress={() => setShowStart(true)}>
-          <Text style={s.editDtBtnText}>📅 {fmtD(startDate)}</Text>
+          <Text style={s.editDtBtnText}>🗓 {fmtD(startDate)}</Text>
         </Pressable>
         {showStart && (
           <DateTimePicker
@@ -248,7 +252,7 @@ function EditRequestModal({
 
         <Text style={s.editLabel}>返却希望日時</Text>
         <Pressable style={s.editDtBtn} onPress={() => setShowEnd(true)}>
-          <Text style={s.editDtBtnText}>📅 {fmtD(endDate)}</Text>
+          <Text style={s.editDtBtnText}>🗓 {fmtD(endDate)}</Text>
         </Pressable>
         {showEnd && (
           <DateTimePicker
@@ -326,7 +330,7 @@ function DateQtyModal({
 
         <Text style={s.editLabel}>貸出希望日時</Text>
         <Pressable style={s.editDtBtn} onPress={() => setShowStart(true)}>
-          <Text style={s.editDtBtnText}>📅 {fmtD(startDate)}</Text>
+          <Text style={s.editDtBtnText}>🗓 {fmtD(startDate)}</Text>
         </Pressable>
         {showStart && (
           <DateTimePicker value={startDate} mode="datetime" display={Platform.OS === 'ios' ? 'spinner' : 'default'}
@@ -335,7 +339,7 @@ function DateQtyModal({
 
         <Text style={s.editLabel}>返却希望日時</Text>
         <Pressable style={s.editDtBtn} onPress={() => setShowEnd(true)}>
-          <Text style={s.editDtBtnText}>📅 {fmtD(endDate)}</Text>
+          <Text style={s.editDtBtnText}>🗓 {fmtD(endDate)}</Text>
         </Pressable>
         {showEnd && (
           <DateTimePicker value={endDate} mode="datetime" display={Platform.OS === 'ios' ? 'spinner' : 'default'}
@@ -370,7 +374,8 @@ function RequestInfoCard({ req, status }: { req: RentalRequest; status: string }
   return (
     <View style={s.infoCard}>
       <View style={s.infoCardTop}>
-        <Text style={s.infoCartTitle} numberOfLines={1}>🛒 {req.cart_title ?? '台車'}</Text>
+        <MaterialIcons name="shopping-cart" size={15} color="#374151" />
+        <Text style={s.infoCartTitle} numberOfLines={1}>{req.cart_title ?? '台車'}</Text>
         <View style={[s.statusBadge, { backgroundColor: color + '20' }]}>
           <Text style={[s.statusBadgeText, { color }]}>{STATUS_LABEL[status] ?? status}</Text>
         </View>
@@ -378,13 +383,34 @@ function RequestInfoCard({ req, status }: { req: RentalRequest; status: string }
       <View style={s.infoDetails}>
         {req.start_date ? <Text style={s.infoRow}>🕐 貸出希望: {fmtDT(req.start_date)}</Text> : null}
         {req.end_date ? <Text style={s.infoRow}>🕐 返却希望: {fmtDT(req.end_date)}</Text> : null}
-        <Text style={s.infoRow}>📦 台数: {req.quantity}台</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+          <MaterialIcons name="inventory-2" size={13} color="#6b7280" />
+          <Text style={s.infoRow}>台数: {req.quantity}台</Text>
+        </View>
         {(req.municipality || req.station_name) && (
-          <Text style={s.infoRow}>📍 {[req.municipality, req.station_name].filter(Boolean).join(' / ')}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+            <MaterialIcons name="place" size={13} color="#6b7280" />
+            <Text style={s.infoRow}>{[req.municipality, req.station_name].filter(Boolean).join(' / ')}</Text>
+          </View>
         )}
-        {req.lending_address ? <Text style={s.infoRow}>🏠 {req.lending_address}</Text> : null}
-        {req.renter_name ? <Text style={s.infoRow}>👤 借りる人: {req.renter_name}</Text> : null}
-        {req.message ? <Text style={s.infoRow}>💬 備考: {req.message}</Text> : null}
+        {req.lending_address ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+            <MaterialIcons name="home" size={13} color="#6b7280" />
+            <Text style={s.infoRow}>{req.lending_address}</Text>
+          </View>
+        ) : null}
+        {req.renter_name ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+            <MaterialIcons name="person-outline" size={13} color="#6b7280" />
+            <Text style={s.infoRow}>借りる人: {req.renter_name}</Text>
+          </View>
+        ) : null}
+        {req.message ? (
+          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 4 }}>
+            <MaterialIcons name="chat-bubble-outline" size={13} color="#6b7280" style={{ marginTop: 2 }} />
+            <Text style={[s.infoRow, { flex: 1 }]}>備考: {req.message}</Text>
+          </View>
+        ) : null}
       </View>
     </View>
   );
@@ -697,7 +723,7 @@ export default function RequestChat() {
           isMessageBlocked ? (
             <View style={[s.inputBar, s.inputBarBlocked, { paddingBottom: Math.max(insets.bottom, 8) }]}>
               <Text style={s.inputBlockedText}>
-                ⚠️ プランを変更したため送信が制限されています。台車1台・地点1件以内にすると送信できます。
+                プランを変更したため送信が制限されています。台車1台・地点1件以内にすると送信できます。
               </Text>
             </View>
           ) : (

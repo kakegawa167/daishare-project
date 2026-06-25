@@ -1,3 +1,4 @@
+import { MaterialIcons } from '@expo/vector-icons';
 import { api } from '@/lib/api';
 import { Cart } from '@/lib/types';
 import { EmptyScreen, LoadingScreen } from '@/components/ScreenState';
@@ -50,7 +51,7 @@ function CartCard({
           <Image source={{ uri: cart.image_urls[0] }} style={s.thumbImg} resizeMode="cover" />
         ) : (
           <View style={s.thumbPlaceholder}>
-            <Text style={s.thumbIcon}>🛒</Text>
+            <MaterialIcons name="shopping-cart" size={32} color="#9ca3af" />
           </View>
         )}
       </View>
@@ -60,7 +61,10 @@ function CartCard({
         <Text style={s.title} numberOfLines={1}>{cart.title}</Text>
 
         {/* 在庫台数 */}
-        <Text style={s.stockBadge}>📦 在庫 {cart.quantity}台</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, marginBottom: 2 }}>
+          <MaterialIcons name="inventory-2" size={12} color="#3b82f6" />
+          <Text style={s.stockBadge}>在庫 {cart.quantity}台</Text>
+        </View>
 
         {/* 貸出場所（複数）*/}
         {(cart.locations && cart.locations.length > 0
@@ -69,9 +73,12 @@ function CartCard({
         ).map((loc, i) => {
           const locLabel = [loc.municipality, loc.station_name].filter(Boolean).join(' · ');
           return (
-            <Text key={i} style={s.meta} numberOfLines={1}>
-              📍 {locLabel || '場所未設定'}{loc.lending_address ? `  ${loc.lending_address}` : ''}
-            </Text>
+            <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 3, marginBottom: 1 }}>
+              <MaterialIcons name="place" size={12} color="#9ca3af" />
+              <Text style={s.meta} numberOfLines={1}>
+                {locLabel || '場所未設定'}{loc.lending_address ? `  ${loc.lending_address}` : ''}
+              </Text>
+            </View>
           );
         })}
 
@@ -112,7 +119,7 @@ function CartCard({
         accessibilityLabel="削除"
         hitSlop={8}
       >
-        <Text style={s.deleteIcon}>🗑</Text>
+        <MaterialIcons name="delete-outline" size={22} color="#ef4444" />
       </Pressable>
     </Pressable>
   );
@@ -173,7 +180,7 @@ export default function Carts() {
 
   if (loading) return <LoadingScreen />;
   if (error) return (
-    <EmptyScreen icon="⚠️" message="台車一覧の取得に失敗しました" action={{ label: '再試行', onPress: fetchCarts }} />
+    <EmptyScreen icon={<MaterialIcons name="warning-amber" size={56} color="#d1d5db" />} message="台車一覧の取得に失敗しました" action={{ label: '再試行', onPress: fetchCarts }} />
   );
 
   const currentSortLabel = SORT_OPTIONS.find((o) => o.key === sortKey)?.label ?? '';
@@ -183,9 +190,10 @@ export default function Carts() {
       {/* プラン超過警告バナー */}
       {user?.is_over_limit && (
         <View style={s.overLimitBanner}>
-          <Text style={s.overLimitText}>
-            ⚠️ プランを変更したため新規登録が制限されています。台車1台・地点1件以内にすると追加できます。
-          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 6 }}>
+            <MaterialIcons name="warning-amber" size={16} color="#92400e" style={{ marginTop: 1 }} />
+            <Text style={[s.overLimitText, { flex: 1 }]}>プランを変更したため新規登録が制限されています。台車1台・地点1件以内にすると追加できます。</Text>
+          </View>
         </View>
       )}
 
@@ -228,7 +236,7 @@ export default function Carts() {
         contentContainerStyle={sorted.length === 0 ? s.emptyWrap : s.list}
         ListEmptyComponent={
           <EmptyScreen
-            icon="🛒"
+            icon={<MaterialIcons name="shopping-cart" size={56} color="#d1d5db" />}
             message="台車が登録されていません"
             subMessage="下のボタンから台車を追加しましょう"
             action={{ label: '＋ 台車を登録', onPress: () => router.push('/carts/new' as any) }}
@@ -287,7 +295,6 @@ const s = StyleSheet.create({
   thumb: { width: 88, height: 88 },
   thumbImg: { width: 88, height: 88 },
   thumbPlaceholder: { width: 88, height: 88, backgroundColor: '#f0f0f0', alignItems: 'center', justifyContent: 'center' },
-  thumbIcon: { fontSize: 32 },
 
   body: { flex: 1, paddingHorizontal: 12, paddingVertical: 10 },
   title: { fontSize: 15, fontWeight: '700', color: '#111827', marginBottom: 2 },
@@ -310,7 +317,6 @@ const s = StyleSheet.create({
     paddingHorizontal: 14, alignSelf: 'stretch', alignItems: 'center', justifyContent: 'center',
     borderLeftWidth: StyleSheet.hairlineWidth, borderLeftColor: '#e5e7eb',
   },
-  deleteIcon: { fontSize: 20 },
 
   // FAB
   fab: {

@@ -1,3 +1,4 @@
+import { MaterialIcons } from '@expo/vector-icons';
 import { api } from '@/lib/api';
 import { RentalRequest, RequestStatus } from '@/lib/types';
 
@@ -76,9 +77,10 @@ function ThreadCard({ req, userId }: { req: RentalRequest; userId: string }) {
         </View>
 
         {/* 2行目: 台車名 + 台数 */}
-        <Text style={s.cartLine} numberOfLines={1}>
-          🛒 {req.cart_title ?? '台車'} × {req.quantity}台
-        </Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 1 }}>
+          <MaterialIcons name="shopping-cart" size={13} color="#1d4ed8" />
+          <Text style={s.cartLine} numberOfLines={1}>{req.cart_title ?? '台車'} × {req.quantity}台</Text>
+        </View>
 
         {/* 3行目: 貸出〜返却時間 */}
         <Text style={s.dateLine} numberOfLines={1}>
@@ -87,7 +89,10 @@ function ThreadCard({ req, userId }: { req: RentalRequest; userId: string }) {
 
         {/* 4行目: 場所 */}
         {location ? (
-          <Text style={s.locationLine} numberOfLines={1}>📍 {location}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, marginBottom: 3 }}>
+            <MaterialIcons name="place" size={12} color="#6b7280" />
+            <Text style={[s.locationLine, { marginBottom: 0 }]} numberOfLines={1}>{location}</Text>
+          </View>
         ) : null}
 
         {/* 5行目: 最後のメッセージ + 未読バッジ */}
@@ -140,7 +145,7 @@ export default function Messages() {
 
   if (loading) return <LoadingScreen />;
   if (error) return (
-    <EmptyScreen icon="⚠️" message="取得に失敗しました" action={{ label: '再試行', onPress: fetchRequests }} />
+    <EmptyScreen icon={<MaterialIcons name="warning-amber" size={56} color="#d1d5db" />} message="取得に失敗しました" action={{ label: '再試行', onPress: fetchRequests }} />
   );
 
   return (
@@ -158,7 +163,7 @@ export default function Messages() {
       contentContainerStyle={requests.length === 0 ? s.empty : s.list}
       ListEmptyComponent={
         <EmptyScreen
-          icon="💬"
+          icon={<MaterialIcons name="chat-bubble-outline" size={56} color="#d1d5db" />}
           message="メッセージがありません"
           subMessage="リクエストが届くとここに表示されます"
         />

@@ -1,9 +1,10 @@
+import { MaterialIcons } from '@expo/vector-icons';
 import { api } from '@/lib/api';
 import { RentalRequest, RequestStatus } from '@/lib/types';
 import { EmptyScreen, LoadingScreen } from '@/components/ScreenState';
 import { useAuthStore } from '@/store/authStore';
 import { router } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
   FlatList,
@@ -61,7 +62,12 @@ function RequestCard({ req, userId, onAction }: { req: RentalRequest; userId: st
         </View>
       </View>
       <Text style={styles.meta}>{isOwner ? `借りる人: ${req.renter_name ?? '不明'}` : '自分のリクエスト'}</Text>
-      {startDate && endDate ? <Text style={styles.meta}>📅 {startDate} 〜 {endDate}</Text> : null}
+      {startDate && endDate ? (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 3 }}>
+          <MaterialIcons name="calendar-today" size={13} color="#6b7280" />
+          <Text style={styles.meta}>{startDate} 〜 {endDate}</Text>
+        </View>
+      ) : null}
       <Text style={styles.meta}>台数: {req.quantity}台</Text>
       {req.message && <Text style={styles.message}>"{req.message}"</Text>}
 
@@ -114,7 +120,7 @@ export default function Requests() {
   );
 
   if (loading) return <LoadingScreen />;
-  if (error) return <EmptyScreen icon="⚠️" message="リクエストの取得に失敗しました" action={{ label: '再試行', onPress: fetchRequests }} />;
+  if (error) return <EmptyScreen icon={<MaterialIcons name="warning-amber" size={56} color="#d1d5db" />} message="リクエストの取得に失敗しました" action={{ label: '再試行', onPress: fetchRequests }} />;
 
   return (
     <View style={styles.container}>
@@ -133,7 +139,7 @@ export default function Requests() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchRequests(); }} />}
         ListEmptyComponent={
           <EmptyScreen
-            icon={tab === 'received' ? '📨' : '📤'}
+            icon={<MaterialIcons name={tab === 'received' ? 'move-to-inbox' : 'send'} size={56} color="#d1d5db" />}
             message="リクエストがありません"
             subMessage={tab === 'received' ? '台車へのリクエストが届くとここに表示されます' : '台車を探して貸出申請してみましょう'}
           />
