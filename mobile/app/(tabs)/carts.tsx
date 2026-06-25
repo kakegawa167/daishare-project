@@ -57,9 +57,23 @@ function CartCard({
       {/* メイン情報 */}
       <View style={s.body}>
         <Text style={s.title} numberOfLines={1}>{cart.title}</Text>
-        {cart.station_name && (
-          <Text style={s.meta} numberOfLines={1}>📍 {cart.municipality} · {cart.station_name}</Text>
-        )}
+
+        {/* 在庫台数 */}
+        <Text style={s.stockBadge}>📦 在庫 {cart.quantity}台</Text>
+
+        {/* 貸出場所（複数）*/}
+        {(cart.locations && cart.locations.length > 0
+          ? cart.locations
+          : cart.station_name ? [{ station_name: cart.station_name, municipality: cart.municipality, lending_address: cart.lending_address }] : []
+        ).map((loc, i) => {
+          const locLabel = [loc.municipality, loc.station_name].filter(Boolean).join(' · ');
+          return (
+            <Text key={i} style={s.meta} numberOfLines={1}>
+              📍 {locLabel || '場所未設定'}{loc.lending_address ? `  ${loc.lending_address}` : ''}
+            </Text>
+          );
+        })}
+
         <Text style={s.price}>
           {[
             cart.daily_rate != null && `¥${cart.daily_rate.toLocaleString()}/日`,
@@ -266,8 +280,9 @@ const s = StyleSheet.create({
 
   body: { flex: 1, paddingHorizontal: 12, paddingVertical: 10 },
   title: { fontSize: 15, fontWeight: '700', color: '#111827', marginBottom: 2 },
-  meta: { fontSize: 12, color: '#9ca3af', marginBottom: 2 },
-  price: { fontSize: 13, color: '#374151', fontWeight: '600', marginBottom: 6 },
+  stockBadge: { fontSize: 11, fontWeight: '700', color: '#3b82f6', marginBottom: 2 },
+  meta: { fontSize: 12, color: '#9ca3af', marginBottom: 1 },
+  price: { fontSize: 13, color: '#374151', fontWeight: '600', marginBottom: 6, marginTop: 3 },
 
   toggleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   statusLabel: { fontSize: 12, fontWeight: '700' },
