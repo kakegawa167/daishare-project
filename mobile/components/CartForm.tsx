@@ -1,6 +1,5 @@
-import { CartCategory, CartFormData } from '@/lib/types';
-import { api } from '@/lib/api';
-import { useState } from 'react';
+import { CartCategory, CartFormData, LocationFormItem } from '@/lib/types';
+import { useCallback, useState } from 'react';
 import {
   AccessibilityInfo,
   ActivityIndicator,
@@ -23,22 +22,20 @@ const CATEGORIES: { value: CartCategory; label: string }[] = [
   { value: 'other',         label: 'その他' },
 ];
 
-// ─── 型 ──────────────────────────────────────
-interface StationInfo { id: number; name: string; municipality: string; line_id: number }
 interface Props {
   initialData: CartFormData;
-  initialStation?: StationInfo | null;
   onSubmit: (data: CartFormData) => Promise<void>;
   submitLabel: string;
 }
 interface Errors {
   title?: string;
   category?: string;
-  station_id?: string;
+  quantity?: string;
   price?: string;
   daily_rate?: string;
   weekly_rate?: string;
   per_rental_rate?: string;
+  locations?: string;
 }
 
 // ─── サブコンポーネント ───────────────────────
@@ -106,11 +103,84 @@ function NumIn({ value, onChange, placeholder, unit }: {
   );
 }
 
+// ─── 在庫カウンター ────────────────────────────
+function QuantityCounter({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const n = parseInt(value, 10) || 1;
+  return (
+    <View style={s.qtyRow}>
+      <Pressable
+        style={[s.qtyBtn, n <= 1 && s.qtyBtnDisabled]}
+        onPress={() => onChange(String(Math.max(1, n - 1)))}
+        disabled={n <= 1}
+      >
+        <Text style={[s.qtyBtnText, n <= 1 && { color: '#d1d5db' }]}>－</Text>
+      </Pressable>
+      <TextInput
+        style={s.qtyInput}
+        value={value}
+        onChangeText={(v) => { const num = parseInt(v, 10); if (!isNaN(num) && num >= 1) onChange(String(num)); else if (v === '') onChange('1'); }}
+        keyboardType="number-pad"
+        textAlign="center"
+      />
+      <Pressable style={s.qtyBtn} onPress={() => onChange(String(n + 1))}>
+        <Text style={s.qtyBtnText}>＋</Text>
+      </Pressable>
+      <Text style={s.unit}>台</Text>
+    </View>
+  );
+}
+
+// ─── 貸出場所1行 ───────────────────────────────
+function LocationRow({
+  loc, index, total, onUpdate, onRemove, onPickStation,
+}: {
+  loc: LocationFormItem;
+  index: number;
+  total: number;
+  onUpdate: (key: keyof LocationFormItem, value: string) => void;
+  onRemove: () => void;
+  onPickStation: () => void;
+}) {
+  return (
+    <View style={[s.locRow, index > 0 && s.locRowBorder]}>
+      <View style={s.locHeader}>
+        <Text style={s.locIndex}>場所 {index + 1}</Text>
+        {total > 1 && (
+          <Pressable onPress={onRemove} style={s.locRemoveBtn}>
+            <Text style={s.locRemoveText}>削除</Text>
+          </Pressable>
+        )}
+      </View>
+
+      {/* 駅選択 */}
+      <FieldLabel required={index === 0}>路線 / 駅</FieldLabel>
+      <Pressable style={s.stationBtn} onPress={onPickStation}>
+        {loc.station_id ? (
+          <View style={s.stationSelected}>
+            <Text style={s.stationName}>{loc.station_name}駅</Text>
+            <Text style={s.stationMeta}>{loc.municipality}</Text>
+          </View>
+        ) : (
+          <Text style={s.stationPlaceholder}>路線・駅を選択する</Text>
+        )}
+        <Text style={s.stationArrow}>›</Text>
+      </Pressable>
+
+      {/* 詳細住所 */}
+      <FieldLabel>詳細住所（任意）</FieldLabel>
+      <TextIn
+        value={loc.lending_address}
+        onChange={(v) => onUpdate('lending_address', v)}
+        placeholder="例: 南口から徒歩3分、○○倉庫前"
+      />
+    </View>
+  );
+}
+
 // ─── メイン ───────────────────────────────────
-export default function CartForm({ initialData, initialStation = null, onSubmit, submitLabel }: Props) {
+export default function CartForm({ initialData, onSubmit, submitLabel }: Props) {
   const [form, setForm] = useState<CartFormData>(initialData);
-  const [stationInfo, setStationInfo] = useState<StationInfo | null>(initialStation);
-  const [pickerVisible, setPickerVisible] = useState(false);
+  const [pickerTargetIndex, setPickerTargetIndex] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<Errors>({});
 
@@ -119,23 +189,52 @@ export default function CartForm({ initialData, initialStation = null, onSubmit,
   const clr = (...keys: (keyof Errors)[]) =>
     setErrors((e) => { const n = { ...e }; keys.forEach((k) => delete n[k]); return n; });
 
-  const handleStationSelect = (st: StationInfo) => {
-    set('station_id', st.id);
-    setStationInfo(st);
-    clr('station_id');
-  };
+  // ── 貸出場所操作 ────────────────────────────
+  const addLocation = useCallback(() => {
+    setForm((f) => ({
+      ...f,
+      locations: [...f.locations, { station_id: null, station_name: null, municipality: null, lending_address: '' }],
+    }));
+  }, []);
 
+  const removeLocation = useCallback((index: number) => {
+    setForm((f) => ({ ...f, locations: f.locations.filter((_, i) => i !== index) }));
+  }, []);
+
+  const updateLocation = useCallback((index: number, key: keyof LocationFormItem, value: string) => {
+    setForm((f) => {
+      const next = [...f.locations];
+      next[index] = { ...next[index], [key]: value };
+      return { ...f, locations: next };
+    });
+  }, []);
+
+  const handleStationSelect = useCallback((st: { id: number; name: string; municipality: string }) => {
+    if (pickerTargetIndex === null) return;
+    setForm((f) => {
+      const next = [...f.locations];
+      next[pickerTargetIndex] = { ...next[pickerTargetIndex], station_id: st.id, station_name: st.name, municipality: st.municipality };
+      return { ...f, locations: next };
+    });
+    clr('locations');
+    setPickerTargetIndex(null);
+  }, [pickerTargetIndex]);
+
+  // ── バリデーション ──────────────────────────
   const validate = (): boolean => {
     const next: Errors = {};
     if (!form.title.trim()) next.title = '台車名を入力してください';
     else if (form.title.length > 200) next.title = '200文字以内で入力してください';
     if (!form.category) next.category = 'カテゴリを選択してください';
-    if (!form.station_id) next.station_id = '路線と駅を選択してください';
+    const qty = parseInt(form.quantity, 10);
+    if (isNaN(qty) || qty < 1) next.quantity = '台数は1以上を入力してください';
     if (!form.daily_rate && !form.weekly_rate && !form.per_rental_rate)
       next.price = '日額・週額・1レンタルのいずれかを入力してください';
     if (form.daily_rate && Number(form.daily_rate) <= 0) next.daily_rate = '正の数値を入力してください';
     if (form.weekly_rate && Number(form.weekly_rate) <= 0) next.weekly_rate = '正の数値を入力してください';
     if (form.per_rental_rate && Number(form.per_rental_rate) <= 0) next.per_rental_rate = '正の数値を入力してください';
+    if (form.locations.length === 0 || !form.locations[0].station_id)
+      next.locations = '貸出場所（路線/駅）を1つ以上選択してください';
     setErrors(next);
     if (Object.keys(next).length) AccessibilityInfo.announceForAccessibility(Object.values(next)[0]);
     return Object.keys(next).length === 0;
@@ -181,6 +280,12 @@ export default function CartForm({ initialData, initialStation = null, onSubmit,
           })}
         </View>
         <Err msg={errors.category} />
+
+        <View style={s.divider} />
+
+        <FieldLabel required>台数（在庫数）</FieldLabel>
+        <QuantityCounter value={form.quantity} onChange={(v) => { set('quantity', v); clr('quantity'); }} />
+        <Err msg={errors.quantity} />
 
         <View style={s.divider} />
 
@@ -273,36 +378,24 @@ export default function CartForm({ initialData, initialStation = null, onSubmit,
         <Err msg={errors.per_rental_rate} />
       </Card>
 
-      {/* ── 貸出場所 ── */}
+      {/* ── 貸出場所（複数）── */}
       <SectionTitle icon="📍" label="貸出場所" />
       <Card>
-        <FieldLabel required>路線 / 駅</FieldLabel>
-        <Pressable
-          style={[s.stationBtn, errors.station_id && s.stationBtnErr]}
-          onPress={() => setPickerVisible(true)}
-          accessibilityRole="button"
-          accessibilityLabel="路線と駅を選択"
-        >
-          {stationInfo ? (
-            <View style={s.stationSelected}>
-              <Text style={s.stationName}>{stationInfo.name}駅</Text>
-              <Text style={s.stationMeta}>{stationInfo.municipality}</Text>
-            </View>
-          ) : (
-            <Text style={s.stationPlaceholder}>路線・駅を選択する</Text>
-          )}
-          <Text style={s.stationArrow}>›</Text>
+        <Err msg={errors.locations} />
+        {form.locations.map((loc, i) => (
+          <LocationRow
+            key={i}
+            loc={loc}
+            index={i}
+            total={form.locations.length}
+            onUpdate={(key, v) => updateLocation(i, key, v)}
+            onRemove={() => removeLocation(i)}
+            onPickStation={() => setPickerTargetIndex(i)}
+          />
+        ))}
+        <Pressable style={s.addLocBtn} onPress={addLocation}>
+          <Text style={s.addLocText}>＋ 貸出場所を追加</Text>
         </Pressable>
-        <Err msg={errors.station_id} />
-
-        <View style={s.divider} />
-
-        <FieldLabel>貸出場所の詳細</FieldLabel>
-        <TextIn
-          value={form.lending_address}
-          onChange={(v) => set('lending_address', v)}
-          placeholder="例: 南口から徒歩3分、○○倉庫前"
-        />
       </Card>
 
       {/* ── 備考 ── */}
@@ -330,10 +423,10 @@ export default function CartForm({ initialData, initialStation = null, onSubmit,
 
       {/* 駅選択モーダル */}
       <StationPicker
-        visible={pickerVisible}
-        onClose={() => setPickerVisible(false)}
+        visible={pickerTargetIndex !== null}
+        onClose={() => setPickerTargetIndex(null)}
         onSelect={handleStationSelect}
-        currentStationId={form.station_id}
+        currentStationId={pickerTargetIndex !== null ? form.locations[pickerTargetIndex]?.station_id : null}
       />
     </ScrollView>
   );
@@ -349,34 +442,22 @@ const s = StyleSheet.create({
   page: { flex: 1, backgroundColor: '#f5f6f8' },
   content: { paddingHorizontal: 16, paddingTop: 20, paddingBottom: 48 },
 
-  // セクションタイトル
   secTitle: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10, marginTop: 24 },
   secIcon: { fontSize: 18 },
   secLabel: { fontSize: 16, fontWeight: '700', color: '#111827', flex: 1 },
-  secNotePill: {
-    backgroundColor: '#fef3c7', borderRadius: 10,
-    paddingHorizontal: 8, paddingVertical: 2,
-  },
+  secNotePill: { backgroundColor: '#fef3c7', borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2 },
   secNoteText: { fontSize: 11, fontWeight: '600', color: '#d97706' },
 
-  // カード
   card: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
+    backgroundColor: '#fff', borderRadius: 16, padding: 16,
+    shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 }, elevation: 2,
   },
 
-  // フィールド
   fLabel: { fontSize: 13, fontWeight: '600', color: GRAY, marginBottom: 8, marginTop: 4 },
   req: { color: '#ef4444' },
   divider: { height: 1, backgroundColor: BORDER, marginVertical: 14 },
 
-  // エラー
   errRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 5 },
   errIcon: {
     width: 16, height: 16, borderRadius: 8, backgroundColor: '#ef4444',
@@ -384,7 +465,6 @@ const s = StyleSheet.create({
   },
   errMsg: { fontSize: 12, color: '#ef4444', flex: 1 },
 
-  // テキスト入力
   input: {
     borderWidth: 1.5, borderColor: '#e5e7eb', borderRadius: 10,
     paddingHorizontal: 12, paddingVertical: 11, fontSize: 15,
@@ -392,18 +472,15 @@ const s = StyleSheet.create({
   },
   textarea: { height: 100, textAlignVertical: 'top' },
 
-  // カテゴリ
   catWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   catChip: {
-    paddingHorizontal: 14, paddingVertical: 8,
-    borderRadius: 20, borderWidth: 1.5, borderColor: '#e5e7eb',
-    backgroundColor: '#fafafa',
+    paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20,
+    borderWidth: 1.5, borderColor: '#e5e7eb', backgroundColor: '#fafafa',
   },
   catChipSel: { borderColor: BLUE, backgroundColor: BLUE_LIGHT },
   catText: { fontSize: 13, fontWeight: '600', color: '#9ca3af' },
   catTextSel: { color: BLUE },
 
-  // 写真
   photoBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
     padding: 14, borderRadius: 10, borderWidth: 1.5,
@@ -416,45 +493,68 @@ const s = StyleSheet.create({
     paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4,
   },
 
-  // スペック
+  // 在庫数カウンター
+  qtyRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  qtyBtn: {
+    width: 36, height: 36, borderRadius: 18,
+    borderWidth: 1.5, borderColor: BLUE,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  qtyBtnDisabled: { borderColor: '#e5e7eb' },
+  qtyBtnText: { fontSize: 18, fontWeight: '700', color: BLUE, lineHeight: 22 },
+  qtyInput: {
+    width: 56, height: 36, borderRadius: 8,
+    borderWidth: 1.5, borderColor: '#e5e7eb',
+    fontSize: 16, fontWeight: '700', color: '#111827',
+    backgroundColor: '#fafafa',
+  },
+
   specGrid: { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -6 },
   specCell: { width: '50%', paddingHorizontal: 6 },
   numWrap: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   numIn: { flex: 1 },
   unit: { fontSize: 12, color: GRAY, minWidth: 36 },
 
-  // トグル
-  toggleRow: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-  },
+  toggleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   toggleLabel: { fontSize: 15, fontWeight: '600', color: '#111827', marginBottom: 2 },
   toggleSub: { fontSize: 12, color: '#9ca3af' },
 
-  // 価格
   priceAlert: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    padding: 10, backgroundColor: '#fef2f2', borderRadius: 8,
-    borderWidth: 1, borderColor: '#fecaca', marginBottom: 12,
+    flexDirection: 'row', alignItems: 'center', gap: 6, padding: 10,
+    backgroundColor: '#fef2f2', borderRadius: 8, borderWidth: 1, borderColor: '#fecaca', marginBottom: 12,
   },
   priceAlertText: { fontSize: 13, color: '#ef4444', fontWeight: '600' },
   priceRow: { flexDirection: 'row', gap: 0 },
   priceCell: { flex: 1 },
   priceDividerV: { width: 1, backgroundColor: BORDER, marginHorizontal: 12, marginTop: 28 },
 
-  // 駅選択
+  // 貸出場所
+  locRow: { paddingTop: 4 },
+  locRowBorder: { borderTopWidth: 1, borderTopColor: BORDER, marginTop: 14, paddingTop: 14 },
+  locHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 },
+  locIndex: { fontSize: 13, fontWeight: '700', color: '#374151' },
+  locRemoveBtn: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, backgroundColor: '#fee2e2' },
+  locRemoveText: { fontSize: 12, fontWeight: '600', color: '#ef4444' },
+
+  addLocBtn: {
+    marginTop: 14, paddingVertical: 12,
+    borderRadius: 10, borderWidth: 1.5,
+    borderColor: BLUE, borderStyle: 'dashed',
+    alignItems: 'center',
+  },
+  addLocText: { fontSize: 14, fontWeight: '700', color: BLUE },
+
   stationBtn: {
     flexDirection: 'row', alignItems: 'center',
     borderWidth: 1.5, borderColor: '#e5e7eb', borderRadius: 10,
     paddingHorizontal: 14, paddingVertical: 13, backgroundColor: '#fafafa',
   },
-  stationBtnErr: { borderColor: '#ef4444' },
   stationSelected: { flex: 1 },
   stationName: { fontSize: 15, fontWeight: '700', color: '#111827' },
   stationMeta: { fontSize: 12, color: GRAY, marginTop: 1 },
   stationPlaceholder: { flex: 1, fontSize: 15, color: '#c4c4c4' },
   stationArrow: { fontSize: 20, color: '#d1d5db', marginLeft: 8 },
 
-  // 送信
   submitBtn: {
     marginTop: 32, backgroundColor: BLUE, borderRadius: 14,
     padding: 17, alignItems: 'center', justifyContent: 'center',

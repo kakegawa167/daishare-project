@@ -17,8 +17,7 @@ const EMPTY: CartFormData = {
   weekly_rate: '',
   per_rental_rate: '',
   quantity: '1',
-  station_id: null,
-  lending_address: '',
+  locations: [{ station_id: null, station_name: null, municipality: null, lending_address: '' }],
   image_urls: [],
 };
 
@@ -39,9 +38,11 @@ export default function NewCart() {
       weekly_rate: toNum(form.weekly_rate),
       per_rental_rate: toNum(form.per_rental_rate),
       quantity: Number(form.quantity) || 1,
-      station_id: form.station_id,
-      lending_address: form.lending_address.trim() || null,
       image_urls: form.image_urls,
+      locations: form.locations.map((l) => ({
+        station_id: l.station_id,
+        lending_address: l.lending_address.trim() || null,
+      })),
     });
     Alert.alert('完了', '台車を登録しました', [
       { text: 'OK', onPress: () => router.back() },

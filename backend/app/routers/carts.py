@@ -7,14 +7,36 @@ from sqlalchemy.orm import selectinload
 
 from app.core.auth import get_current_user_id
 from app.core.database import get_db
-from app.models.cart import Cart, CartStatus
+from app.models.cart import Cart, CartLocation, CartStatus
 from app.models.station import Station
-from app.schemas.cart import CartCreateRequest, CartResponse, CartUpdateRequest
+from app.schemas.cart import CartCreateRequest, CartLocationResponse, CartResponse, CartUpdateRequest
 
 router = APIRouter(prefix="/carts", tags=["carts"])
 
+_EAGER = [
+    selectinload(Cart.owner),
+    selectinload(Cart.station),
+    selectinload(Cart.locations).selectinload(CartLocation.station),
+]
+
+
+async def _get_cart_full(cart_id: int, db: AsyncSession) -> Cart | None:
+    result = await db.execute(select(Cart).options(*_EAGER).where(Cart.id == cart_id, Cart.status != CartStatus.deleted))
+    return result.scalar_one_or_none()
+
 
 def _to_response(cart: Cart) -> CartResponse:
+    locs = [
+        CartLocationResponse(
+            id=loc.id,
+            station_id=loc.station_id,
+            station_name=loc.station.name if loc.station else None,
+            municipality=loc.station.municipality if loc.station else None,
+            lending_address=loc.lending_address,
+        )
+        for loc in (cart.locations or [])
+    ]
+    first = locs[0] if locs else None
     return CartResponse(
         id=cart.id,
         owner_id=cart.owner_id,
@@ -31,12 +53,14 @@ def _to_response(cart: Cart) -> CartResponse:
         per_rental_rate=float(cart.per_rental_rate) if cart.per_rental_rate is not None else None,
         quantity=cart.quantity,
         image_urls=cart.image_urls or [],
-        station_id=cart.station_id,
-        lending_address=cart.lending_address,
+        # 後方互換: 先頭ロケーションの値をトップレベルに露出
+        station_id=first.station_id if first else cart.station_id,
+        lending_address=first.lending_address if first else cart.lending_address,
         status=cart.status,
         owner_name=cart.owner.display_name if cart.owner else None,
-        station_name=cart.station.name if cart.station else None,
-        municipality=cart.station.municipality if cart.station else None,
+        station_name=first.station_name if first else (cart.station.name if cart.station else None),
+        municipality=first.municipality if first else (cart.station.municipality if cart.station else None),
+        locations=locs,
     )
 
 
@@ -51,7 +75,7 @@ async def search_carts(
 ) -> list[CartResponse]:
     stmt = (
         select(Cart)
-        .options(selectinload(Cart.owner), selectinload(Cart.station))
+        .options(*_EAGER)
         .where(Cart.status == CartStatus.active)
         .order_by(Cart.id.desc())
     )
@@ -77,7 +101,7 @@ async def get_my_carts(
 ) -> list[CartResponse]:
     stmt = (
         select(Cart)
-        .options(selectinload(Cart.owner), selectinload(Cart.station))
+        .options(*_EAGER)
         .where(Cart.owner_id == uuid.UUID(user_id), Cart.status != CartStatus.deleted)
         .order_by(Cart.id.asc())
     )
@@ -87,13 +111,7 @@ async def get_my_carts(
 
 @router.get("/{cart_id}", response_model=CartResponse)
 async def get_cart(cart_id: int, db: AsyncSession = Depends(get_db)) -> CartResponse:
-    stmt = (
-        select(Cart)
-        .options(selectinload(Cart.owner), selectinload(Cart.station))
-        .where(Cart.id == cart_id, Cart.status != CartStatus.deleted)
-    )
-    result = await db.execute(stmt)
-    cart = result.scalar_one_or_none()
+    cart = await _get_cart_full(cart_id, db)
     if not cart:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cart not found")
     return _to_response(cart)
@@ -105,13 +123,19 @@ async def create_cart(
     user_id: str = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db),
 ) -> CartResponse:
-    cart = Cart(owner_id=uuid.UUID(user_id), **body.model_dump())
+    data = body.model_dump(exclude={"locations"})
+    # locations が送られてきた場合は先頭を station_id / lending_address に反映
+    if body.locations:
+        data["station_id"] = body.locations[0].station_id
+        data["lending_address"] = body.locations[0].lending_address
+    cart = Cart(owner_id=uuid.UUID(user_id), **data)
     db.add(cart)
+    await db.flush()
+    for i, loc in enumerate(body.locations):
+        db.add(CartLocation(cart_id=cart.id, station_id=loc.station_id, lending_address=loc.lending_address, sort_order=i))
     await db.commit()
-    await db.refresh(cart)
-    stmt = select(Cart).options(selectinload(Cart.owner), selectinload(Cart.station)).where(Cart.id == cart.id)
-    result = await db.execute(stmt)
-    return _to_response(result.scalar_one())
+    cart = await _get_cart_full(cart.id, db)
+    return _to_response(cart)
 
 
 @router.put("/{cart_id}", response_model=CartResponse)
@@ -121,23 +145,29 @@ async def update_cart(
     user_id: str = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db),
 ) -> CartResponse:
-    result = await db.execute(
-        select(Cart).options(selectinload(Cart.owner), selectinload(Cart.station)).where(Cart.id == cart_id)
-    )
-    cart = result.scalar_one_or_none()
+    cart = await _get_cart_full(cart_id, db)
     if not cart:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cart not found")
     if str(cart.owner_id) != user_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not your cart")
 
-    for field, value in body.model_dump(exclude_none=True).items():
+    for field, value in body.model_dump(exclude_none=True, exclude={"locations"}).items():
         setattr(cart, field, value)
+
+    if body.locations is not None:
+        # 既存ロケーションを削除して差し替え
+        for loc in list(cart.locations):
+            await db.delete(loc)
+        await db.flush()
+        for i, loc in enumerate(body.locations):
+            db.add(CartLocation(cart_id=cart.id, station_id=loc.station_id, lending_address=loc.lending_address, sort_order=i))
+        if body.locations:
+            cart.station_id = body.locations[0].station_id
+            cart.lending_address = body.locations[0].lending_address
+
     await db.commit()
-    await db.refresh(cart)
-    result = await db.execute(
-        select(Cart).options(selectinload(Cart.owner), selectinload(Cart.station)).where(Cart.id == cart.id)
-    )
-    return _to_response(result.scalar_one())
+    cart = await _get_cart_full(cart_id, db)
+    return _to_response(cart)
 
 
 @router.patch("/{cart_id}/status", response_model=CartResponse)
@@ -146,21 +176,15 @@ async def toggle_cart_status(
     user_id: str = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db),
 ) -> CartResponse:
-    result = await db.execute(
-        select(Cart).options(selectinload(Cart.owner), selectinload(Cart.station)).where(Cart.id == cart_id)
-    )
-    cart = result.scalar_one_or_none()
+    cart = await _get_cart_full(cart_id, db)
     if not cart:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cart not found")
     if str(cart.owner_id) != user_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not your cart")
     cart.status = CartStatus.inactive if cart.status == CartStatus.active else CartStatus.active
     await db.commit()
-    await db.refresh(cart)
-    result = await db.execute(
-        select(Cart).options(selectinload(Cart.owner), selectinload(Cart.station)).where(Cart.id == cart.id)
-    )
-    return _to_response(result.scalar_one())
+    cart = await _get_cart_full(cart_id, db)
+    return _to_response(cart)
 
 
 @router.delete("/{cart_id}", status_code=status.HTTP_204_NO_CONTENT)

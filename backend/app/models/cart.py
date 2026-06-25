@@ -57,3 +57,21 @@ class Cart(Base):
     owner: Mapped["User"] = relationship()  # noqa: F821
     station: Mapped["Station | None"] = relationship()  # noqa: F821
     rental_requests: Mapped[list["RentalRequest"]] = relationship(back_populates="cart")  # noqa: F821
+    locations: Mapped[list["CartLocation"]] = relationship(  # noqa: F821
+        back_populates="cart",
+        cascade="all, delete-orphan",
+        order_by="CartLocation.sort_order",
+    )
+
+
+class CartLocation(Base):
+    __tablename__ = "cart_locations"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    cart_id: Mapped[int] = mapped_column(ForeignKey("carts.id", ondelete="CASCADE"), nullable=False)
+    station_id: Mapped[int | None] = mapped_column(ForeignKey("stations.id", ondelete="SET NULL"), nullable=True)
+    lending_address: Mapped[str | None] = mapped_column(Text, nullable=True)
+    sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+    cart: Mapped["Cart"] = relationship(back_populates="locations")
+    station: Mapped["Station | None"] = relationship()  # noqa: F821

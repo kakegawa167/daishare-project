@@ -7,6 +7,21 @@ from app.models.cart import CartCategory, CartStatus
 from app.models.rental_request import RequestStatus
 
 
+class CartLocationInput(BaseModel):
+    station_id: int | None = None
+    lending_address: str | None = None
+
+
+class CartLocationResponse(BaseModel):
+    id: int
+    station_id: int | None = None
+    station_name: str | None = None
+    municipality: str | None = None
+    lending_address: str | None = None
+
+    model_config = {"from_attributes": True}
+
+
 class CartCreateRequest(BaseModel):
     title: str
     category: CartCategory | None = None
@@ -21,8 +36,10 @@ class CartCreateRequest(BaseModel):
     per_rental_rate: float | None = None
     quantity: int = 1
     image_urls: list[str] = []
+    # 後方互換のため残す（locations が空の場合のフォールバック）
     station_id: int | None = None
     lending_address: str | None = None
+    locations: list[CartLocationInput] = []
 
     @model_validator(mode="after")
     def at_least_one_price(self) -> "CartCreateRequest":
@@ -47,6 +64,7 @@ class CartUpdateRequest(BaseModel):
     image_urls: list[str] | None = None
     station_id: int | None = None
     lending_address: str | None = None
+    locations: list[CartLocationInput] | None = None
     status: CartStatus | None = None
 
 
@@ -72,6 +90,7 @@ class CartResponse(BaseModel):
     owner_name: str | None = None
     station_name: str | None = None
     municipality: str | None = None
+    locations: list[CartLocationResponse] = []
 
     model_config = {"from_attributes": True}
 

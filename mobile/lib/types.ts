@@ -3,6 +3,14 @@ export type CartCategory = 'hand_truck' | 'flat_cart' | 'hand_dolly' | 'outdoor_
 export type RequestStatus = 'pending' | 'accepted' | 'rejected' | 'cancelled';
 export type ReservationStatus = 'reserved' | 'lent' | 'returned' | 'cancelled';
 
+export interface CartLocation {
+  id: number;
+  station_id: number | null;
+  station_name: string | null;
+  municipality: string | null;
+  lending_address: string | null;
+}
+
 export interface Cart {
   id: number;
   owner_id: string;
@@ -25,6 +33,14 @@ export interface Cart {
   owner_name: string | null;
   station_name: string | null;
   municipality: string | null;
+  locations: CartLocation[];
+}
+
+export interface LocationFormItem {
+  station_id: number | null;
+  station_name: string | null;
+  municipality: string | null;
+  lending_address: string;
 }
 
 export interface CartFormData {
@@ -40,8 +56,7 @@ export interface CartFormData {
   weekly_rate: string;
   per_rental_rate: string;
   quantity: string;
-  station_id: number | null;
-  lending_address: string;
+  locations: LocationFormItem[];
   image_urls: string[];
 }
 
