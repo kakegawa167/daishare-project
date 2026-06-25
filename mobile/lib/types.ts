@@ -1,6 +1,6 @@
 export type CartStatus = 'active' | 'inactive' | 'deleted';
 export type CartCategory = 'hand_truck' | 'flat_cart' | 'hand_dolly' | 'outdoor_wagon' | 'other';
-export type RequestStatus = 'pending' | 'accepted' | 'rejected' | 'cancelled';
+export type RequestStatus = 'inquiry' | 'pending' | 'accepted' | 'rejected' | 'cancelled';
 export type ReservationStatus = 'reserved' | 'lent' | 'returned' | 'cancelled';
 
 export interface CartLocation {
@@ -65,8 +65,8 @@ export interface RentalRequest {
   cart_id: number;
   renter_id: string;
   quantity: number;
-  start_date: string;
-  end_date: string;
+  start_date: string | null;
+  end_date: string | null;
   message: string | null;
   status: RequestStatus;
   created_at: string;

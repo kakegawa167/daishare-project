@@ -105,9 +105,36 @@ class RentalRequestUpdate(BaseModel):
 class RentalRequestCreate(BaseModel):
     cart_id: int
     quantity: int = 1
+    start_date: datetime | None = None
+    end_date: datetime | None = None
+    message: str | None = None
+
+    @field_validator("end_date")
+    @classmethod
+    def end_after_start(cls, v: datetime | None, info) -> datetime | None:
+        if v is not None and "start_date" in info.data and info.data["start_date"] is not None:
+            if v <= info.data["start_date"]:
+                raise ValueError("end_date must be after start_date")
+        return v
+
+
+class RentalRequestFormalize(BaseModel):
     start_date: datetime
     end_date: datetime
-    message: str | None = None
+    quantity: int = 1
+
+    @field_validator("end_date")
+    @classmethod
+    def end_after_start(cls, v: datetime, info) -> datetime:
+        if "start_date" in info.data and v <= info.data["start_date"]:
+            raise ValueError("end_date must be after start_date")
+        return v
+
+
+class RentalRequestDirectReserve(BaseModel):
+    start_date: datetime
+    end_date: datetime
+    quantity: int = 1
 
     @field_validator("end_date")
     @classmethod
@@ -122,8 +149,8 @@ class RentalRequestResponse(BaseModel):
     cart_id: int
     renter_id: uuid.UUID
     quantity: int
-    start_date: datetime
-    end_date: datetime
+    start_date: datetime | None
+    end_date: datetime | None
     message: str | None
     status: RequestStatus
     created_at: datetime

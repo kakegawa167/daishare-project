@@ -23,6 +23,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const STATUS_LABEL: Record<string, string> = {
+  inquiry: '問い合わせ中',
   pending: '承認待ち',
   accepted: '承認済み',
   rejected: '拒否',
@@ -32,6 +33,7 @@ const STATUS_LABEL: Record<string, string> = {
   returned: '返却済み',
 };
 const STATUS_COLOR: Record<string, string> = {
+  inquiry: '#6366f1',
   pending: '#f59e0b',
   accepted: '#10b981',
   rejected: '#ef4444',
@@ -187,8 +189,8 @@ function EditReturnDateModal({
 function EditRequestModal({
   visible, req, onClose, onSaved,
 }: { visible: boolean; req: RentalRequest; onClose: () => void; onSaved: () => void }) {
-  const [startDate, setStartDate] = useState(new Date(req.start_date));
-  const [endDate, setEndDate] = useState(new Date(req.end_date));
+  const [startDate, setStartDate] = useState(req.start_date ? new Date(req.start_date) : new Date(Date.now() + 86400000));
+  const [endDate, setEndDate] = useState(req.end_date ? new Date(req.end_date) : new Date(Date.now() + 2 * 86400000));
   const [qty, setQty] = useState(req.quantity);
   const [cart, setCart] = useState<Cart | null>(null);
   const [showStart, setShowStart] = useState(false);
@@ -273,6 +275,95 @@ function EditRequestModal({
   );
 }
 
+// ─── 日時・台数ピッカーモーダル共通 (inquiry用) ────────
+function DateQtyModal({
+  visible, title, submitLabel, cartId, onClose, onSubmit,
+}: {
+  visible: boolean;
+  title: string;
+  submitLabel: string;
+  cartId: number;
+  onClose: () => void;
+  onSubmit: (start: Date, end: Date, qty: number) => Promise<void>;
+}) {
+  const tomorrow = new Date(Date.now() + 86400000);
+  tomorrow.setMinutes(0, 0, 0);
+  const dayAfter = new Date(tomorrow.getTime() + 86400000);
+
+  const [startDate, setStartDate] = useState(tomorrow);
+  const [endDate, setEndDate] = useState(dayAfter);
+  const [qty, setQty] = useState(1);
+  const [cart, setCart] = useState<Cart | null>(null);
+  const [showStart, setShowStart] = useState(false);
+  const [showEnd, setShowEnd] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!visible) return;
+    api.get<Cart>(`/carts/${cartId}`).then((r) => { setCart(r.data); setQty(1); }).catch(() => {});
+  }, [visible, cartId]);
+
+  const fmtD = (d: Date) =>
+    d.toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+
+  const handleSubmit = async () => {
+    if (endDate <= startDate) { Alert.alert('エラー', '返却日は貸出日より後にしてください'); return; }
+    setSubmitting(true);
+    try {
+      await onSubmit(startDate, endDate, qty);
+      onClose();
+    } catch {
+      Alert.alert('エラー', '送信に失敗しました');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose} accessibilityViewIsModal>
+      <ScrollView style={s.editModal} contentContainerStyle={{ paddingBottom: 40 }}>
+        <Text style={s.editTitle}>{title}</Text>
+
+        <Text style={s.editLabel}>貸出希望日時</Text>
+        <Pressable style={s.editDtBtn} onPress={() => setShowStart(true)}>
+          <Text style={s.editDtBtnText}>📅 {fmtD(startDate)}</Text>
+        </Pressable>
+        {showStart && (
+          <DateTimePicker value={startDate} mode="datetime" display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+            onChange={(_, d) => { setShowStart(false); if (d) setStartDate(d); }} />
+        )}
+
+        <Text style={s.editLabel}>返却希望日時</Text>
+        <Pressable style={s.editDtBtn} onPress={() => setShowEnd(true)}>
+          <Text style={s.editDtBtnText}>📅 {fmtD(endDate)}</Text>
+        </Pressable>
+        {showEnd && (
+          <DateTimePicker value={endDate} mode="datetime" display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+            onChange={(_, d) => { setShowEnd(false); if (d) setEndDate(d); }} />
+        )}
+
+        <Text style={s.editLabel}>台数</Text>
+        {cart ? (
+          <CartEditRow cart={cart} qty={qty} onChange={setQty} />
+        ) : (
+          <ActivityIndicator style={{ marginVertical: 12 }} color="#3b82f6" />
+        )}
+
+        <Pressable
+          style={[s.editSaveBtn, (submitting || qty < 1) && { opacity: 0.6 }]}
+          onPress={handleSubmit}
+          disabled={submitting || qty < 1}
+        >
+          {submitting ? <ActivityIndicator color="#fff" /> : <Text style={s.editSaveBtnText}>{submitLabel}</Text>}
+        </Pressable>
+        <Pressable style={s.reviewCancel} onPress={onClose}>
+          <Text style={s.reviewCancelText}>キャンセル</Text>
+        </Pressable>
+      </ScrollView>
+    </Modal>
+  );
+}
+
 // ─── リクエスト条件カード (常時展開) ──────────────────
 function RequestInfoCard({ req, status }: { req: RentalRequest; status: string }) {
   const color = STATUS_COLOR[status] ?? '#9ca3af';
@@ -285,8 +376,8 @@ function RequestInfoCard({ req, status }: { req: RentalRequest; status: string }
         </View>
       </View>
       <View style={s.infoDetails}>
-        <Text style={s.infoRow}>🕐 貸出希望: {fmtDT(req.start_date)}</Text>
-        <Text style={s.infoRow}>🕐 返却希望: {fmtDT(req.end_date)}</Text>
+        {req.start_date ? <Text style={s.infoRow}>🕐 貸出希望: {fmtDT(req.start_date)}</Text> : null}
+        {req.end_date ? <Text style={s.infoRow}>🕐 返却希望: {fmtDT(req.end_date)}</Text> : null}
         <Text style={s.infoRow}>📦 台数: {req.quantity}台</Text>
         {(req.municipality || req.station_name) && (
           <Text style={s.infoRow}>📍 {[req.municipality, req.station_name].filter(Boolean).join(' / ')}</Text>
@@ -348,6 +439,8 @@ export default function RequestChat() {
   const [showReview, setShowReview] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
   const [showEditReturn, setShowEditReturn] = useState(false);
+  const [showFormalize, setShowFormalize] = useState(false);
+  const [showDirectReserve, setShowDirectReserve] = useState(false);
   const listRef = useRef<FlatList>(null);
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
@@ -493,7 +586,7 @@ export default function RequestChat() {
   const isLender = request.renter_id !== myId;
   const res = reservation;
   const currentStatus = res?.status ?? request.status;
-  const canChat = ['pending', 'accepted', 'reserved', 'lent'].includes(request.status);
+  const canChat = ['inquiry', 'pending', 'accepted', 'reserved', 'lent'].includes(request.status);
 
   const otherName = isLender
     ? (request.renter_name ?? 'チャット')
@@ -507,6 +600,24 @@ export default function RequestChat() {
       <View style={{ flex: 1, backgroundColor: '#e8edf2' }}>
         {/* リクエスト条件カード */}
         <RequestInfoCard req={request} status={currentStatus} />
+
+        {/* inquiry: 借主 → 予約リクエストを送る */}
+        {request.status === 'inquiry' && !isLender && (
+          <View style={s.actionRow}>
+            <Pressable style={[s.actionBtn, { backgroundColor: '#3b82f6', flex: 1 }]} onPress={() => setShowFormalize(true)}>
+              <Text style={s.actionBtnText}>📋 予約リクエストを送る</Text>
+            </Pressable>
+          </View>
+        )}
+
+        {/* inquiry: 貸主 → 予約を確定する */}
+        {request.status === 'inquiry' && isLender && (
+          <View style={s.actionRow}>
+            <Pressable style={[s.actionBtn, { backgroundColor: '#10b981', flex: 1 }]} onPress={() => setShowDirectReserve(true)}>
+              <Text style={s.actionBtnText}>✅ 予約を確定する</Text>
+            </Pressable>
+          </View>
+        )}
 
         {/* 貸主アクションボタン: pending時 */}
         {request.status === 'pending' && isLender && (
@@ -625,6 +736,44 @@ export default function RequestChat() {
           req={request}
           onClose={() => setShowEdit(false)}
           onSaved={fetchAll}
+        />
+      )}
+
+      {/* inquiry: 借主 → 予約リクエスト送信 */}
+      {showFormalize && request && (
+        <DateQtyModal
+          visible={showFormalize}
+          title="予約リクエストを送る"
+          submitLabel="リクエストを送信する"
+          cartId={request.cart_id}
+          onClose={() => setShowFormalize(false)}
+          onSubmit={async (start, end, qty) => {
+            await api.post(`/rental-requests/${id}/formalize`, {
+              start_date: start.toISOString(),
+              end_date: end.toISOString(),
+              quantity: qty,
+            });
+            fetchAll();
+          }}
+        />
+      )}
+
+      {/* inquiry: 貸主 → 予約確定 */}
+      {showDirectReserve && request && (
+        <DateQtyModal
+          visible={showDirectReserve}
+          title="予約を確定する"
+          submitLabel="予約を確定する"
+          cartId={request.cart_id}
+          onClose={() => setShowDirectReserve(false)}
+          onSubmit={async (start, end, qty) => {
+            await api.post(`/rental-requests/${id}/direct-reserve`, {
+              start_date: start.toISOString(),
+              end_date: end.toISOString(),
+              quantity: qty,
+            });
+            fetchAll();
+          }}
         />
       )}
     </>

@@ -86,8 +86,8 @@ function RequestCard({
         <Text style={c.meta}>👤 借りる人: {req.renter_name}</Text>
       )}
 
-      <Text style={c.meta}>🕐 貸出希望: {fmtDT(req.start_date)}</Text>
-      <Text style={c.meta}>🕐 返却希望: {fmtDT(req.end_date)}</Text>
+      {req.start_date ? <Text style={c.meta}>🕐 貸出希望: {fmtDT(req.start_date)}</Text> : null}
+      {req.end_date ? <Text style={c.meta}>🕐 返却希望: {fmtDT(req.end_date)}</Text> : null}
       <Text style={c.meta}>📦 台数: {req.quantity}台</Text>
 
       {(req.municipality || req.station_name) && (

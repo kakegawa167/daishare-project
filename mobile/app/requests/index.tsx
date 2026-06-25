@@ -15,12 +15,14 @@ import {
 } from 'react-native';
 
 const STATUS_LABEL: Record<RequestStatus, string> = {
+  inquiry: '問い合わせ中',
   pending: '承認待ち',
   accepted: '承認済み',
   rejected: '拒否',
   cancelled: 'キャンセル',
 };
 const STATUS_COLOR: Record<RequestStatus, string> = {
+  inquiry: '#6366f1',
   pending: '#fbbf24',
   accepted: '#10b981',
   rejected: '#ef4444',
@@ -29,8 +31,8 @@ const STATUS_COLOR: Record<RequestStatus, string> = {
 
 function RequestCard({ req, userId, onAction }: { req: RentalRequest; userId: string; onAction: () => void }) {
   const isOwner = req.renter_id !== userId;
-  const startDate = new Date(req.start_date).toLocaleDateString('ja-JP');
-  const endDate = new Date(req.end_date).toLocaleDateString('ja-JP');
+  const startDate = req.start_date ? new Date(req.start_date).toLocaleDateString('ja-JP') : null;
+  const endDate = req.end_date ? new Date(req.end_date).toLocaleDateString('ja-JP') : null;
 
   const handleAccept = async () => {
     try { await api.post(`/rental-requests/${req.id}/accept`); onAction(); }
@@ -59,7 +61,7 @@ function RequestCard({ req, userId, onAction }: { req: RentalRequest; userId: st
         </View>
       </View>
       <Text style={styles.meta}>{isOwner ? `借りる人: ${req.renter_name ?? '不明'}` : '自分のリクエスト'}</Text>
-      <Text style={styles.meta}>📅 {startDate} 〜 {endDate}</Text>
+      {startDate && endDate ? <Text style={styles.meta}>📅 {startDate} 〜 {endDate}</Text> : null}
       <Text style={styles.meta}>台数: {req.quantity}台</Text>
       {req.message && <Text style={styles.message}>"{req.message}"</Text>}
 

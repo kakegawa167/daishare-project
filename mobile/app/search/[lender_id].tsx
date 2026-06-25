@@ -43,31 +43,25 @@ const CATEGORY_LABEL: Record<string, string> = {
 
 // ─── 質問するモーダル ──────────────────────────────────
 function InquiryModal({
-  visible, lenderId, onClose,
-}: { visible: boolean; lenderId: string; onClose: () => void }) {
+  visible, cartId, onClose,
+}: { visible: boolean; cartId: string | null; onClose: () => void }) {
   const [message, setMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async () => {
     if (!message.trim()) { Alert.alert('エラー', 'メッセージを入力してください'); return; }
+    if (!cartId) { Alert.alert('エラー', '台車が選択されていません'); return; }
     setSubmitting(true);
     try {
-      const tomorrow = new Date(Date.now() + 86400000);
-      const dayAfter = new Date(Date.now() + 2 * 86400000);
-      const res = await api.get<Cart[]>('/carts', { params: { owner_id: lenderId } });
-      const firstCart = res.data[0];
-      if (!firstCart) throw new Error('台車が見つかりません');
       const req = await api.post('/rental-requests', {
-        cart_id: firstCart.id,
-        start_date: tomorrow.toISOString(),
-        end_date: dayAfter.toISOString(),
-        quantity: 1,
+        cart_id: Number(cartId),
         message: message.trim(),
       });
+      setMessage('');
       onClose();
       router.push(`/requests/${req.data.id}` as any);
     } catch (e: any) {
-      Alert.alert('エラー', e.message ?? 'メッセージの送信に失敗しました');
+      Alert.alert('エラー', 'メッセージの送信に失敗しました');
     } finally {
       setSubmitting(false);
     }
@@ -234,7 +228,7 @@ export default function LenderDetail() {
 
       <InquiryModal
         visible={inquiryVisible}
-        lenderId={lender_id}
+        cartId={cart_id ?? null}
         onClose={() => setInquiryVisible(false)}
       />
     </View>

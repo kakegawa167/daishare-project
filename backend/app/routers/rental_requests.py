@@ -14,7 +14,7 @@ from app.models.message import Message
 from app.models.rental_request import RentalRequest, RequestStatus
 from app.models.reservation import Reservation, ReservationStatus
 from app.models.user import User
-from app.schemas.cart import RentalRequestCreate, RentalRequestResponse, RentalRequestUpdate
+from app.schemas.cart import RentalRequestCreate, RentalRequestDirectReserve, RentalRequestFormalize, RentalRequestResponse, RentalRequestUpdate
 from app.services import notification_service
 
 router = APIRouter(prefix="/rental-requests", tags=["rental-requests"])
@@ -154,15 +154,127 @@ async def create_request(
     if str(cart.owner_id) == user_id:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot request your own cart")
 
-    r = RentalRequest(renter_id=uuid.UUID(user_id), **body.model_dump())
+    is_inquiry = body.start_date is None or body.end_date is None
+    req_status = RequestStatus.inquiry if is_inquiry else RequestStatus.pending
+
+    r = RentalRequest(
+        renter_id=uuid.UUID(user_id),
+        cart_id=body.cart_id,
+        quantity=body.quantity,
+        start_date=body.start_date,
+        end_date=body.end_date,
+        message=body.message,
+        status=req_status,
+    )
     db.add(r)
+    await db.flush()
+
+    # 最初のメッセージを追加（inquiry の場合はメッセージ本文をチャットに流す）
+    if body.message and is_inquiry:
+        db.add(Message(
+            rental_request_id=r.id,
+            sender_id=uuid.UUID(user_id),
+            body=body.message,
+            is_system=False,
+        ))
+
     await db.commit()
     r = await _get_request_or_404(r.id, db)
-    # 貸主へ通知
+
+    renter_result = await db.execute(select(User).where(User.id == uuid.UUID(user_id)))
+    renter = renter_result.scalar_one_or_none()
+    renter_name = renter.display_name if renter else "借主"
+
+    if is_inquiry:
+        # 貸主へ問い合わせ通知
+        await notification_service.notify_inquiry_received(db, r.cart.owner_id, renter_name, r.id)
+    else:
+        # 貸主へリクエスト通知
+        await notification_service.notify_request_received(db, r.cart.owner_id, renter_name, r.id)
+    await db.commit()
+    return _to_response(r)
+
+
+@router.post("/{request_id}/formalize", response_model=RentalRequestResponse)
+async def formalize_request(
+    request_id: int,
+    body: RentalRequestFormalize,
+    user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+) -> RentalRequestResponse:
+    """借主: inquiry → pending（日程を確定してリクエスト送信）"""
+    r = await _get_request_or_404(request_id, db)
+    if str(r.renter_id) != user_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only renter can formalize")
+    if r.status != RequestStatus.inquiry:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Request is not an inquiry")
+
+    r.start_date = body.start_date
+    r.end_date = body.end_date
+    r.quantity = body.quantity
+    r.status = RequestStatus.pending
+
+    fmt = lambda d: d.strftime("%-m/%-d %-H:%M")
+    db.add(Message(
+        rental_request_id=r.id,
+        sender_id=r.renter_id,
+        body=f"予約リクエストを送信しました。\n貸出: {fmt(body.start_date)}\n返却: {fmt(body.end_date)}\n台数: {body.quantity}台",
+        is_system=True,
+    ))
+
     renter_result = await db.execute(select(User).where(User.id == uuid.UUID(user_id)))
     renter = renter_result.scalar_one_or_none()
     await notification_service.notify_request_received(
         db, r.cart.owner_id, renter.display_name or "借主", r.id
+    )
+    await db.commit()
+    return _to_response(r)
+
+
+@router.post("/{request_id}/direct-reserve", response_model=RentalRequestResponse)
+async def direct_reserve(
+    request_id: int,
+    body: RentalRequestDirectReserve,
+    user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+) -> RentalRequestResponse:
+    """貸主: inquiry → accepted + 予約確定（reserved）"""
+    r = await _get_request_or_404(request_id, db)
+    if str(r.cart.owner_id) != user_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only cart owner can direct reserve")
+    if r.status not in (RequestStatus.inquiry, RequestStatus.pending):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Request cannot be direct reserved")
+
+    r.start_date = body.start_date
+    r.end_date = body.end_date
+    r.quantity = body.quantity
+    r.status = RequestStatus.accepted
+
+    confirmed_rate = r.cart.daily_rate or r.cart.per_rental_rate or r.cart.weekly_rate or 0
+    reservation = Reservation(
+        rental_request_id=r.id,
+        lender_id=r.cart.owner_id,
+        renter_id=r.renter_id,
+        start_date=body.start_date,
+        end_date=body.end_date,
+        quantity=body.quantity,
+        daily_rate=confirmed_rate,
+        status=ReservationStatus.reserved,
+    )
+    db.add(reservation)
+
+    fmt = lambda d: d.strftime("%-m/%-d %-H:%M")
+    db.add(Message(
+        rental_request_id=r.id,
+        sender_id=r.cart.owner_id,
+        body=f"予約が確定しました。\n貸出: {fmt(body.start_date)}\n返却: {fmt(body.end_date)}\n台数: {body.quantity}台",
+        is_system=True,
+    ))
+
+    lender_result = await db.execute(select(User).where(User.id == uuid.UUID(user_id)))
+    lender = lender_result.scalar_one_or_none()
+    await notification_service.notify_request_accepted(
+        db, r.renter_id, lender.display_name or "貸主", r.id
     )
     await db.commit()
     return _to_response(r)

@@ -49,6 +49,16 @@ async def _create_notification(
         await _send_expo_push(user.expo_push_token, title, body, {"related_id": related_id, "type": ntype.value})
 
 
+async def notify_inquiry_received(db: AsyncSession, lender_id: uuid.UUID, renter_name: str, request_id: int) -> None:
+    await _create_notification(
+        db, lender_id,
+        NotificationType.request_received,
+        "問い合わせが届きました",
+        f"{renter_name}さんから問い合わせが届きました",
+        related_id=request_id,
+    )
+
+
 async def notify_request_received(db: AsyncSession, lender_id: uuid.UUID, renter_name: str, request_id: int) -> None:
     await _create_notification(
         db, lender_id,

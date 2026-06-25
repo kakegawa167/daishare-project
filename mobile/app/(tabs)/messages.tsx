@@ -47,7 +47,7 @@ function ThreadCard({ req, userId }: { req: RentalRequest; userId: string }) {
     ? `${diffDays}日前`
     : lastAt.toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric' });
 
-  const previewText = req.last_message_body ?? `リクエスト: ${fmtDT(req.start_date)}`;
+  const previewText = req.last_message_body ?? (req.start_date ? `リクエスト: ${fmtDT(req.start_date)}` : '問い合わせ中');
   const hasUnread = req.unread_count > 0;
 
   return (
@@ -82,7 +82,7 @@ function ThreadCard({ req, userId }: { req: RentalRequest; userId: string }) {
 
         {/* 3行目: 貸出〜返却時間 */}
         <Text style={s.dateLine} numberOfLines={1}>
-          🕐 {fmtDT(req.start_date)} 〜 {fmtDT(req.end_date)}
+          {req.start_date && req.end_date ? `🕐 ${fmtDT(req.start_date)} 〜 ${fmtDT(req.end_date)}` : '（日程未定）'}
         </Text>
 
         {/* 4行目: 場所 */}
