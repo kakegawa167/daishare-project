@@ -82,9 +82,22 @@ async def search_carts(
     if owner_id:
         stmt = stmt.where(Cart.owner_id == uuid.UUID(owner_id))
     elif station_id:
-        stmt = stmt.where(Cart.station_id == station_id)
+        # cart_locations のいずれかが該当 station_id を持つ台車を返す
+        loc_subq = (
+            select(CartLocation.cart_id)
+            .where(CartLocation.station_id == station_id)
+            .scalar_subquery()
+        )
+        stmt = stmt.where(Cart.id.in_(loc_subq))
     elif municipality:
-        stmt = stmt.join(Station).where(Station.municipality == municipality)
+        # cart_locations のいずれかが該当 municipality を持つ台車を返す（全地点対象）
+        loc_subq = (
+            select(CartLocation.cart_id)
+            .join(Station, Station.id == CartLocation.station_id)
+            .where(Station.municipality == municipality)
+            .scalar_subquery()
+        )
+        stmt = stmt.where(Cart.id.in_(loc_subq))
     if category:
         stmt = stmt.where(Cart.category == category)
     if foldable is not None:
