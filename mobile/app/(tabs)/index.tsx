@@ -93,12 +93,16 @@ interface CartItem {
   cardKey: string;
 }
 
-function buildCartItems(carts: Cart[]): CartItem[] {
+function buildCartItems(carts: Cart[], filterMunicipality?: string | null): CartItem[] {
   return carts.flatMap((cart) => {
     const locs = cart.locations && cart.locations.length > 0
       ? cart.locations
       : [{ municipality: cart.municipality, station_name: cart.station_name }];
-    return locs.map((loc, i) => ({
+    // エリア絞り込み中は一致するロケーションのカードのみ表示
+    const filtered = filterMunicipality
+      ? locs.filter(loc => loc.municipality === filterMunicipality)
+      : locs;
+    return filtered.map((loc, i) => ({
       cart,
       locLabel: [loc.municipality, loc.station_name].filter(Boolean).join(' '),
       cardKey: `${cart.id}-${i}`,
@@ -394,7 +398,7 @@ export default function Home() {
 
   const filterCount = activeFilterCount(filter);
   const sortLabel   = SORT_OPTIONS.find(o => o.key === sortKey)?.label ?? '新しい順';
-  const displayedItems = useMemo(() => buildCartItems(displayedCarts), [displayedCarts]);
+  const displayedItems = useMemo(() => buildCartItems(displayedCarts, municipality), [displayedCarts, municipality]);
 
   if (loading) return <LoadingScreen />;
 
