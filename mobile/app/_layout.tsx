@@ -7,6 +7,7 @@ import 'react-native-reanimated';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/authStore';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
+import { initRevenueCat } from '@/lib/purchases';
 
 export { ErrorBoundary } from 'expo-router';
 
@@ -29,6 +30,9 @@ export default function RootLayout() {
   useEffect(() => {
     if (loaded) SplashScreen.hideAsync();
   }, [loaded]);
+
+  // RevenueCat 初期化（ネイティブモジュールが利用可能な場合のみ動作）
+  useEffect(() => { initRevenueCat(); }, []);
 
   // Supabaseのセッション変化を監視
   useEffect(() => {

@@ -115,3 +115,46 @@
 | 暫定対応     | 動的インポート + try/catch で Expo Go 時はアラート表示（グレースフルデグレード）実装済み（ERR-006 参照） |
 | 解決日時     | —（ISS-005 解決後に対応予定）                                                |
 | 解決方法     | —                                                                             |
+
+---
+
+## ISS-009 — App Store Connect サブスクリプション商品の登録
+
+| 項目             | 内容                                                                                                   |
+| ---------------- | ------------------------------------------------------------------------------------------------------ |
+| 発生日時         | 2026-06-25                                                                                             |
+| ステータス       | `open`                                                                                                 |
+| 課題内容         | App Store Connect に Pro プランのサブスクリプション商品が未登録。RevenueCat との連携に必要              |
+| 影響範囲         | 課金フロー全般（購入・更新・解約）                                                                     |
+| 必要なアクション | 1. App Store Connect → マイ App → サブスクリプション → 新規作成<br>2. 参照名: 「ダイシェア Pro」、商品 ID: `com.daishare.pro.monthly`<br>3. 価格: ¥300/月<br>4. 説明文・スクリーンショット追加（審査用）<br>5. RevenueCat ダッシュボードに同じ商品 ID を登録 |
+| 解決日時         | —                                                                                                      |
+| 解決方法         | —                                                                                                      |
+
+---
+
+## ISS-010 — RevenueCat プロジェクト設定・Webhook 設定
+
+| 項目             | 内容                                                                                                      |
+| ---------------- | --------------------------------------------------------------------------------------------------------- |
+| 発生日時         | 2026-06-25                                                                                                |
+| ステータス       | `open`                                                                                                    |
+| 課題内容         | RevenueCat のプロジェクト・アプリ設定が未完了。Webhook 未設定のため Pro/Normal 自動切替が動作しない       |
+| 影響範囲         | サブスクリプション状態の自動同期（Pro 昇格・期限切れ後の Normal 降格）                                    |
+| 必要なアクション | 1. [RevenueCat](https://app.revenuecat.com) でプロジェクト作成<br>2. iOS アプリ追加（Bundle ID 設定）<br>3. App Store Connect API キーを RevenueCat に登録<br>4. ISS-009 で作成した商品 ID を Entitlement に追加<br>5. Webhook 設定: URL = `https://api.daishere.app/v1/webhooks/revenuecat`、Authorization ヘッダーにシークレット設定<br>6. `REVENUECAT_WEBHOOK_SECRET` 環境変数を Railway に追加<br>7. `EXPO_PUBLIC_REVENUECAT_API_KEY` を mobile/.env に追加（RevenueCat の iOS API キー） |
+| 解決日時         | —                                                                                                         |
+| 解決方法         | —                                                                                                         |
+
+---
+
+## ISS-011 — react-native-purchases の Dev Build 対応
+
+| 項目             | 内容                                                                                             |
+| ---------------- | ------------------------------------------------------------------------------------------------ |
+| 発生日時         | 2026-06-25                                                                                       |
+| ステータス       | `open`                                                                                           |
+| 課題内容         | `react-native-purchases`（RevenueCat SDK）はネイティブモジュールのため Expo Go では動作しない。購入フローが Expo Go でテストできない |
+| 影響範囲         | Pro プラン購入・復元フロー                                                                       |
+| 必要なアクション | ISS-005（EAS Build）解決後、Dev Build を作成して実機で購入フローをテストする                     |
+| 暫定対応         | Expo Go 時は購入ボタンを表示するが、タップ時に「実機ビルドが必要です」Alert を表示するよう実装済み |
+| 解決日時         | —（ISS-005 解決後に対応予定）                                                                    |
+| 解決方法         | —                                                                                                |

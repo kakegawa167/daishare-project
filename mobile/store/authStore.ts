@@ -3,6 +3,7 @@ import { create } from 'zustand';
 
 import { api } from '@/lib/api';
 import { supabase } from '@/lib/supabase';
+import { loginRevenueCat, logoutRevenueCat } from '@/lib/purchases';
 
 interface AuthState {
   session: Session | null;
@@ -47,12 +48,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         display_name: session.user.user_metadata?.full_name ?? session.user.email,
       });
       set({ user: res.data });
+      // RevenueCat にユーザー ID を紐付け（ネイティブビルドのみ動作）
+      loginRevenueCat(session.user.id).catch(() => {});
     } catch (e) {
       console.error('syncUser failed', e);
     }
   },
 
   signOut: async () => {
+    logoutRevenueCat().catch(() => {});
     await supabase.auth.signOut();
     set({ session: null, user: null });
   },

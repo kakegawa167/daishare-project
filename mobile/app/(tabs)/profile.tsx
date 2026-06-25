@@ -16,6 +16,13 @@ import {
 } from 'react-native';
 
 import { useAuthStore } from '@/store/authStore';
+import {
+  PackageInfo,
+  fetchPackages,
+  isAvailable as rcAvailable,
+  purchasePackage,
+  restorePurchases,
+} from '@/lib/purchases';
 
 // ─── 通知設定 ────────────────────────────────
 export const NOTIF_KEY = '@daishare/notif_settings';
@@ -124,10 +131,59 @@ function Row({ label, value, children }: { label: string; value?: string; childr
 
 const USER_TYPE_LABELS: Record<string, string> = { renter: '借りる人', lender: '貸す人', both: '両方' };
 
+// ─── プランセクション ─────────────────────────
+function PlanSection({ isPro, onUpgrade, onRestore }: {
+  isPro: boolean;
+  onUpgrade: () => void;
+  onRestore: () => void;
+}) {
+  return (
+    <>
+      <SectionTitle label="プラン" />
+      <Card>
+        <View style={s.planRow}>
+          <View>
+            <Text style={s.planName}>{isPro ? 'Pro プラン' : 'Normalプラン'}</Text>
+            <Text style={s.planDesc}>
+              {isPro
+                ? '台車複数台・地点10件まで登録可'
+                : '台車1台・地点1件まで登録可（無料）'}
+            </Text>
+          </View>
+          <View style={[s.planBadge, isPro ? s.planBadgePro : s.planBadgeNormal]}>
+            <Text style={[s.planBadgeText, isPro ? s.planBadgeProText : s.planBadgeNormalText]}>
+              {isPro ? 'Pro' : 'Free'}
+            </Text>
+          </View>
+        </View>
+        {!isPro && (
+          <>
+            <View style={s.divider} />
+            <View style={s.planUpgradeSection}>
+              <Text style={s.planUpgradeTitle}>Pro プランにアップグレード</Text>
+              <Text style={s.planUpgradeDesc}>
+                台車複数台・1台あたり最大10地点を登録できます。
+              </Text>
+              <Pressable style={s.planUpgradeBtn} onPress={onUpgrade}>
+                <Text style={s.planUpgradeBtnText}>¥300/月 — アップグレード</Text>
+              </Pressable>
+            </View>
+          </>
+        )}
+      </Card>
+      <Pressable style={s.restoreBtn} onPress={onRestore}>
+        <Text style={s.restoreBtnText}>購入を復元する</Text>
+      </Pressable>
+    </>
+  );
+}
+
 // ─── プロフィール表示画面 ──────────────────────
 export default function ProfileScreen() {
-  const { user, signOut } = useAuthStore();
+  const { user, signOut, syncUser } = useAuthStore();
   const [notif, setNotif] = useState<NotifSettings>(DEFAULT_NOTIF);
+  const [packages, setPackages] = useState<PackageInfo[]>([]);
+  const [purchasing, setPurchasing] = useState(false);
 
   // フォーカス時に通知設定を再読み込み（編集画面から戻った後も反映）
   useFocusEffect(useCallback(() => {
@@ -135,6 +191,53 @@ export default function ProfileScreen() {
       if (raw) setNotif({ ...DEFAULT_NOTIF, ...JSON.parse(raw) });
     });
   }, []));
+
+  // RevenueCat: 購入可能パッケージを取得
+  useEffect(() => {
+    fetchPackages().then(setPackages);
+  }, []);
+
+  const handleUpgrade = async () => {
+    if (!rcAvailable()) {
+      Alert.alert('購入できません', 'この機能は実機ビルドでのみ利用できます。（Expo Go では動作しません）');
+      return;
+    }
+    const pkg = packages[0]; // 最初のパッケージを購入
+    if (!pkg) {
+      Alert.alert('エラー', '購入情報を取得できませんでした。しばらく後で再試行してください。');
+      return;
+    }
+    setPurchasing(true);
+    try {
+      const success = await purchasePackage(pkg.rawPackage);
+      if (success) {
+        await syncUser(); // plan フィールドを最新化
+        Alert.alert('完了', 'Pro プランへのアップグレードが完了しました！');
+      }
+    } catch (e: any) {
+      Alert.alert('購入エラー', e?.message ?? '購入処理中にエラーが発生しました。');
+    } finally {
+      setPurchasing(false);
+    }
+  };
+
+  const handleRestore = async () => {
+    if (!rcAvailable()) {
+      Alert.alert('復元できません', 'この機能は実機ビルドでのみ利用できます。');
+      return;
+    }
+    setPurchasing(true);
+    try {
+      const success = await restorePurchases();
+      await syncUser();
+      Alert.alert(success ? '復元完了' : '購入履歴なし',
+        success ? 'Pro プランを復元しました。' : '有効な購入が見つかりませんでした。');
+    } catch {
+      Alert.alert('エラー', '購入の復元中にエラーが発生しました。');
+    } finally {
+      setPurchasing(false);
+    }
+  };
 
   const setN = <K extends keyof NotifSettings>(k: K, v: NotifSettings[K]) => {
     const next = { ...notif, [k]: v };
@@ -177,6 +280,23 @@ export default function ProfileScreen() {
       <Pressable style={s.editBtn} onPress={() => router.push('/profile-edit' as any)}>
         <Text style={s.editBtnText}>プロフィールを編集</Text>
       </Pressable>
+
+      {/* ── プラン ── */}
+      {(user.user_type === 'lender' || user.user_type === 'both') && (
+        <>
+          {purchasing && (
+            <View style={s.purchasingOverlay}>
+              <ActivityIndicator color="#3b82f6" />
+              <Text style={s.purchasingText}>処理中...</Text>
+            </View>
+          )}
+          <PlanSection
+            isPro={user.plan === 'pro'}
+            onUpgrade={handleUpgrade}
+            onRestore={handleRestore}
+          />
+        </>
+      )}
 
       {/* ── 通知設定 ── */}
       <SectionTitle label="通知設定" />
@@ -279,4 +399,27 @@ const s = StyleSheet.create({
   logoutBtn: { marginTop: 24, padding: 15, alignItems: 'center', borderRadius: 12,
     borderWidth: 1.5, borderColor: '#fca5a5', backgroundColor: '#fff' },
   logoutText: { color: '#ef4444', fontWeight: '700', fontSize: 15 },
+
+  // プラン
+  planRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 16, paddingVertical: 16 },
+  planName: { fontSize: 16, fontWeight: '700', color: '#111827', marginBottom: 2 },
+  planDesc: { fontSize: 12, color: '#6b7280' },
+  planBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
+  planBadgeNormal: { backgroundColor: '#f3f4f6' },
+  planBadgePro: { backgroundColor: '#ede9fe' },
+  planBadgeText: { fontSize: 13, fontWeight: '700' },
+  planBadgeNormalText: { color: '#6b7280' },
+  planBadgeProText: { color: '#7c3aed' },
+  planUpgradeSection: { paddingHorizontal: 16, paddingBottom: 16, paddingTop: 12 },
+  planUpgradeTitle: { fontSize: 14, fontWeight: '700', color: '#111827', marginBottom: 4 },
+  planUpgradeDesc: { fontSize: 13, color: '#6b7280', marginBottom: 12, lineHeight: 18 },
+  planUpgradeBtn: { backgroundColor: '#7c3aed', borderRadius: 12, paddingVertical: 13,
+    alignItems: 'center' },
+  planUpgradeBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
+  restoreBtn: { marginTop: 8, padding: 12, alignItems: 'center' },
+  restoreBtnText: { fontSize: 13, color: '#6b7280', textDecorationLine: 'underline' },
+  purchasingOverlay: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 8, paddingVertical: 8 },
+  purchasingText: { fontSize: 14, color: '#6b7280' },
 });

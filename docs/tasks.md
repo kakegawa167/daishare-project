@@ -319,6 +319,28 @@
 - [ ] App Store 審査申請
 - [ ] Google Play 審査申請
 
+### 5-5. 課金・プランシステム（RevenueCat）
+
+- [x] DB: `users` テーブルに `plan` / `plan_expires_at` カラム追加（Alembic）
+- [x] バックエンド: `plan_service.py`（`get_effective_plan` / `check_cart_limit` / `check_location_limit` / `is_over_limit`）
+- [x] バックエンド: 台車登録・地点登録の制限チェック（carts router）
+- [x] バックエンド: メッセージ送信ブロック（messages router）
+- [x] バックエンド: `GET /users/me` に `plan` / `plan_expires_at` / `is_over_limit` 追加
+- [x] バックエンド: RevenueCat Webhook エンドポイント（`POST /webhooks/revenuecat`）
+- [x] フロントエンド: `UserPlan` 型 / `User` インターフェース更新
+- [x] フロントエンド: `authStore` の `AppUser` に plan フィールド追加
+- [x] フロントエンド: 台車管理画面 — プラン超過警告バナー
+- [x] フロントエンド: チャット画面 — 超過中の貸主メッセージ送信ブロック
+- [x] フロントエンド: `lib/purchases.ts`（RevenueCat SDK ラッパー）
+- [x] フロントエンド: `_layout.tsx` — RevenueCat 初期化
+- [x] フロントエンド: `authStore` — ログイン/ログアウト時の RevenueCat セッション紐付け
+- [x] フロントエンド: プロフィール画面 — プランカード・アップグレードボタン・購入復元
+- [ ] 手動作業: App Store Connect でサブスクリプション商品登録（ISS-009）
+- [ ] 手動作業: RevenueCat プロジェクト設定・Webhook 設定（ISS-010）
+- [ ] 手動作業: `REVENUECAT_WEBHOOK_SECRET` を Railway 環境変数に追加
+- [ ] 手動作業: `EXPO_PUBLIC_REVENUECAT_API_KEY` を `.env` に追加
+- [ ] EAS Dev Build で実機購入フローのテスト（ISS-011）
+
 ---
 
 ## Phase 6 — 品質向上・追加機能（MVP後）
@@ -381,6 +403,6 @@
 | Phase 2 — 台車・検索・リクエスト       | 33       | 32      | 1       |
 | Phase 3 — メッセージ・予約管理         | 23       | 22      | 1       |
 | Phase 4 — レビュー・スケジュール・通知 | 23       | 22      | 1       |
-| Phase 5 — 仕上げ・リリース準備         | 15       | 8       | 7       |
+| Phase 5 — 仕上げ・リリース準備         | 30       | 22      | 8       |
 | Phase 6 — 品質向上・追加機能（MVP後）  | 21       | 1       | 20      |
-| **合計**                               | **161**  | **126** | **35**  |
+| **合計**                               | **176**  | **140** | **36**  |
