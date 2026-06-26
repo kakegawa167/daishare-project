@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
-from app.routers import auth, users, stations, carts, rental_requests, messages, reservations, reviews, notifications, webhooks
+from app.routers import auth, users, stations, carts, rental_requests, messages, reservations, reviews, notifications, webhooks, dev
 from app.services.reminder_service import run_reminders
 
 scheduler = AsyncIOScheduler()
@@ -39,6 +39,7 @@ app.include_router(reservations.router)
 app.include_router(reviews.router)
 app.include_router(notifications.router)
 app.include_router(webhooks.router)
+app.include_router(dev.router)
 
 
 @app.get("/health")
