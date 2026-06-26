@@ -1,8 +1,8 @@
 # ダイシェア モバイルアプリ 設計書
 
-> バージョン: 2.5.0  
+> バージョン: 2.6.0  
 > 作成日: 2026-06-23  
-> 最終更新: 2026-06-25  
+> 最終更新: 2026-06-26  
 > 対象: MVP リリース
 
 ---
@@ -50,7 +50,7 @@
 ┌───────────────────┐      ┌──────────────────────────────┐
 │  FastAPI          │      │  Supabase                    │
 │  (Python)         │      │                              │
-│  ホスティング:Railway│      │  ・PostgreSQL（DB本体）      │
+│  ホスティング:Render │      │  ・PostgreSQL（DB本体）      │
 │                   │      │    ↑FastAPIが直接接続         │
 │  担当:            │      │  ・Auth（Google OAuth/JWT）  │
 │  ビジネスロジック  │      │  ・Realtime（WS・メッセージ） │
@@ -65,14 +65,14 @@
 >
 > - FastAPIはSupabaseのPostgreSQLに直接接続してデータを読み書きする（PostgRESTは使わない）
 > - Realtime・Storage・AuthはモバイルアプリからSupabase SDKで直接アクセスする
-> - FastAPIのホスティングはRailway、DBはSupabase管理のPostgreSQLを使用する
+> - FastAPIのホスティングはRender（無料プラン）、DBはSupabase管理のPostgreSQLを使用する
 
 ### 2.1 各コンポーネントの役割
 
 | コンポーネント          | 役割                                                             |
 | ----------------------- | ---------------------------------------------------------------- |
 | **Expo (React Native)** | モバイルUI、画面遷移、状態管理                                   |
-| **FastAPI（Railway）**  | ビジネスロジック、APIエンドポイント、JWT検証                     |
+| **FastAPI（Render）**   | ビジネスロジック、APIエンドポイント、JWT検証                     |
 | **Supabase Auth**       | Google OAuth認証、JWTトークン発行                                |
 | **Supabase PostgreSQL** | データ永続化（FastAPIがasyncpgで直接接続）                       |
 | **Supabase Realtime**   | メッセージ・通知のリアルタイム受信（モバイルから直接接続）       |
@@ -160,9 +160,10 @@
 | DB                       | Supabase PostgreSQL（managed）                   |
 | ストレージ               | Supabase Storage                                 |
 | Auth / Realtime          | Supabase                                         |
-| バックエンドホスティング | Railway（FastAPIコンテナのみ）                   |
+| バックエンドホスティング | Render（無料プラン）                             |
+| スリープ防止             | UptimeRobot（5分間隔 `/health` 監視）            |
 | CI/CD                    | GitHub Actions + EAS（Expo）                     |
-| 環境変数管理             | GitHub Secrets（CI） / Railway Variables（本番） |
+| 環境変数管理             | GitHub Secrets（CI） / Render Variables（本番）  |
 
 ---
 
@@ -172,9 +173,9 @@
 
 | 環境           | 用途           | FastAPI                  | Supabase                         |
 | -------------- | -------------- | ------------------------ | -------------------------------- |
-| **local**      | 開発者ローカル | Docker Compose           | Supabase CLI（`supabase start`） |
-| **staging**    | 動作確認・QA   | Railway（dev サービス）  | Supabase staging プロジェクト    |
-| **production** | 本番公開       | Railway（prod サービス） | Supabase prod プロジェクト       |
+| **local**      | 開発者ローカル | Docker Compose                       | Supabase CLI（`supabase start`） |
+| **staging**    | 動作確認・QA   | Render（`daishare-api.onrender.com`）| Supabase staging プロジェクト    |
+| **production** | 本番公開       | Render（production サービス・未作成）| Supabase prod プロジェクト       |
 
 ### 4.2 ブランチ戦略
 
@@ -470,7 +471,7 @@ carts:
 
 ## 6. API設計（FastAPI）
 
-**ベースURL:** `https://api.daishere.app/v1`  
+**ベースURL:** `https://daishare-api.onrender.com`  
 **認証:** `Authorization: Bearer <Supabase JWT>`
 
 ### 6.1 エンドポイント一覧
