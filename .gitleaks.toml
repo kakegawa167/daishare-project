@@ -2,9 +2,12 @@
 useDefault = true
 
 [allowlist]
-description = "gitignore済みのローカル環境変数ファイルを除外"
+description = "gitignore済みのローカル環境変数ファイルおよびCocoaPods生成ファイルを除外"
 paths = [
     '''\.env$''',
     '''\.env\.local$''',
     '''\.expo/''',
+    '''mobile/ios/Pods/''',
+    '''mobile/ios/Podfile\.lock$''',
+    '''mobile/ios/Pods/Manifest\.lock$''',
 ]
