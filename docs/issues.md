@@ -10,12 +10,12 @@
 | 項目         | 内容                                                                           |
 | ------------ | ------------------------------------------------------------------------------ |
 | 発生日時     | 2026-06-21 頃                                                                  |
-| ステータス   | `open`                                                                         |
+| ステータス   | `resolved`                                                                     |
 | 課題内容     | `cart-images`・`avatars` バケットが未作成。RLS ポリシーも未設定               |
 | 影響範囲     | 台車画像アップロード機能、アバター画像アップロード機能                         |
-| 必要なアクション | Supabase ダッシュボードで以下を実施:<br>1. `avatars` バケット作成（Public）<br>2. `cart-images` バケット作成（Public）<br>3. 各バケットに RLS ポリシー設定（閲覧: 全員 / アップロード: 認証ユーザー本人のみ） |
-| 解決日時     | —                                                                              |
-| 解決方法     | —                                                                              |
+| 必要なアクション | 解決済み |
+| 解決日時     | 2026-06-26                                                                     |
+| 解決方法     | Supabase ダッシュボードで `avatars` / `cart-images` バケットを Public で作成。各バケットに SELECT（全員）/ INSERT（authenticated）の RLS ポリシーを設定 |
 
 ---
 
@@ -47,17 +47,17 @@
 
 ---
 
-## ISS-004 — Railway 本番環境の未構築
+## ISS-004 — バックエンド本番環境の未構築
 
 | 項目         | 内容                                                           |
 | ------------ | -------------------------------------------------------------- |
 | 発生日時     | 2026-06-21 頃                                                  |
-| ステータス   | `open`                                                         |
-| 課題内容     | Railway の staging / production サービスが未作成。バックエンドが本番環境にデプロイされていない |
+| ステータス   | `resolved`                                                     |
+| 課題内容     | バックエンドが本番環境にデプロイされていない                    |
 | 影響範囲     | TestFlight 配布・本番リリース全般                              |
-| 必要なアクション | 1. Railway アカウント作成・プロジェクト作成<br>2. staging サービス（develop ブランチ連携）<br>3. production サービス（main ブランチ連携）<br>4. 各サービスに環境変数設定<br>5. GitHub Secrets に Railway Token を登録 |
-| 解決日時     | —                                                              |
-| 解決方法     | —                                                              |
+| 必要なアクション | 解決済み |
+| 解決日時     | 2026-06-26                                                     |
+| 解決方法     | Railway から **Render**（無料プラン）に変更。`daishare-api` サービスを作成し GitHub `main` ブランチと連携。環境変数（DATABASE_URL / SUPABASE_* / ENVIRONMENT）を設定しデプロイ完了。URL: `https://daishare-api.onrender.com`。UptimeRobot で5分間隔の死活監視を設定しスリープを防止。モバイルアプリの `EXPO_PUBLIC_API_URL` を Render URL に更新済み |
 
 ---
 
@@ -140,7 +140,7 @@
 | ステータス       | `open`                                                                                                    |
 | 課題内容         | RevenueCat のプロジェクト・アプリ設定が未完了。Webhook 未設定のため Pro/Normal 自動切替が動作しない       |
 | 影響範囲         | サブスクリプション状態の自動同期（Pro 昇格・期限切れ後の Normal 降格）                                    |
-| 必要なアクション | 1. [RevenueCat](https://app.revenuecat.com) でプロジェクト作成<br>2. iOS アプリ追加（Bundle ID 設定）<br>3. App Store Connect API キーを RevenueCat に登録<br>4. ISS-009 で作成した商品 ID を Entitlement に追加<br>5. Webhook 設定: URL = `https://api.daishere.app/v1/webhooks/revenuecat`、Authorization ヘッダーにシークレット設定<br>6. `REVENUECAT_WEBHOOK_SECRET` 環境変数を Railway に追加<br>7. `EXPO_PUBLIC_REVENUECAT_API_KEY` を mobile/.env に追加（RevenueCat の iOS API キー） |
+| 必要なアクション | 1. [RevenueCat](https://app.revenuecat.com) でプロジェクト作成<br>2. iOS アプリ追加（Bundle ID 設定）<br>3. App Store Connect API キーを RevenueCat に登録<br>4. ISS-009 で作成した商品 ID を Entitlement に追加<br>5. Webhook 設定: URL = `https://daishare-api.onrender.com/webhooks/revenuecat`、Authorization ヘッダーにシークレット設定<br>6. `REVENUECAT_WEBHOOK_SECRET` 環境変数を Render に追加<br>7. `EXPO_PUBLIC_REVENUECAT_API_KEY` を mobile/.env に追加（RevenueCat の iOS API キー） |
 | 解決日時         | —                                                                                                         |
 | 解決方法         | —                                                                                                         |
 

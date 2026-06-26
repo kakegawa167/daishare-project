@@ -52,12 +52,14 @@
 - [x] `.env.local` 作成・`EXPO_PUBLIC_*` 環境変数設定
 - [x] `npx expo start` で起動確認
 
-### 0-6. Railway 設定
+### 0-6. バックエンドホスティング（Render）
 
-- [ ] Railway アカウント作成・プロジェクト作成
-- [ ] staging サービス作成（GitHub 連携 / `develop` ブランチ）
-- [ ] production サービス作成（GitHub 連携 / `main` ブランチ）
-- [ ] 各サービスに環境変数設定
+- [x] Render アカウント作成・`daishare-api` サービス作成（Docker / `main` ブランチ / Root: `backend`）
+- [x] 環境変数設定（DATABASE_URL / SUPABASE_* / ENVIRONMENT=staging / ALLOWED_ORIGINS）
+- [x] デプロイ成功・URL 発行（`https://daishare-api.onrender.com`）
+- [x] UptimeRobot でスリープ防止（5分間隔 `/health` 監視）
+- [x] モバイルアプリの `EXPO_PUBLIC_API_URL` を Render URL に更新
+- [ ] production サービス作成（本番リリース時）
 
 ### 0-7. EAS（Expo Application Services）設定
 
@@ -68,9 +70,10 @@
 ### 0-8. CI/CD（GitHub Actions）設定
 
 - [x] `.github/workflows/backend-ci.yml` 作成（pytest / ruff / mypy）
-- [x] `.github/workflows/backend-deploy.yml` 作成（Railway デプロイ）
-- [x] `.github/workflows/mobile-build.yml` 作成（EAS Build）
-- [ ] GitHub Secrets に Railway Token / EAS Token / Supabase キー類を登録
+- [x] `.github/workflows/backend-deploy.yml` 作成（Render 自動デプロイに切替のため無効化）
+- [x] `.github/workflows/mobile-build.yml` 作成（EAS 未設定のため無効化・ISS-005 解決後に再有効化）
+- [x] gitleaks の CocoaPods 誤検知を除外設定
+- [ ] GitHub Secrets に EAS Token / Supabase キー類を登録（EAS Build 設定時）
 - [ ] PR 作成して CI が通ることを確認
 
 ---
@@ -122,8 +125,8 @@
 
 - [x] `carts` テーブル作成マイグレーション（category / weight / max_load / foldable / daily_rate / weekly_rate / per_rental_rate / status 含む）
 - [x] `rental_requests` テーブル作成マイグレーション
-- [ ] Supabase Storage バケット作成（`cart-images` / `avatars`）
-- [ ] Storage RLS ポリシー設定（avatars: 閲覧全員・アップロード本人のみ）
+- [x] Supabase Storage バケット作成（`cart-images` / `avatars`）
+- [x] Storage RLS ポリシー設定（SELECT: 全員 / INSERT: authenticated）
 
 ### 2-2. バックエンド（Carts API）
 
@@ -337,7 +340,7 @@
 - [x] フロントエンド: プロフィール画面 — プランカード・アップグレードボタン・購入復元
 - [ ] 手動作業: App Store Connect でサブスクリプション商品登録（ISS-009）
 - [ ] 手動作業: RevenueCat プロジェクト設定・Webhook 設定（ISS-010）
-- [ ] 手動作業: `REVENUECAT_WEBHOOK_SECRET` を Railway 環境変数に追加
+- [ ] 手動作業: `REVENUECAT_WEBHOOK_SECRET` を Render 環境変数に追加
 - [ ] 手動作業: `EXPO_PUBLIC_REVENUECAT_API_KEY` を `.env` に追加
 - [ ] EAS Dev Build で実機購入フローのテスト（ISS-011）
 
@@ -387,7 +390,8 @@
 
 ### 6-7. インフラ
 
-- [ ] Railway 本番環境構築
+- [x] Render staging 環境構築（`https://daishare-api.onrender.com`）
+- [ ] Render production サービス作成（本番リリース時）
 - [ ] Supabase production プロジェクト作成
 - [ ] 本番 RLS ポリシー全設定
 - [ ] APM・ログ監視設定（Sentry など）
@@ -398,11 +402,11 @@
 
 | Phase                                  | タスク数 | 完了    | 未着手  |
 | -------------------------------------- | -------- | ------- | ------- |
-| Phase 0 — 環境構築                     | 27       | 22      | 5       |
+| Phase 0 — 環境構築                     | 30       | 27      | 3       |
 | Phase 1 — 認証・ユーザー               | 19       | 19      | 0       |
-| Phase 2 — 台車・検索・リクエスト       | 33       | 32      | 1       |
+| Phase 2 — 台車・検索・リクエスト       | 33       | 33      | 0       |
 | Phase 3 — メッセージ・予約管理         | 23       | 22      | 1       |
 | Phase 4 — レビュー・スケジュール・通知 | 23       | 22      | 1       |
 | Phase 5 — 仕上げ・リリース準備         | 30       | 22      | 8       |
 | Phase 6 — 品質向上・追加機能（MVP後）  | 21       | 1       | 20      |
-| **合計**                               | **176**  | **140** | **36**  |
+| **合計**                               | **179**  | **146** | **33**  |
