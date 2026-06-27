@@ -1,8 +1,8 @@
 # ダイシェア モバイルアプリ 設計書
 
-> バージョン: 2.6.0  
+> バージョン: 2.7.0  
 > 作成日: 2026-06-23  
-> 最終更新: 2026-06-26  
+> 最終更新: 2026-06-28  
 > 対象: MVP リリース
 
 ---
@@ -156,14 +156,15 @@
 
 | 項目                     | 採用技術                                         |
 | ------------------------ | ------------------------------------------------ |
-| コンテナ                 | Docker + Docker Compose                          |
-| DB                       | Supabase PostgreSQL（managed）                   |
-| ストレージ               | Supabase Storage                                 |
-| Auth / Realtime          | Supabase                                         |
-| バックエンドホスティング | Render（無料プラン）                             |
-| スリープ防止             | UptimeRobot（5分間隔 `/health` 監視）            |
-| CI/CD                    | GitHub Actions + EAS（Expo）                     |
-| 環境変数管理             | GitHub Secrets（CI） / Render Variables（本番）  |
+| コンテナ                 | Docker + Docker Compose                                                     |
+| DB                       | Supabase PostgreSQL（managed、Pro プラン）                                   |
+| ストレージ               | Supabase Storage（avatars / cart-images バケット）                           |
+| Auth / Realtime          | Supabase                                                                     |
+| バックエンドホスティング | Render（無料プラン）                                                          |
+| スリープ防止             | UptimeRobot（5分間隔 `/health` 監視、staging / production 両方）             |
+| CI/CD                    | GitHub Actions + EAS（Expo）                                                 |
+| 環境変数管理             | GitHub Secrets（CI） / Render Environment Variables（staging / production）  |
+| DB 接続（Render）        | Supabase IPv4 接続プーラー（`aws-1-ap-southeast-1.pooler.supabase.com:5432`）|
 
 ---
 
@@ -171,20 +172,21 @@
 
 ### 4.1 環境一覧
 
-| 環境           | 用途           | FastAPI                  | Supabase                         |
-| -------------- | -------------- | ------------------------ | -------------------------------- |
-| **local**      | 開発者ローカル | Docker Compose                       | Supabase CLI（`supabase start`） |
-| **staging**    | 動作確認・QA   | Render（`daishare-api.onrender.com`）| Supabase staging プロジェクト    |
-| **production** | 本番公開       | Render（production サービス・未作成）| Supabase prod プロジェクト       |
+| 環境           | 用途           | FastAPI                                          | Supabase                                        | モバイル env ファイル |
+| -------------- | -------------- | ------------------------------------------------ | ----------------------------------------------- | --------------------- |
+| **local**      | 開発者ローカル | Docker Compose（`http://192.168.X.X:8000`）      | `daishare-staging`（Supabase CLI または直接接続）| `.env.local`          |
+| **staging**    | 動作確認・QA   | Render `daishare-api-staging`（develop ブランチ）| `daishare-staging`                              | `.env.staging`        |
+| **production** | 本番公開       | Render `daishare-api`（main ブランチ）           | `daishare-production`（Pro）                    | `.env.production`     |
 
 ### 4.2 ブランチ戦略
 
 ```
-main ──────────────────────────── 本番デプロイ（タグリリース）
-  │
-develop ────────────────────────── stagingへ自動デプロイ
-  │
-feature/xxx ────────────────────── ローカル開発
+feature/xxx ──→ develop ──→ main
+               (staging)   (production)
+
+- feature/xxx: ローカル開発
+- develop: daishare-api-staging へ自動デプロイ
+- main: daishare-api（production）へ自動デプロイ
 ```
 
 ### 4.3 Docker Compose 構成（ローカル）
@@ -213,17 +215,22 @@ DATABASE_URL=postgresql+asyncpg://postgres:postgres@host.docker.internal:54322/p
 SUPABASE_JWT_SECRET=<Supabase JWT Secret>
 SUPABASE_URL=<Supabase Project URL>
 SUPABASE_SERVICE_ROLE_KEY=<Service Role Key>
-ALLOWED_ORIGINS=http://localhost:8081,https://staging.daishere.app
+ALLOWED_ORIGINS=http://localhost:8081,http://localhost:19006,exp://localhost:8081
 ENVIRONMENT=local | staging | production
 ```
 
-**モバイル（Expo）**
+**モバイル（Expo）— `.env.local` / `.env.staging` / `.env.production`**
 
 ```env
-EXPO_PUBLIC_SUPABASE_URL=<Supabase URL>
+EXPO_PUBLIC_SUPABASE_URL=<Supabase Project URL>
 EXPO_PUBLIC_SUPABASE_ANON_KEY=<Supabase Anon Key>
-EXPO_PUBLIC_API_URL=http://localhost:8000 | https://api-staging.daishere.app
+EXPO_PUBLIC_API_URL=<FastAPI URL>
+# local:      http://192.168.X.X:8000
+# staging:    https://daishare-api-staging.onrender.com
+# production: https://daishare-api.onrender.com
 ```
+
+> **注意**: `.env.staging` / `.env.production` は `.gitignore` で除外済み（シークレットを含むため）
 
 ---
 

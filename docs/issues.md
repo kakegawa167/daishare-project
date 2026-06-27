@@ -166,9 +166,9 @@
 | 項目             | 内容                                                                                   |
 | ---------------- | -------------------------------------------------------------------------------------- |
 | 発生日時         | 2026-06-28                                                                             |
-| ステータス       | `in-progress`                                                                          |
+| ステータス       | `resolved`                                                                             |
 | 課題内容         | staging と production が同一 Supabase プロジェクトを共用しており、テストデータが本番に混入するリスクがある |
 | 影響範囲         | テスト品質・本番データ汚染リスク                                                       |
-| 必要なアクション | 1. Supabase Pro にアップグレード（完了）<br>2. `daishare-production` プロジェクト作成（完了）<br>3. production DB にマイグレーション・シード適用（完了）<br>4. Render `daishare-api`（main）の環境変数を production Supabase に更新（ユーザー作業待ち）<br>5. Render `daishare-api-staging`（develop）を新規作成し staging Supabase に接続（ユーザー作業待ち）<br>6. Supabase production に Storage バケット・RLS 設定<br>7. Supabase production に Google OAuth リダイレクト URL 登録 |
-| 解決日時         | —                                                                                      |
-| 解決方法         | —                                                                                      |
+| 必要なアクション | 解決済み                                                                               |
+| 解決日時         | 2026-06-28                                                                             |
+| 解決方法         | 1. Supabase Pro にアップグレード<br>2. `daishare-production` プロジェクト作成（Singapore、micro）<br>3. production DB にマイグレーション・シードデータ適用<br>4. Render `daishare-api`（main）の DATABASE_URL を production Supabase IPv4 プーラーに更新<br>5. Render `daishare-api-staging`（develop）を staging 環境に新規作成・staging Supabase IPv4 プーラーに接続<br>6. Supabase production に Storage バケット（avatars / cart-images）・RLS ポリシー設定<br>7. Supabase production に Google OAuth リダイレクト URL（`daishare://auth/callback`）登録<br>8. `.env.local` / `.env.staging` / `.env.production` 環境ファイル整備<br>9. UptimeRobot に staging 監視追加<br>**補足**: Render から Supabase への接続は IPv4 プーラー URL 必須（ERR-015 参照） |
