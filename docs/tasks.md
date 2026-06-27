@@ -67,7 +67,7 @@
 - [x] UptimeRobot に staging 監視追加（`daishare-api-staging.onrender.com/health`）
 - [x] `.env.staging` / `.env.production` / `.env.local` 環境ファイル整備
 - [ ] production Storage バケット（avatars / cart-images）RLS ポリシー確認
-- [ ] staging API `/stations/municipalities` 500 エラー調査・修正（ISS-012 関連）
+- [x] staging / production API IPv6 問題修正（Supabase pooler URL に変更）
 
 ### 0-7. EAS（Expo Application Services）設定
 

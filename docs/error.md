@@ -187,3 +187,18 @@
 | 対応方法 | ネイティブ Google Sign-In SDK を使う `signInWithIdToken` フローを廃止し、`expo-auth-session` + `expo-web-browser` を使った Web OAuth フロー（`supabase.auth.signInWithOAuth`）に切り替えた。ブラウザで Google 認証後、`daishare://auth/callback` にリダイレクトされ URL からトークンを取得する |
 | 注意点   | Supabase ダッシュボード → Authentication → URL Configuration → Redirect URLs に `daishare://auth/callback` を追加する必要がある |
 | 対象ファイル | `mobile/app/(auth)/login.tsx` |
+
+---
+
+## ERR-015 — Render から Supabase DB に IPv6 で接続できない
+
+| 項目       | 内容                                                                                     |
+| ---------- | ---------------------------------------------------------------------------------------- |
+| エラーID   | ERR-015                                                                                  |
+| 発生日時   | 2026-06-28                                                                               |
+| 発生箇所   | Render `daishare-api` / `daishare-api-staging`                                          |
+| 症状       | `/stations/municipalities` など全 DB アクセスエンドポイントが 500 Internal Server Error  |
+| 原因       | Render free tier は IPv6 非対応。Supabase の直接接続 URL（`db.XXX.supabase.co:5432`）が IPv6 解決されるため接続不可。エラー: `OSError: [Errno 101] Network is unreachable` |
+| 対応方法   | DATABASE_URL を Supabase の **IPv4 接続プーラー URL** に変更する。<br>形式: `postgresql+asyncpg://postgres.PROJECT_REF:PASSWORD@aws-1-ap-southeast-1.pooler.supabase.com:5432/postgres`<br>正確な URL は Supabase → Settings → Database → Connection string → Session mode で取得 |
+| 注意点     | プーラーホストは `aws-0-` でなく `aws-1-` の場合あり（ダッシュボードで要確認）。新しい Supabase プロジェクトを Render に接続する際は必ずプーラー URL を使用する |
+| 対象ファイル | Render 環境変数 `DATABASE_URL`（staging / production 両方）                             |
