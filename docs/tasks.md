@@ -1,6 +1,6 @@
 # ダイシェア モバイルアプリ 開発タスク
 
-> 最終更新: 2026-06-26  
+> 最終更新: 2026-06-28  
 > ステータス凡例: `[ ]` 未着手 / `[→]` 進行中 / `[x]` 完了 / `[-]` スキップ
 
 ---
@@ -39,8 +39,11 @@
 ### 0-4. Supabase クラウドプロジェクト作成
 
 - [x] staging プロジェクト作成（`daishare-staging`）
-- [ ] production プロジェクト作成（`daishere-prod`）
+- [x] production プロジェクト作成（`daishare-production`、Singapore、Supabase Pro）
 - [x] staging の URL / Anon Key / JWT Secret / Service Role Key を取得・保管
+- [x] production の URL / Anon Key / JWT Secret / Service Role Key を取得・保管
+- [x] production DB にマイグレーション適用（Alembic）
+- [x] production DB にシードデータ投入（路線・駅）
 
 ### 0-5. モバイル（Expo）初期設定
 
@@ -59,7 +62,12 @@
 - [x] デプロイ成功・URL 発行（`https://daishare-api.onrender.com`）
 - [x] UptimeRobot でスリープ防止（5分間隔 `/health` 監視）
 - [x] モバイルアプリの `EXPO_PUBLIC_API_URL` を Render URL に更新
-- [ ] production サービス作成（本番リリース時）
+- [x] Render `daishare-api`（main）の環境変数を production Supabase に更新
+- [x] Render `daishare-api-staging`（develop）を Staging 環境に作成・デプロイ
+- [x] UptimeRobot に staging 監視追加（`daishare-api-staging.onrender.com/health`）
+- [x] `.env.staging` / `.env.production` / `.env.local` 環境ファイル整備
+- [ ] production Storage バケット（avatars / cart-images）RLS ポリシー確認
+- [ ] staging API `/stations/municipalities` 500 エラー調査・修正（ISS-012 関連）
 
 ### 0-7. EAS（Expo Application Services）設定
 
@@ -390,9 +398,12 @@
 
 ### 6-7. インフラ
 
-- [x] Render staging 環境構築（`https://daishare-api.onrender.com`）
-- [ ] Render production サービス作成（本番リリース時）
-- [ ] Supabase production プロジェクト作成
+- [x] Render `daishare-api`（main）= production 環境構築（`https://daishare-api.onrender.com`）
+- [x] Render `daishare-api-staging`（develop）= staging 環境構築（`https://daishare-api-staging.onrender.com`）
+- [x] Supabase production プロジェクト作成（`daishare-production`、Pro）
+- [x] Supabase production DB マイグレーション・シードデータ投入
+- [ ] Supabase production Storage バケット・RLS 設定完了確認
+- [ ] Supabase production Google OAuth リダイレクト URL 登録
 - [ ] 本番 RLS ポリシー全設定
 - [ ] APM・ログ監視設定（Sentry など）
 
