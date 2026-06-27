@@ -158,3 +158,17 @@
 | 暫定対応         | Expo Go 時は購入ボタンを表示するが、タップ時に「実機ビルドが必要です」Alert を表示するよう実装済み |
 | 解決日時         | —（ISS-005 解決後に対応予定）                                                                    |
 | 解決方法         | —                                                                                                |
+
+---
+
+## ISS-012 — staging / production 環境分離
+
+| 項目             | 内容                                                                                   |
+| ---------------- | -------------------------------------------------------------------------------------- |
+| 発生日時         | 2026-06-28                                                                             |
+| ステータス       | `in-progress`                                                                          |
+| 課題内容         | staging と production が同一 Supabase プロジェクトを共用しており、テストデータが本番に混入するリスクがある |
+| 影響範囲         | テスト品質・本番データ汚染リスク                                                       |
+| 必要なアクション | 1. Supabase Pro にアップグレード（完了）<br>2. `daishare-production` プロジェクト作成（完了）<br>3. production DB にマイグレーション・シード適用（完了）<br>4. Render `daishare-api`（main）の環境変数を production Supabase に更新（ユーザー作業待ち）<br>5. Render `daishare-api-staging`（develop）を新規作成し staging Supabase に接続（ユーザー作業待ち）<br>6. Supabase production に Storage バケット・RLS 設定<br>7. Supabase production に Google OAuth リダイレクト URL 登録 |
+| 解決日時         | —                                                                                      |
+| 解決方法         | —                                                                                      |
