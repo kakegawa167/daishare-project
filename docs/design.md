@@ -1400,7 +1400,7 @@ cart-rental-ios/
 | 貸出開始N分前          | 貸主・借主 | REMINDER_LEND_START |
 | 返却時刻N分前          | 貸主・借主 | REMINDER_RETURN     |
 
-> リマインドは APScheduler（または Railway Cron）による定期バッチで送信。
+> リマインドは APScheduler による定期バッチで送信（Render 上で動作）。
 > サーバー側のリマインドタイミングは固定値（貸出60分前・返却60分前）。
 
 ---
@@ -1409,7 +1409,7 @@ cart-rental-ios/
 
 | Phase       | 期間   | 内容                                                            |
 | ----------- | ------ | --------------------------------------------------------------- |
-| **Phase 0** | 1〜2日 | 環境構築（Docker, Supabase CLI, Expo, GitHub Actions, Railway） |
+| **Phase 0** | 1〜2日 | 環境構築（Docker, Supabase CLI, Expo, GitHub Actions, Render） |
 | **Phase 1** | 1週間  | 認証・ユーザー登録・プロフィール                                |
 | **Phase 2** | 2週間  | 台車CRUD・検索・リクエスト送受信                                |
 | **Phase 3** | 2週間  | メッセージ・承認フロー・予約管理                                |
