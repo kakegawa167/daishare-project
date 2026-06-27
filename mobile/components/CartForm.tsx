@@ -3,6 +3,8 @@ import { useCallback, useState } from 'react';
 import {
   AccessibilityInfo,
   ActivityIndicator,
+  Alert,
+  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -11,6 +13,9 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { MaterialIcons } from '@expo/vector-icons';
+import { supabase } from '@/lib/supabase';
+import { useAuthStore } from '@/store/authStore';
 import { StationPicker } from '@/components/StationPicker';
 
 // ─── カテゴリ ─────────────────────────────────
@@ -177,11 +182,29 @@ function LocationRow({
   );
 }
 
+// ─── 画像アップロード ──────────────────────────
+async function uploadCartImage(uri: string, userId: string): Promise<string> {
+  const ext = uri.split('.').pop()?.toLowerCase() ?? 'jpg';
+  const path = `carts/${userId}/${Date.now()}.${ext}`;
+  const response = await fetch(uri);
+  const blob = await response.blob();
+  const arrayBuffer = await new Response(blob).arrayBuffer();
+  const { error } = await supabase.storage.from('cart-images').upload(path, arrayBuffer, {
+    contentType: `image/${ext === 'jpg' ? 'jpeg' : ext}`,
+    upsert: false,
+  });
+  if (error) throw error;
+  const { data } = supabase.storage.from('cart-images').getPublicUrl(path);
+  return data.publicUrl;
+}
+
 // ─── メイン ───────────────────────────────────
 export default function CartForm({ initialData, onSubmit, submitLabel }: Props) {
+  const user = useAuthStore((s) => s.user);
   const [form, setForm] = useState<CartFormData>(initialData);
   const [pickerTargetIndex, setPickerTargetIndex] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [errors, setErrors] = useState<Errors>({});
 
   const set = <K extends keyof CartFormData>(k: K, v: CartFormData[K]) =>
@@ -219,6 +242,41 @@ export default function CartForm({ initialData, onSubmit, submitLabel }: Props) 
     clr('locations');
     setPickerTargetIndex(null);
   }, [pickerTargetIndex]);
+
+  // ── 画像選択・アップロード ──────────────────
+  const handleAddImage = useCallback(async () => {
+    if (!user) return;
+    try {
+      const ImagePicker = await import('expo-image-picker');
+      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!perm.granted) {
+        Alert.alert('許可が必要です', '写真へのアクセスを許可してください');
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsMultipleSelection: true,
+        quality: 0.8,
+        selectionLimit: 5,
+      });
+      if (result.canceled) return;
+      setUploadingImage(true);
+      const urls: string[] = [];
+      for (const asset of result.assets) {
+        const url = await uploadCartImage(asset.uri, user.id);
+        urls.push(url);
+      }
+      setForm((f) => ({ ...f, image_urls: [...f.image_urls, ...urls].slice(0, 5) }));
+    } catch {
+      Alert.alert('エラー', '写真のアップロードに失敗しました');
+    } finally {
+      setUploadingImage(false);
+    }
+  }, [user]);
+
+  const handleRemoveImage = useCallback((index: number) => {
+    setForm((f) => ({ ...f, image_urls: f.image_urls.filter((_, i) => i !== index) }));
+  }, []);
 
   // ── バリデーション ──────────────────────────
   const validate = (): boolean => {
@@ -289,12 +347,29 @@ export default function CartForm({ initialData, onSubmit, submitLabel }: Props) 
 
         <View style={s.divider} />
 
-        <FieldLabel>写真</FieldLabel>
-        <Pressable style={s.photoBtn} disabled>
-          <Text style={s.photoBtnIcon}>＋</Text>
-          <Text style={s.photoBtnText}>写真を追加</Text>
-          <Text style={s.photoBtnSub}>準備中</Text>
-        </Pressable>
+        <FieldLabel>写真（最大5枚）</FieldLabel>
+        <View style={s.photoGrid}>
+          {form.image_urls.map((url, i) => (
+            <View key={i} style={s.photoThumbWrap}>
+              <Image source={{ uri: url }} style={s.photoThumb} />
+              <Pressable style={s.photoRemove} onPress={() => handleRemoveImage(i)}>
+                <MaterialIcons name="close" size={14} color="#fff" />
+              </Pressable>
+            </View>
+          ))}
+          {form.image_urls.length < 5 && (
+            <Pressable
+              style={s.photoAddBtn}
+              onPress={handleAddImage}
+              disabled={uploadingImage}
+            >
+              {uploadingImage
+                ? <ActivityIndicator size="small" color="#9ca3af" />
+                : <MaterialIcons name="add-photo-alternate" size={28} color="#9ca3af" />
+              }
+            </Pressable>
+          )}
+        </View>
       </Card>
 
       {/* ── スペック ── */}
@@ -481,16 +556,19 @@ const s = StyleSheet.create({
   catText: { fontSize: 13, fontWeight: '600', color: '#9ca3af' },
   catTextSel: { color: BLUE },
 
-  photoBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    padding: 14, borderRadius: 10, borderWidth: 1.5,
-    borderColor: '#e5e7eb', borderStyle: 'dashed', backgroundColor: '#fafafa',
+  photoGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  photoThumbWrap: { width: 80, height: 80, borderRadius: 8, overflow: 'hidden' },
+  photoThumb: { width: 80, height: 80 },
+  photoRemove: {
+    position: 'absolute', top: 4, right: 4,
+    width: 20, height: 20, borderRadius: 10,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    alignItems: 'center', justifyContent: 'center',
   },
-  photoBtnIcon: { fontSize: 22, color: '#d1d5db', fontWeight: '300' },
-  photoBtnText: { fontSize: 14, fontWeight: '600', color: '#9ca3af', flex: 1 },
-  photoBtnSub: {
-    fontSize: 11, color: '#d1d5db', backgroundColor: '#f3f4f6',
-    paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4,
+  photoAddBtn: {
+    width: 80, height: 80, borderRadius: 8,
+    borderWidth: 1.5, borderColor: '#e5e7eb', borderStyle: 'dashed',
+    backgroundColor: '#fafafa', alignItems: 'center', justifyContent: 'center',
   },
 
   // 在庫数カウンター
