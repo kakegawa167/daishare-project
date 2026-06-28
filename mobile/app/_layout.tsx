@@ -24,7 +24,13 @@ export default function RootLayout() {
   const { setSession, syncUser } = useAuthStore();
 
   useEffect(() => {
-    if (loaded) SplashScreen.hideAsync();
+    // フォントロード完否にかかわらず必ずスプラッシュを隠す
+    if (loaded) {
+      SplashScreen.hideAsync();
+    } else {
+      const t = setTimeout(() => SplashScreen.hideAsync(), 3000);
+      return () => clearTimeout(t);
+    }
   }, [loaded]);
 
   // RevenueCat 初期化（ネイティブモジュールが利用可能な場合のみ動作）
