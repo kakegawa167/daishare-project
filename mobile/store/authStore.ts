@@ -42,17 +42,23 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   syncUser: async () => {
     const { session } = get();
     if (!session) return;
-    try {
-      const res = await api.post('/auth/sync', {
-        email: session.user.email,
-        display_name: session.user.user_metadata?.full_name ?? session.user.email,
-      });
-      set({ user: res.data });
-      // RevenueCat にユーザー ID を紐付け（ネイティブビルドのみ動作）
-      loginRevenueCat(session.user.id).catch(() => {});
-    } catch (e) {
-      console.error('syncUser failed', e);
+    const body = {
+      email: session.user.email,
+      display_name: session.user.user_metadata?.full_name ?? session.user.email,
+    };
+    // Render コールドスタート対策: 最大3回リトライ
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        const res = await api.post('/auth/sync', body);
+        set({ user: res.data });
+        loginRevenueCat(session.user.id).catch(() => {});
+        return;
+      } catch (e) {
+        console.warn(`syncUser attempt ${attempt} failed`, e);
+        if (attempt < 3) await new Promise((r) => setTimeout(r, 2000 * attempt));
+      }
     }
+    console.error('syncUser failed after 3 attempts');
   },
 
   signOut: async () => {

@@ -41,9 +41,13 @@ export default function RootLayout() {
       if (session) syncUser();
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session);
-      if (session) syncUser();
+      if (session) {
+        // SIGNED_IN 直後はトークンが getSession に反映されるまで少し待つ
+        const delay = event === 'SIGNED_IN' ? 500 : 0;
+        setTimeout(() => syncUser(), delay);
+      }
     });
 
     return () => subscription.unsubscribe();
