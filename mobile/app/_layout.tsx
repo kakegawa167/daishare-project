@@ -60,9 +60,7 @@ function RootLayoutNav() {
 
   useEffect(() => {
     if (loading) return;
-    if (!session) {
-      router.replace('/(auth)/login');
-    } else if (user?.is_new) {
+    if (session && user?.is_new) {
       router.replace('/profile-edit');
     }
   }, [session, loading, user?.is_new]);

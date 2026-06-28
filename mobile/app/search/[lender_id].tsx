@@ -1,6 +1,7 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { api } from '@/lib/api';
 import { Cart } from '@/lib/types';
+import { requireAuth } from '@/lib/requireAuth';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
@@ -228,7 +229,7 @@ export default function LenderDetail() {
       <View style={s.footer}>
         <Pressable
           style={[s.footerBtn, s.footerBtnOutline]}
-          onPress={() => setInquiryVisible(true)}
+          onPress={() => { if (requireAuth('質問')) setInquiryVisible(true); }}
         >
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             <MaterialIcons name="chat-bubble-outline" size={16} color="#3b82f6" />
@@ -237,7 +238,7 @@ export default function LenderDetail() {
         </Pressable>
         <Pressable
           style={[s.footerBtn, s.footerBtnPrimary]}
-          onPress={() => router.push(`/request-new?lender_id=${lender_id}${cart_id ? `&cart_id=${cart_id}` : ''}` as any)}
+          onPress={() => { if (requireAuth('リクエスト送信')) router.push(`/request-new?lender_id=${lender_id}${cart_id ? `&cart_id=${cart_id}` : ''}` as any); }}
         >
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             <MaterialIcons name="shopping-cart" size={16} color="#fff" />

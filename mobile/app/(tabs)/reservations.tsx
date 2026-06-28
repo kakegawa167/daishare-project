@@ -3,6 +3,7 @@ import { api } from '@/lib/api';
 import { RentalRequest, RequestStatus } from '@/lib/types';
 import { EmptyScreen, LoadingScreen } from '@/components/ScreenState';
 import { useAuthStore } from '@/store/authStore';
+import { LoginPrompt } from '@/components/LoginPrompt';
 import { router, useFocusEffect } from 'expo-router';
 import React, { useCallback, useMemo, useState } from 'react';
 import {
@@ -214,7 +215,7 @@ function TabBar({
 
 // ─── メイン ───────────────────────────────────────
 export default function Reservations() {
-  const { user } = useAuthStore();
+  const { user, session } = useAuthStore();
   const [requests, setRequests] = useState<RentalRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -240,7 +241,9 @@ export default function Reservations() {
     }
   }, []);
 
-  useFocusEffect(useCallback(() => { fetch(); }, []));
+  useFocusEffect(useCallback(() => { if (session) fetch(); }, [session]));
+
+  if (!session) return <LoginPrompt message="予約・リクエストを確認するにはログインが必要です" />;
 
   const userId  = user?.id ?? '';
   const now     = new Date();

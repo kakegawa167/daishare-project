@@ -5,6 +5,7 @@ import { EmptyScreen, LoadingScreen } from '@/components/ScreenState';
 import { useAuthStore } from '@/store/authStore';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
+import { LoginPrompt } from '@/components/LoginPrompt';
 import {
   Alert,
   FlatList,
@@ -127,7 +128,7 @@ function CartCard({
 
 // ─── メイン画面 ───────────────────────────────
 export default function Carts() {
-  const { user } = useAuthStore();
+  const { user, session } = useAuthStore();
   const [carts, setCarts] = useState<Cart[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -148,7 +149,9 @@ export default function Carts() {
     }
   }, []);
 
-  useFocusEffect(useCallback(() => { fetchCarts(); }, [fetchCarts]));
+  useFocusEffect(useCallback(() => { if (session) fetchCarts(); }, [fetchCarts, session]));
+
+  if (!session) return <LoginPrompt message="台車を登録・管理するにはログインが必要です" />;
 
   const sorted = useMemo(() => {
     const arr = [...carts];

@@ -22,6 +22,7 @@ const STATUS_COLOR: Record<string, string> = {
 };
 import { EmptyScreen, LoadingScreen } from '@/components/ScreenState';
 import { useAuthStore } from '@/store/authStore';
+import { LoginPrompt } from '@/components/LoginPrompt';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
@@ -114,7 +115,7 @@ function ThreadCard({ req, userId }: { req: RentalRequest; userId: string }) {
 }
 
 export default function Messages() {
-  const { user } = useAuthStore();
+  const { user, session } = useAuthStore();
   const [requests, setRequests] = useState<RentalRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -141,7 +142,9 @@ export default function Messages() {
     }
   }, []);
 
-  useFocusEffect(useCallback(() => { fetchRequests(); }, [fetchRequests]));
+  useFocusEffect(useCallback(() => { if (session) fetchRequests(); }, [fetchRequests, session]));
+
+  if (!session) return <LoginPrompt message="メッセージを確認するにはログインが必要です" />;
 
   if (loading) return <LoadingScreen />;
   if (error) return (

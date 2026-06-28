@@ -9,26 +9,29 @@ import { useAuthStore } from '@/store/authStore';
 
 function HeaderRight() {
   const unread = useBadgeStore((s) => s.unreadNotifications);
+  const { session } = useAuthStore();
   return (
     <View style={styles.headerRight}>
+      {session && (
+        <Pressable
+          style={styles.headerBtn}
+          onPress={() => router.push('/notifications')}
+          accessibilityLabel={`通知${unread > 0 ? `、未読${unread}件` : ''}`}
+        >
+          <MaterialIcons name="notifications-none" size={24} color="#374151" />
+          {unread > 0 && (
+            <View style={styles.dot}>
+              <Text style={styles.dotText}>{unread > 9 ? '9+' : unread}</Text>
+            </View>
+          )}
+        </Pressable>
+      )}
       <Pressable
         style={styles.headerBtn}
-        onPress={() => router.push('/notifications')}
-        accessibilityLabel={`通知${unread > 0 ? `、未読${unread}件` : ''}`}
+        onPress={() => session ? router.push('/profile') : router.push('/(auth)/login')}
+        accessibilityLabel={session ? 'プロフィール' : 'ログイン'}
       >
-        <MaterialIcons name="notifications-none" size={24} color="#374151" />
-        {unread > 0 && (
-          <View style={styles.dot}>
-            <Text style={styles.dotText}>{unread > 9 ? '9+' : unread}</Text>
-          </View>
-        )}
-      </Pressable>
-      <Pressable
-        style={styles.headerBtn}
-        onPress={() => router.push('/profile')}
-        accessibilityLabel="プロフィール"
-      >
-        <MaterialIcons name="person-outline" size={24} color="#374151" />
+        <MaterialIcons name={session ? 'person-outline' : 'login'} size={24} color="#374151" />
       </Pressable>
     </View>
   );
