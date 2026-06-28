@@ -18,14 +18,10 @@ export const unstable_settings = {
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
-  const [loaded, error] = useFonts({
+  const [loaded] = useFonts({
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
   });
   const { setSession, syncUser } = useAuthStore();
-
-  useEffect(() => {
-    if (error) throw error;
-  }, [error]);
 
   useEffect(() => {
     if (loaded) SplashScreen.hideAsync();
@@ -50,7 +46,6 @@ export default function RootLayout() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session);
       if (session) {
-        // SIGNED_IN 直後はトークンが getSession に反映されるまで少し待つ
         const delay = event === 'SIGNED_IN' ? 500 : 0;
         setTimeout(() => syncUser(), delay);
       }
@@ -59,8 +54,7 @@ export default function RootLayout() {
     return () => subscription.unsubscribe();
   }, []);
 
-  if (!loaded) return null;
-
+  // フォント未ロードでも描画を止めない（黒画面防止）
   return <RootLayoutNav />;
 }
 
