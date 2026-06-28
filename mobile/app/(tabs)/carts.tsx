@@ -163,6 +163,8 @@ export default function Carts() {
 
   if (!session) return <LoginPrompt message="台車を登録・管理するにはログインが必要です" />;
 
+  const isRenter = user?.user_type === 'renter';
+
   const handleDelete = async (id: number) => {
     try {
       await api.delete(`/carts/${id}`);
@@ -241,16 +243,18 @@ export default function Carts() {
           <EmptyScreen
             icon={<MaterialIcons name="shopping-cart" size={56} color="#d1d5db" />}
             message="台車が登録されていません"
-            subMessage="下のボタンから台車を追加しましょう"
-            action={{ label: '＋ 台車を登録', onPress: () => router.push('/carts/new' as any) }}
+            subMessage={isRenter ? 'プロフィールで利用タイプを「貸す人」に変更すると台車を登録できます' : '下のボタンから台車を追加しましょう'}
+            action={isRenter ? undefined : { label: '＋ 台車を登録', onPress: () => router.push('/carts/new' as any) }}
           />
         }
       />
 
-      {/* FAB */}
-      <Pressable style={s.fab} onPress={() => router.push('/carts/new' as any)}>
-        <Text style={s.fabText}>＋ 台車を登録</Text>
-      </Pressable>
+      {/* FAB: renterには非表示 */}
+      {!isRenter && (
+        <Pressable style={s.fab} onPress={() => router.push('/carts/new' as any)}>
+          <Text style={s.fabText}>＋ 台車を登録</Text>
+        </Pressable>
+      )}
     </View>
   );
 }

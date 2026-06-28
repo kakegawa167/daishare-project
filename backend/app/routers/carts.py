@@ -9,7 +9,7 @@ from app.core.auth import get_current_user_id
 from app.core.database import get_db
 from app.models.cart import Cart, CartLocation, CartStatus
 from app.models.station import Station
-from app.models.user import User
+from app.models.user import User, UserType
 from app.schemas.cart import CartCreateRequest, CartLocationResponse, CartResponse, CartUpdateRequest
 from app.services.plan_service import check_cart_limit, check_location_limit
 
@@ -142,6 +142,12 @@ async def create_cart(
     user = user_result.scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+    if user.user_type == UserType.renter:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="借りる人は台車を登録できません。プロフィールで利用タイプを「貸す人」または「両方」に変更してください。",
+        )
 
     await check_cart_limit(user, db)
     await check_location_limit(user, 0, len(body.locations), db)

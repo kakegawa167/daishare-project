@@ -93,8 +93,9 @@ export default function ProfileEditScreen() {
       } else {
         router.back();
       }
-    } catch {
-      Alert.alert('エラー', '保存に失敗しました');
+    } catch (e: any) {
+      const msg = e?.response?.data?.detail ?? '保存に失敗しました';
+      Alert.alert('保存できません', msg);
     } finally {
       setSaving(false);
     }
