@@ -36,9 +36,15 @@ export default function RootLayout() {
 
   // Supabaseのセッション変化を監視
   useEffect(() => {
+    // タイムアウト付きで getSession を実行（ネットワーク不通でも黒画面にならないよう）
+    const timeout = setTimeout(() => setSession(null), 8000);
     supabase.auth.getSession().then(({ data: { session } }) => {
+      clearTimeout(timeout);
       setSession(session);
       if (session) syncUser();
+    }).catch(() => {
+      clearTimeout(timeout);
+      setSession(null);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
