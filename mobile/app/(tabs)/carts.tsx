@@ -243,8 +243,8 @@ export default function Carts() {
           <EmptyScreen
             icon={<MaterialIcons name="shopping-cart" size={56} color="#d1d5db" />}
             message="台車が登録されていません"
-            subMessage={isRenter ? 'プロフィールで利用タイプを「貸す人」に変更すると台車を登録できます' : '下のボタンから台車を追加しましょう'}
-            action={isRenter ? undefined : { label: '＋ 台車を登録', onPress: () => router.push('/carts/new' as any) }}
+            subMessage={isRenter ? 'プロフィールで利用タイプを「貸す人」に変更すると台車を登録できます' : '下の＋ボタンから台車を追加しましょう'}
+            action={undefined}
           />
         }
       />
