@@ -2,6 +2,8 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { api } from '@/lib/api';
 import { Reservation } from '@/lib/types';
 import { EmptyScreen, LoadingScreen } from '@/components/ScreenState';
+import { LoginPrompt } from '@/components/LoginPrompt';
+import { useAuthStore } from '@/store/authStore';
 import { router, useFocusEffect } from 'expo-router';
 import React, { useCallback, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
@@ -74,6 +76,7 @@ type SectionItem =
   | { kind: 'history-toggle'; count: number; open: boolean };
 
 export default function Schedule() {
+  const { session } = useAuthStore();
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -93,7 +96,9 @@ export default function Schedule() {
     }
   }, []);
 
-  useFocusEffect(useCallback(() => { fetch(); }, [fetch]));
+  useFocusEffect(useCallback(() => { if (session) fetch(); }, [fetch, session]));
+
+  if (!session) return <LoginPrompt message="スケジュールを確認するにはログインが必要です" />;
 
   const now = new Date();
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
