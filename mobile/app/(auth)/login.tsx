@@ -12,10 +12,9 @@ WebBrowser.maybeCompleteAuthSession();
 
 const IS_DEV = __DEV__;
 
-// ログイン成功後の遷移: 新規ユーザーは _layout.tsx が profile-edit へ誘導するため何もしない
+// ログイン成功後の遷移
+// 新規ユーザーの profile-edit リダイレクトは _layout.tsx の onAuthStateChange が担当
 function navigateAfterLogin() {
-  const user = useAuthStore.getState().user;
-  if (user?.is_new) return;
   if (router.canGoBack()) {
     router.back();
   } else {
@@ -25,7 +24,7 @@ function navigateAfterLogin() {
 
 export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
-  const { setSession, syncUser } = useAuthStore();
+  const { setSession } = useAuthStore();
 
   useEffect(() => {
     // ディープリンクで戻ってきたときにセッションを処理
@@ -34,13 +33,13 @@ export default function LoginScreen() {
       const accessToken = urlObj.searchParams.get('access_token') ?? urlObj.hash.split('access_token=')[1]?.split('&')[0];
       const refreshToken = urlObj.searchParams.get('refresh_token') ?? urlObj.hash.split('refresh_token=')[1]?.split('&')[0];
       if (accessToken) {
-        const { data, error } = await supabase.auth.setSession({
+        const { data } = await supabase.auth.setSession({
           access_token: accessToken,
           refresh_token: refreshToken ?? '',
         });
         if (data?.session) {
           setSession(data.session);
-          await syncUser();
+          // syncUser は _layout.tsx の onAuthStateChange に任せる
           navigateAfterLogin();
         }
       }
@@ -64,7 +63,6 @@ export default function LoginScreen() {
       });
       if (error) throw error;
       setSession(data.session);
-      await syncUser();
       navigateAfterLogin();
     } catch (e: any) {
       Alert.alert('開発ログインエラー', e.message);
@@ -104,7 +102,6 @@ export default function LoginScreen() {
           if (sessionError) throw sessionError;
           if (sessionData.session) {
             setSession(sessionData.session);
-            await syncUser();
             navigateAfterLogin();
           }
         }
