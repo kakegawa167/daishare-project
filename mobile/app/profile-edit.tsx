@@ -81,13 +81,14 @@ export default function ProfileEditScreen() {
     if (!form.display_name.trim()) { Alert.alert('エラー', '名前を入力してください'); return; }
     setSaving(true);
     try {
+      const wasNew = user?.is_new;
       await api.put('/users/me', {
         display_name: form.display_name.trim(),
         bio: form.bio.trim() || null,
         user_type: form.user_type,
       });
       await syncUser();
-      if (user?.is_new) {
+      if (wasNew) {
         router.replace('/(tabs)');
       } else {
         router.back();

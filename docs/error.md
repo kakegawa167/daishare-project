@@ -202,3 +202,17 @@
 | 対応方法   | DATABASE_URL を Supabase の **IPv4 接続プーラー URL** に変更する。<br>形式: `postgresql+asyncpg://postgres.PROJECT_REF:PASSWORD@aws-1-ap-southeast-1.pooler.supabase.com:5432/postgres`<br>正確な URL は Supabase → Settings → Database → Connection string → Session mode で取得 |
 | 注意点     | プーラーホストは `aws-0-` でなく `aws-1-` の場合あり（ダッシュボードで要確認）。新しい Supabase プロジェクトを Render に接続する際は必ずプーラー URL を使用する |
 | 対象ファイル | Render 環境変数 `DATABASE_URL`（staging / production 両方）                             |
+
+---
+
+## ERR-016 — 初回ログイン後プロフィール保存で GO_BACK エラー
+
+| 項目       | 内容                                                                                     |
+| ---------- | ---------------------------------------------------------------------------------------- |
+| エラーID   | ERR-016                                                                                  |
+| 発生日時   | 2026-06-29                                                                               |
+| 発生箇所   | `mobile/app/profile-edit.tsx` `handleSave()`                                            |
+| 症状       | 初回ログイン後にプロフィールを保存すると `GO_BACK was not handled by any navigator` エラー |
+| 原因       | `syncUser()`（GET /users/me）が `is_new` フラグを返さないため、`syncUser()` 後に `user?.is_new` をチェックすると `undefined` になり `router.back()` が呼ばれる。初回登録直後はスタックに戻り先がないためエラー |
+| 対応方法   | `syncUser()` を呼ぶ前に `const wasNew = user?.is_new` で保存し、そちらで分岐する |
+| 対象ファイル | `mobile/app/profile-edit.tsx`                                                           |
