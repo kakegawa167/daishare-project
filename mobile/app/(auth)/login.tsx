@@ -3,6 +3,7 @@ import { makeRedirectUri } from 'expo-auth-session';
 import { useEffect, useState } from 'react';
 import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Linking } from 'react-native';
+import { router } from 'expo-router';
 
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/authStore';
@@ -11,6 +12,17 @@ WebBrowser.maybeCompleteAuthSession();
 
 const IS_DEV = __DEV__;
 
+// ログイン成功後の遷移: 新規ユーザーは _layout.tsx が profile-edit へ誘導するため何もしない
+function navigateAfterLogin() {
+  const user = useAuthStore.getState().user;
+  if (user?.is_new) return;
+  if (router.canGoBack()) {
+    router.back();
+  } else {
+    router.replace('/(tabs)');
+  }
+}
+
 export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
   const { setSession, syncUser } = useAuthStore();
@@ -18,7 +30,6 @@ export default function LoginScreen() {
   useEffect(() => {
     // ディープリンクで戻ってきたときにセッションを処理
     const handleUrl = async (url: string) => {
-      // ディープリンクのURLからトークンを抽出してセッションをセット
       const urlObj = new URL(url);
       const accessToken = urlObj.searchParams.get('access_token') ?? urlObj.hash.split('access_token=')[1]?.split('&')[0];
       const refreshToken = urlObj.searchParams.get('refresh_token') ?? urlObj.hash.split('refresh_token=')[1]?.split('&')[0];
@@ -30,6 +41,7 @@ export default function LoginScreen() {
         if (data?.session) {
           setSession(data.session);
           await syncUser();
+          navigateAfterLogin();
         }
       }
     };
@@ -53,6 +65,7 @@ export default function LoginScreen() {
       if (error) throw error;
       setSession(data.session);
       await syncUser();
+      navigateAfterLogin();
     } catch (e: any) {
       Alert.alert('開発ログインエラー', e.message);
     } finally {
@@ -92,6 +105,7 @@ export default function LoginScreen() {
           if (sessionData.session) {
             setSession(sessionData.session);
             await syncUser();
+            navigateAfterLogin();
           }
         }
       }
