@@ -151,8 +151,6 @@ export default function Carts() {
 
   useFocusEffect(useCallback(() => { if (session) fetchCarts(); }, [fetchCarts, session]));
 
-  if (!session) return <LoginPrompt message="台車を登録・管理するにはログインが必要です" />;
-
   const sorted = useMemo(() => {
     const arr = [...carts];
     switch (sortKey) {
@@ -162,6 +160,8 @@ export default function Carts() {
       case 'price_desc':return arr.sort((a, b) => lowestPrice(b) - lowestPrice(a));
     }
   }, [carts, sortKey]);
+
+  if (!session) return <LoginPrompt message="台車を登録・管理するにはログインが必要です" />;
 
   const handleDelete = async (id: number) => {
     try {

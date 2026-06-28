@@ -243,17 +243,12 @@ export default function Reservations() {
 
   useFocusEffect(useCallback(() => { if (session) fetch(); }, [session]));
 
-  if (!session) return <LoginPrompt message="予約・リクエストを確認するにはログインが必要です" />;
-
   const userId  = user?.id ?? '';
   const now     = new Date();
 
-  // 自分が借りる人のリクエスト
   const asRenter = requests.filter(r => r.renter_id === userId);
-  // 自分が貸す人のリクエスト（自分の台車へのリクエスト）
   const asLender = requests.filter(r => r.renter_id !== userId);
 
-  // タブごとに振り分け
   const classify = (list: RentalRequest[], tab: ContentTab): RentalRequest[] => {
     if (tab === 'request') return list.filter(r => r.status === 'pending');
     if (tab === 'booked')  return list.filter(r =>
@@ -261,7 +256,6 @@ export default function Reservations() {
       r.reservation_status !== 'returned' &&
       (r.reservation_status === 'reserved' || r.reservation_status === 'lent' || !r.reservation_status)
     );
-    // history: cancelled, rejected, 返却済み
     return list.filter(r =>
       r.status === 'cancelled' || r.status === 'rejected' ||
       r.reservation_status === 'returned'
@@ -277,6 +271,8 @@ export default function Reservations() {
     booked:  classify(baseList, 'booked').length,
     history: classify(baseList, 'history').length,
   }), [baseList, requests]);
+
+  if (!session) return <LoginPrompt message="予約・リクエストを確認するにはログインが必要です" />;
 
   const tabs = isLenderView ? LENDER_TABS : RENTER_TABS;
 
