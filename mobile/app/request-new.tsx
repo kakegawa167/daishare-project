@@ -8,7 +8,6 @@ import {
   ActivityIndicator,
   Alert,
   Image,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -51,9 +50,10 @@ function DateTimeField({
         <DateTimePicker
           value={value}
           mode="date"
-          display={Platform.OS === 'ios' ? 'compact' : 'default'}
+          display="inline"
+          locale="ja-JP"
           minimumDate={minimumDate}
-          onChange={(_, d) => { setShowDate(false); if (d) { const n = new Date(d); n.setHours(value.getHours(), value.getMinutes()); onChange(n); } }}
+          onChange={(_, d) => { if (d) { setShowDate(false); const n = new Date(d); n.setHours(value.getHours(), value.getMinutes()); onChange(n); } }}
         />
       )}
       {showTime && (
