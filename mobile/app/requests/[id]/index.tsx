@@ -49,7 +49,7 @@ const fmtDT = (d: string) =>
 
 // ─── レビューモーダル ──────────────────────────────────
 function ReviewModal({ reservationId, visible, onClose }: { reservationId: number; visible: boolean; onClose: () => void }) {
-  const [rating, setRating] = useState(3);
+  const [rating, setRating] = useState<1 | 3>(3);
   const [comment, setComment] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -72,13 +72,20 @@ function ReviewModal({ reservationId, visible, onClose }: { reservationId: numbe
         <Text style={s.reviewTitle}>レビューを書く</Text>
         <Text style={s.reviewLabel}>評価</Text>
         <View style={s.ratingRow}>
-          {([3, 2, 1] as const).map((v) => (
-            <Pressable key={v} style={[s.ratingBtn, rating === v && s.ratingBtnActive]} onPress={() => setRating(v)}>
-              <Text style={[s.ratingBtnText, rating === v && s.ratingBtnTextActive]}>
-                {v === 3 ? '★★★ 良い' : v === 2 ? '★★ 普通' : '★ 悪い'}
-              </Text>
-            </Pressable>
-          ))}
+          <Pressable
+            style={[s.ratingBtn, rating === 3 && s.ratingBtnGood]}
+            onPress={() => setRating(3)}
+          >
+            <Text style={s.ratingBtnEmoji}>👍</Text>
+            <Text style={[s.ratingBtnText, rating === 3 && s.ratingBtnTextActive]}>良かった</Text>
+          </Pressable>
+          <Pressable
+            style={[s.ratingBtn, rating === 1 && s.ratingBtnBad]}
+            onPress={() => setRating(1)}
+          >
+            <Text style={s.ratingBtnEmoji}>👎</Text>
+            <Text style={[s.ratingBtnText, rating === 1 && s.ratingBtnTextActive]}>悪かった</Text>
+          </Pressable>
         </View>
         <Text style={s.reviewLabel}>コメント（任意）</Text>
         <TextInput
@@ -923,11 +930,13 @@ const s = StyleSheet.create({
   reviewModal: { flex: 1, padding: 24, backgroundColor: '#fff' },
   reviewTitle: { fontSize: 20, fontWeight: '700', marginBottom: 20 },
   reviewLabel: { fontSize: 14, fontWeight: '600', color: '#374151', marginTop: 16, marginBottom: 8 },
-  ratingRow: { flexDirection: 'row', gap: 8 },
-  ratingBtn: { flex: 1, padding: 10, borderRadius: 8, borderWidth: 1, borderColor: '#d1d5db', alignItems: 'center' },
-  ratingBtnActive: { backgroundColor: '#3b82f6', borderColor: '#3b82f6' },
-  ratingBtnText: { fontSize: 13, color: '#374151' },
-  ratingBtnTextActive: { color: '#fff', fontWeight: '700' },
+  ratingRow: { flexDirection: 'row', gap: 12 },
+  ratingBtn: { flex: 1, paddingVertical: 16, borderRadius: 12, borderWidth: 2, borderColor: '#d1d5db', alignItems: 'center', gap: 6 },
+  ratingBtnGood: { backgroundColor: '#f0fdf4', borderColor: '#10b981' },
+  ratingBtnBad: { backgroundColor: '#fef2f2', borderColor: '#ef4444' },
+  ratingBtnEmoji: { fontSize: 24 },
+  ratingBtnText: { fontSize: 14, fontWeight: '600', color: '#374151' },
+  ratingBtnTextActive: { color: '#111827', fontWeight: '700' },
   reviewInput: { borderWidth: 1, borderColor: '#d1d5db', borderRadius: 8, padding: 12, fontSize: 15 },
   reviewSubmit: { marginTop: 24, backgroundColor: '#3b82f6', padding: 16, borderRadius: 10, alignItems: 'center' },
   reviewSubmitText: { color: '#fff', fontWeight: '700', fontSize: 16 },

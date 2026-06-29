@@ -38,8 +38,7 @@ interface Review {
   reviewer_name: string | null;
 }
 
-const RATING_LABEL = ['', '悪い', '普通', '良い'];
-const RATING_COLOR = ['', '#ef4444', '#f59e0b', '#10b981'];
+const RATING_GOOD = (r: number) => r >= 3;
 const CATEGORY_LABEL: Record<string, string> = {
   hand_truck: '手押し台車',
   flat_cart: '平台車',
@@ -170,9 +169,8 @@ export default function LenderDetail() {
 
   if (loading) return <View style={s.center}><ActivityIndicator size="large" color="#3b82f6" /></View>;
 
-  const avgRating = reviews.length > 0
-    ? (reviews.reduce((s, r) => s + r.rating, 0) / reviews.length).toFixed(1)
-    : null;
+  const goodCount = reviews.filter((r) => RATING_GOOD(r.rating)).length;
+  const starCount = reviews.length > 0 ? Math.round((goodCount / reviews.length) * 5) : 0;
 
   const ListHeader = (
     <View>
@@ -187,32 +185,42 @@ export default function LenderDetail() {
         )}
         <View style={s.profileInfo}>
           <Text style={s.profileName}>{profile?.display_name ?? '貸す人'}</Text>
-          {avgRating && (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-              <MaterialIcons name="star" size={14} color="#f59e0b" />
-              <Text style={s.profileRating}>{avgRating}（{reviews.length}件のレビュー）</Text>
-            </View>
-          )}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2, marginTop: 2 }}>
+            {[1, 2, 3, 4, 5].map((i) => (
+              <MaterialIcons key={i} name={i <= starCount ? 'star' : 'star-border'} size={16} color="#f59e0b" />
+            ))}
+            <Text style={s.profileRatingCount}>（{reviews.length}件）</Text>
+          </View>
           {profile?.bio ? <Text style={s.profileBio}>{profile.bio}</Text> : null}
         </View>
       </View>
 
       {/* レビュー */}
-      {reviews.length > 0 && (
-        <View style={s.section}>
-          <Text style={s.sectionTitle}>レビュー</Text>
-          {reviews.slice(0, 3).map((r) => (
+      <View style={s.section}>
+        <Text style={s.sectionTitle}>レビュー</Text>
+        {reviews.length === 0 ? (
+          <View style={s.reviewEmpty}>
+            <Text style={s.reviewEmptyText}>まだレビューがありません</Text>
+          </View>
+        ) : (
+          reviews.slice(0, 3).map((r) => (
             <View key={r.id} style={s.reviewCard}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 4 }}>
-                <MaterialIcons name="star" size={14} color={RATING_COLOR[r.rating]} />
-                <Text style={s.reviewRating}>{RATING_LABEL[r.rating]}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                <MaterialIcons
+                  name={RATING_GOOD(r.rating) ? 'thumb-up' : 'thumb-down'}
+                  size={16}
+                  color={RATING_GOOD(r.rating) ? '#10b981' : '#ef4444'}
+                />
+                <Text style={[s.reviewRating, { color: RATING_GOOD(r.rating) ? '#10b981' : '#ef4444' }]}>
+                  {RATING_GOOD(r.rating) ? '良かった' : '悪かった'}
+                </Text>
               </View>
               {r.comment ? <Text style={s.reviewComment}>{r.comment}</Text> : null}
               <Text style={s.reviewAuthor}>{r.reviewer_name ?? '匿名'}</Text>
             </View>
-          ))}
-        </View>
-      )}
+          ))
+        )}
+      </View>
 
       <Text style={s.sectionTitle} accessibilityRole="header">台車一覧</Text>
     </View>
@@ -276,19 +284,21 @@ const s = StyleSheet.create({
   avatarInitial: { fontSize: 28, fontWeight: '700', color: '#fff' },
   profileInfo: { flex: 1, justifyContent: 'center', gap: 4 },
   profileName: { fontSize: 20, fontWeight: '800', color: '#111827' },
-  profileRating: { fontSize: 14, color: '#f59e0b', fontWeight: '600' },
-  profileBio: { fontSize: 13, color: '#6b7280', lineHeight: 18, marginTop: 2 },
+  profileRatingCount: { fontSize: 12, color: '#9ca3af', marginLeft: 4 },
+  profileBio: { fontSize: 13, color: '#6b7280', lineHeight: 18, marginTop: 4 },
 
   section: { marginHorizontal: 16, marginTop: 16, marginBottom: 4 },
   sectionTitle: {
     fontSize: 14, fontWeight: '700', color: '#6b7280',
     letterSpacing: 0.5, paddingHorizontal: 16, paddingTop: 16, paddingBottom: 10,
   },
+  reviewEmpty: { paddingVertical: 20, alignItems: 'center' },
+  reviewEmptyText: { fontSize: 13, color: '#9ca3af' },
   reviewCard: {
     backgroundColor: '#fff', borderRadius: 10, padding: 12, marginBottom: 8,
     shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 4, elevation: 1,
   },
-  reviewRating: { fontSize: 13, fontWeight: '700', marginBottom: 4 },
+  reviewRating: { fontSize: 13, fontWeight: '700' },
   reviewComment: { fontSize: 13, color: '#374151', marginBottom: 6, lineHeight: 18 },
   reviewAuthor: { fontSize: 12, color: '#9ca3af' },
 
