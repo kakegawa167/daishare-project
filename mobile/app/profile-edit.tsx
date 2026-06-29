@@ -49,7 +49,7 @@ export default function ProfileEditScreen() {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') { Alert.alert('権限が必要', '写真へのアクセスを許可してください'); return; }
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.7,
+      mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.7, base64: true,
     });
     if (result.canceled || !result.assets[0]) return;
 
@@ -57,20 +57,27 @@ export default function ProfileEditScreen() {
     setAvatarUri(asset.uri);
     setUploadingAvatar(true);
     try {
-      const ext = asset.uri.split('.').pop()?.toLowerCase() ?? 'jpg';
+      if (!asset.base64) throw new Error('base64 の取得に失敗しました');
+      const mime = asset.mimeType ?? 'image/jpeg';
+      const ext = mime.split('/')[1]?.replace('jpeg', 'jpg') ?? 'jpg';
       const { data: { session } } = await supabase.auth.getSession();
       const userId = session?.user?.id;
       if (!userId) throw new Error('not authenticated');
       const path = `avatars/${userId}.${ext}`;
-      const blob = await (await fetch(asset.uri)).blob();
+
+      const binary = atob(asset.base64);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+
       const { error } = await supabase.storage.from('avatars')
-        .upload(path, await blob.arrayBuffer(), { contentType: `image/${ext}`, upsert: true });
+        .upload(path, bytes, { contentType: mime, upsert: true });
       if (error) throw error;
       const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(path);
       await api.put('/users/me', { avatar_url: publicUrl });
       await syncUser();
-    } catch {
-      Alert.alert('エラー', 'アイコンのアップロードに失敗しました');
+    } catch (e: any) {
+      console.error('avatar upload error:', e?.message, e);
+      Alert.alert('エラー', `アイコンのアップロードに失敗しました\n${e?.message ?? ''}`);
       setAvatarUri(null);
     } finally {
       setUploadingAvatar(false);
