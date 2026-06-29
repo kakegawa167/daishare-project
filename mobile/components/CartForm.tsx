@@ -183,14 +183,21 @@ function LocationRow({
 }
 
 // ─── 画像アップロード ──────────────────────────
-async function uploadCartImage(uri: string, userId: string): Promise<string> {
-  const ext = uri.split('.').pop()?.toLowerCase() ?? 'jpg';
+async function uploadCartImage(
+  base64: string,
+  mimeType: string,
+  userId: string,
+): Promise<string> {
+  const ext = mimeType.split('/')[1] ?? 'jpeg';
   const path = `carts/${userId}/${Date.now()}.${ext}`;
-  const response = await fetch(uri);
-  const blob = await response.blob();
-  const arrayBuffer = await new Response(blob).arrayBuffer();
-  const { error } = await supabase.storage.from('cart-images').upload(path, arrayBuffer, {
-    contentType: `image/${ext === 'jpg' ? 'jpeg' : ext}`,
+
+  // base64 → Uint8Array
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+
+  const { error } = await supabase.storage.from('cart-images').upload(path, bytes, {
+    contentType: mimeType,
     upsert: false,
   });
   if (error) throw error;
@@ -256,19 +263,24 @@ export default function CartForm({ initialData, onSubmit, submitLabel }: Props) 
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
         allowsMultipleSelection: true,
-        quality: 0.8,
+        quality: 0.7,
         selectionLimit: 5,
+        base64: true,          // base64 で取得（iOS の ph:// URI 問題を回避）
+        exif: false,
       });
       if (result.canceled) return;
       setUploadingImage(true);
       const urls: string[] = [];
       for (const asset of result.assets) {
-        const url = await uploadCartImage(asset.uri, user.id);
+        if (!asset.base64) throw new Error('base64 データを取得できませんでした');
+        const mime = asset.mimeType ?? 'image/jpeg';
+        const url = await uploadCartImage(asset.base64, mime, user.id);
         urls.push(url);
       }
       setForm((f) => ({ ...f, image_urls: [...f.image_urls, ...urls].slice(0, 5) }));
-    } catch {
-      Alert.alert('エラー', '写真のアップロードに失敗しました');
+    } catch (e: any) {
+      console.error('image upload error', JSON.stringify(e));
+      Alert.alert('エラー', `写真のアップロードに失敗しました\n${e?.message ?? ''}`);
     } finally {
       setUploadingImage(false);
     }
