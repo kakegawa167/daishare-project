@@ -8,6 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   ActivityIndicator,
   Alert,
+  Dimensions,
   FlatList,
   Image,
   Pressable,
@@ -18,6 +19,8 @@ import {
   View,
   Modal,
 } from 'react-native';
+
+const CARD_WIDTH = (Dimensions.get('window').width - 16 * 2 - 10) / 2;
 
 interface LenderProfile {
   id: string;
@@ -100,35 +103,34 @@ function InquiryModal({
 
 // ─── 台車カード ────────────────────────────────────────
 function CartCard({ cart }: { cart: Cart }) {
-  const rate = cart.daily_rate != null ? `¥${cart.daily_rate.toLocaleString()} / 日`
-    : cart.weekly_rate != null ? `¥${cart.weekly_rate.toLocaleString()} / 週`
-    : `¥${(cart.per_rental_rate ?? 0).toLocaleString()} / 回`;
+  const rate = cart.daily_rate != null
+    ? `¥${cart.daily_rate.toLocaleString()}/日`
+    : cart.weekly_rate != null
+    ? `¥${cart.weekly_rate.toLocaleString()}/週`
+    : `¥${(cart.per_rental_rate ?? 0).toLocaleString()}/回`;
 
   return (
     <View style={s.cartCard}>
-      {cart.image_urls.length > 0 && (
-        <Image source={{ uri: cart.image_urls[0] }} style={s.cartImage} />
-      )}
-      <View style={s.cartBody}>
-        <Text style={s.cartTitle}>{cart.title}</Text>
-        {cart.category && (
-          <Text style={s.cartCategory}>{CATEGORY_LABEL[cart.category] ?? cart.category}</Text>
-        )}
-        {cart.description ? <Text style={s.cartDesc} numberOfLines={2}>{cart.description}</Text> : null}
-        <Text style={s.cartRate}>{rate}</Text>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
-          <MaterialIcons name="inventory-2" size={12} color="#9ca3af" />
-          <Text style={s.cartMeta}>{cart.quantity}台 {cart.foldable ? '・折りたたみ可' : ''}</Text>
-        </View>
-        {(cart.station_name || cart.lending_address) && (
-          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 3, marginTop: 2 }}>
-            <MaterialIcons name="place" size={12} color="#9ca3af" style={{ marginTop: 2 }} />
-            <Text style={s.cartMeta}>
-              {[cart.municipality, cart.station_name].filter(Boolean).join(' / ')}
-              {cart.lending_address ? `\n${cart.lending_address}` : ''}
-            </Text>
+      <View style={s.cartImageWrap}>
+        {cart.image_urls.length > 0 ? (
+          <Image source={{ uri: cart.image_urls[0] }} style={s.cartImage} resizeMode="cover" />
+        ) : (
+          <View style={s.cartImagePlaceholder}>
+            <MaterialIcons name="shopping-cart" size={32} color="#9ca3af" />
           </View>
         )}
+      </View>
+      <View style={s.cartBody}>
+        <Text style={s.cartTitle} numberOfLines={2}>{cart.title}</Text>
+        {(cart.municipality || cart.station_name) ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2, marginBottom: 4 }}>
+            <MaterialIcons name="place" size={11} color="#9ca3af" />
+            <Text style={s.cartMeta} numberOfLines={1}>
+              {[cart.municipality, cart.station_name].filter(Boolean).join(' / ')}
+            </Text>
+          </View>
+        ) : null}
+        <Text style={s.cartRate}>{rate}</Text>
       </View>
     </View>
   );
@@ -221,6 +223,8 @@ export default function LenderDetail() {
       <FlatList
         data={carts}
         keyExtractor={(item) => String(item.id)}
+        numColumns={2}
+        columnWrapperStyle={{ gap: 10, paddingHorizontal: 16 }}
         ListHeaderComponent={ListHeader}
         renderItem={({ item }) => <CartCard cart={item} />}
         contentContainerStyle={{ paddingBottom: 16 + 52 + 16 + insets.bottom + 24 }}
@@ -275,10 +279,10 @@ const s = StyleSheet.create({
   profileRating: { fontSize: 14, color: '#f59e0b', fontWeight: '600' },
   profileBio: { fontSize: 13, color: '#6b7280', lineHeight: 18, marginTop: 2 },
 
-  section: { marginHorizontal: 16, marginTop: 16 },
+  section: { marginHorizontal: 16, marginTop: 16, marginBottom: 4 },
   sectionTitle: {
     fontSize: 14, fontWeight: '700', color: '#6b7280',
-    letterSpacing: 0.5, paddingHorizontal: 16, paddingTop: 20, paddingBottom: 8,
+    letterSpacing: 0.5, paddingHorizontal: 16, paddingTop: 16, paddingBottom: 10,
   },
   reviewCard: {
     backgroundColor: '#fff', borderRadius: 10, padding: 12, marginBottom: 8,
@@ -289,17 +293,16 @@ const s = StyleSheet.create({
   reviewAuthor: { fontSize: 12, color: '#9ca3af' },
 
   cartCard: {
-    backgroundColor: '#fff', marginHorizontal: 16, marginBottom: 10,
-    borderRadius: 14, overflow: 'hidden',
-    shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 6, elevation: 2,
+    width: CARD_WIDTH, backgroundColor: '#fff', borderRadius: 12, overflow: 'hidden',
+    shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 6, elevation: 2, marginBottom: 10,
   },
-  cartImage: { width: '100%', height: 160, resizeMode: 'cover' },
-  cartBody: { padding: 14, gap: 4 },
-  cartTitle: { fontSize: 16, fontWeight: '700', color: '#111827' },
-  cartCategory: { fontSize: 12, color: '#6b7280', backgroundColor: '#f3f4f6', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, alignSelf: 'flex-start' },
-  cartDesc: { fontSize: 13, color: '#6b7280', lineHeight: 18 },
-  cartRate: { fontSize: 16, fontWeight: '700', color: '#3b82f6' },
-  cartMeta: { fontSize: 12, color: '#9ca3af', lineHeight: 18 },
+  cartImageWrap: { width: '100%', aspectRatio: 1, backgroundColor: '#f3f4f6' },
+  cartImage: { width: '100%', height: '100%' },
+  cartImagePlaceholder: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#f0f0f0' },
+  cartBody: { padding: 10 },
+  cartTitle: { fontSize: 13, fontWeight: '600', color: '#1a1a1a', marginBottom: 4, lineHeight: 18 },
+  cartRate: { fontSize: 15, fontWeight: '800', color: '#1a1a1a' },
+  cartMeta: { fontSize: 11, color: '#6b7280', marginBottom: 6 },
 
   empty: { padding: 40, alignItems: 'center' },
   emptyText: { fontSize: 14, color: '#9ca3af' },
