@@ -83,8 +83,10 @@ function RootLayoutNav() {
       <Stack.Screen name="(auth)" options={{ headerShown: false }} />
       <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
       <Stack.Screen name="profile" options={{ title: 'プロフィール', presentation: 'modal' }} />
-      <Stack.Screen name="profile-edit" options={{ title: 'プロフィール編集' }} />
+      <Stack.Screen name="profile-edit" options={{ title: 'プロフィール編集', headerBackTitle: '戻る' }} />
       <Stack.Screen name="request-new" options={{ title: 'リクエスト送信', presentation: 'modal' }} />
+      <Stack.Screen name="carts/new" options={{ title: '台車を登録', headerBackTitle: '戻る' }} />
+      <Stack.Screen name="carts/[id]/edit" options={{ title: '台車を編集', headerBackTitle: '戻る' }} />
     </Stack>
   );
 }
