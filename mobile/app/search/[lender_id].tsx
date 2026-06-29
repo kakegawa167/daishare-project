@@ -2,7 +2,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { api } from '@/lib/api';
 import { Cart } from '@/lib/types';
 import { requireAuth } from '@/lib/requireAuth';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams, useNavigation } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -136,6 +136,7 @@ function CartCard({ cart }: { cart: Cart }) {
 // ─── メイン ────────────────────────────────────────────
 export default function LenderDetail() {
   const { lender_id, cart_id } = useLocalSearchParams<{ lender_id: string; cart_id?: string }>();
+  const navigation = useNavigation();
   const [profile, setProfile] = useState<LenderProfile | null>(null);
   const [carts, setCarts] = useState<Cart[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
@@ -151,6 +152,7 @@ export default function LenderDetail() {
           api.get<Review[]>(`/users/${lender_id}/reviews`),
         ]);
         setProfile(profileRes.data);
+        navigation.setOptions({ title: profileRes.data.display_name });
         const allCarts: Cart[] = cartsRes.data;
         setCarts(cart_id ? allCarts.filter((c) => String(c.id) === cart_id) : allCarts);
         setReviews(reviewsRes.data);
@@ -219,7 +221,7 @@ export default function LenderDetail() {
         keyExtractor={(item) => String(item.id)}
         ListHeaderComponent={ListHeader}
         renderItem={({ item }) => <CartCard cart={item} />}
-        contentContainerStyle={{ paddingBottom: 120 }}
+        contentContainerStyle={{ paddingBottom: 160 }}
         ListEmptyComponent={
           <View style={s.empty}><Text style={s.emptyText}>台車が登録されていません</Text></View>
         }
