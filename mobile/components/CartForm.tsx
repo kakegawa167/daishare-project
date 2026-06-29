@@ -252,7 +252,13 @@ export default function CartForm({ initialData, onSubmit, submitLabel }: Props) 
   const handleAddImage = useCallback(async () => {
     if (!user) return;
     try {
-      const ImagePicker = await import('expo-image-picker');
+      let ImagePicker: any;
+      try {
+        ImagePicker = await import('expo-image-picker');
+      } catch {
+        Alert.alert('非対応', 'この機能はDev Buildが必要です。\n`npx expo run:ios` でリビルドしてください。');
+        return;
+      }
       const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!perm.granted) {
         Alert.alert('許可が必要です', '写真へのアクセスを許可してください');
@@ -273,8 +279,9 @@ export default function CartForm({ initialData, onSubmit, submitLabel }: Props) 
       }
       setForm((f) => ({ ...f, image_urls: [...f.image_urls, ...urls].slice(0, 5) }));
     } catch (e: any) {
-      console.error('image upload error', JSON.stringify(e));
-      Alert.alert('エラー', `写真のアップロードに失敗しました\n${e?.message ?? ''}`);
+      const msg = e?.message ?? e?.error?.message ?? String(e);
+      console.error('image upload error:', msg, e);
+      Alert.alert('エラー', `写真のアップロードに失敗しました\n${msg}`);
     } finally {
       setUploadingImage(false);
     }
