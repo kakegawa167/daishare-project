@@ -76,15 +76,15 @@ function ReviewModal({ reservationId, visible, onClose }: { reservationId: numbe
             style={[s.ratingBtn, rating === 3 && s.ratingBtnGood]}
             onPress={() => setRating(3)}
           >
-            <Text style={s.ratingBtnEmoji}>👍</Text>
-            <Text style={[s.ratingBtnText, rating === 3 && s.ratingBtnTextActive]}>良かった</Text>
+            <MaterialIcons name="thumb-up" size={22} color={rating === 3 ? '#10b981' : '#9ca3af'} />
+            <Text style={[s.ratingBtnText, rating === 3 && { color: '#10b981', fontWeight: '700' }]}>良かった</Text>
           </Pressable>
           <Pressable
             style={[s.ratingBtn, rating === 1 && s.ratingBtnBad]}
             onPress={() => setRating(1)}
           >
-            <Text style={s.ratingBtnEmoji}>👎</Text>
-            <Text style={[s.ratingBtnText, rating === 1 && s.ratingBtnTextActive]}>悪かった</Text>
+            <MaterialIcons name="thumb-down" size={22} color={rating === 1 ? '#ef4444' : '#9ca3af'} />
+            <Text style={[s.ratingBtnText, rating === 1 && { color: '#ef4444', fontWeight: '700' }]}>悪かった</Text>
           </Pressable>
         </View>
         <Text style={s.reviewLabel}>コメント（任意）</Text>
@@ -934,8 +934,7 @@ const s = StyleSheet.create({
   ratingBtn: { flex: 1, paddingVertical: 16, borderRadius: 12, borderWidth: 2, borderColor: '#d1d5db', alignItems: 'center', gap: 6 },
   ratingBtnGood: { backgroundColor: '#f0fdf4', borderColor: '#10b981' },
   ratingBtnBad: { backgroundColor: '#fef2f2', borderColor: '#ef4444' },
-  ratingBtnEmoji: { fontSize: 24 },
-  ratingBtnText: { fontSize: 14, fontWeight: '600', color: '#374151' },
+  ratingBtnText: { fontSize: 14, fontWeight: '600', color: '#9ca3af' },
   ratingBtnTextActive: { color: '#111827', fontWeight: '700' },
   reviewInput: { borderWidth: 1, borderColor: '#d1d5db', borderRadius: 8, padding: 12, fontSize: 15 },
   reviewSubmit: { marginTop: 24, backgroundColor: '#3b82f6', padding: 16, borderRadius: 10, alignItems: 'center' },
