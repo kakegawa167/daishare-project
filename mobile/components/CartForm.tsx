@@ -256,7 +256,11 @@ export default function CartForm({ initialData, onSubmit, submitLabel }: Props) 
       try {
         ImagePicker = await import('expo-image-picker');
       } catch {
-        Alert.alert('非対応', 'この機能はDev Buildが必要です。\n`npx expo run:ios` でリビルドしてください。');
+        Alert.alert('非対応', '写真機能はDev Buildが必要です。\n`npx expo run:ios --device` でiPhoneにインストールしてください。');
+        return;
+      }
+      if (typeof ImagePicker?.requestMediaLibraryPermissionsAsync !== 'function') {
+        Alert.alert('非対応', '写真機能はDev Buildが必要です。\n`npx expo run:ios --device` でiPhoneにインストールしてください。');
         return;
       }
       const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
