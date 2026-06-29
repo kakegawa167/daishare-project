@@ -4,6 +4,7 @@ import { Cart } from '@/lib/types';
 import { requireAuth } from '@/lib/requireAuth';
 import { router, useLocalSearchParams, useNavigation } from 'expo-router';
 import { useEffect, useState } from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   ActivityIndicator,
   Alert,
@@ -137,6 +138,7 @@ function CartCard({ cart }: { cart: Cart }) {
 export default function LenderDetail() {
   const { lender_id, cart_id } = useLocalSearchParams<{ lender_id: string; cart_id?: string }>();
   const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
   const [profile, setProfile] = useState<LenderProfile | null>(null);
   const [carts, setCarts] = useState<Cart[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
@@ -221,14 +223,14 @@ export default function LenderDetail() {
         keyExtractor={(item) => String(item.id)}
         ListHeaderComponent={ListHeader}
         renderItem={({ item }) => <CartCard cart={item} />}
-        contentContainerStyle={{ paddingBottom: 160 }}
+        contentContainerStyle={{ paddingBottom: 16 + 52 + 16 + insets.bottom + 24 }}
         ListEmptyComponent={
           <View style={s.empty}><Text style={s.emptyText}>台車が登録されていません</Text></View>
         }
       />
 
       {/* 下部ボタン */}
-      <View style={s.footer}>
+      <View style={[s.footer, { paddingBottom: insets.bottom + 16 }]}>
         <Pressable
           style={[s.footerBtn, s.footerBtnOutline]}
           onPress={() => { if (requireAuth('質問')) setInquiryVisible(true); }}
@@ -304,7 +306,7 @@ const s = StyleSheet.create({
 
   footer: {
     position: 'absolute', bottom: 0, left: 0, right: 0,
-    flexDirection: 'row', gap: 10, padding: 16, paddingBottom: 32,
+    flexDirection: 'row', gap: 10, padding: 16,
     backgroundColor: '#fff',
     borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: '#e5e7eb',
     shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 12, elevation: 8,
