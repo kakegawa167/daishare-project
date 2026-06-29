@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -15,6 +16,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface LenderProfile {
   id: string;
@@ -32,38 +34,77 @@ function DateTimeField({
 }: { label: string; value: Date; onChange: (d: Date) => void; minimumDate?: Date }) {
   const [showDate, setShowDate] = useState(false);
   const [showTime, setShowTime] = useState(false);
+  const [tempDate, setTempDate] = useState(value);
+  const [tempTime, setTempTime] = useState(value);
+  const insets = useSafeAreaInsets();
+
+  const dateLabel = value.toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' });
+  const timeLabel = value.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
 
   return (
     <View style={s.dtField}>
       <Text style={s.fieldLabel}>{label}</Text>
       <View style={s.dtRow}>
-        <Pressable style={s.dtBtn} onPress={() => setShowDate(true)}>
+        <Pressable style={s.dtBtn} onPress={() => { setTempDate(value); setShowDate(true); }}>
           <MaterialIcons name="calendar-today" size={14} color="#3b82f6" />
-          <Text style={s.dtBtnText}>{value.toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric', weekday: 'short' })}</Text>
+          <Text style={s.dtBtnText}>{dateLabel}</Text>
         </Pressable>
-        <Pressable style={s.dtBtn} onPress={() => setShowTime(true)}>
+        <Pressable style={s.dtBtn} onPress={() => { setTempTime(value); setShowTime(true); }}>
           <MaterialIcons name="access-time" size={14} color="#3b82f6" />
-          <Text style={s.dtBtnText}>{value.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })}</Text>
+          <Text style={s.dtBtnText}>{timeLabel}</Text>
         </Pressable>
       </View>
-      {showDate && (
-        <DateTimePicker
-          value={value}
-          mode="date"
-          display="inline"
-          locale="ja-JP"
-          minimumDate={minimumDate}
-          onChange={(_, d) => { if (d) { setShowDate(false); const n = new Date(d); n.setHours(value.getHours(), value.getMinutes()); onChange(n); } }}
-        />
-      )}
-      {showTime && (
-        <DateTimePicker
-          value={value}
-          mode="time"
-          display="spinner"
-          onChange={(_, d) => { setShowTime(false); if (d) { const n = new Date(value); n.setHours(d.getHours(), d.getMinutes()); onChange(n); } }}
-        />
-      )}
+
+      {/* カレンダーモーダル */}
+      <Modal visible={showDate} transparent animationType="fade" onRequestClose={() => setShowDate(false)}>
+        <Pressable style={p.backdrop} onPress={() => setShowDate(false)} />
+        <View style={[p.sheet, { paddingBottom: insets.bottom + 8 }]}>
+          <DateTimePicker
+            value={tempDate}
+            mode="date"
+            display="inline"
+            locale="ja-JP"
+            minimumDate={minimumDate}
+            onChange={(_, d) => { if (d) setTempDate(d); }}
+          />
+          <Pressable style={p.confirmBtn} onPress={() => {
+            setShowDate(false);
+            const n = new Date(tempDate);
+            n.setHours(value.getHours(), value.getMinutes());
+            onChange(n);
+          }}>
+            <Text style={p.confirmText}>確定</Text>
+          </Pressable>
+        </View>
+      </Modal>
+
+      {/* 時刻モーダル */}
+      <Modal visible={showTime} transparent animationType="slide" onRequestClose={() => setShowTime(false)}>
+        <Pressable style={p.backdrop} onPress={() => setShowTime(false)} />
+        <View style={[p.timeSheet, { paddingBottom: insets.bottom + 8 }]}>
+          <View style={p.timeHeader}>
+            <Pressable onPress={() => setShowTime(false)}>
+              <Text style={p.timeCancel}>キャンセル</Text>
+            </Pressable>
+            <Text style={p.timeTitle}>時刻を選択</Text>
+            <Pressable onPress={() => {
+              setShowTime(false);
+              const n = new Date(value);
+              n.setHours(tempTime.getHours(), tempTime.getMinutes());
+              onChange(n);
+            }}>
+              <Text style={p.timeDone}>確定</Text>
+            </Pressable>
+          </View>
+          <DateTimePicker
+            value={tempTime}
+            mode="time"
+            display="spinner"
+            locale="ja-JP"
+            onChange={(_, d) => { if (d) setTempTime(d); }}
+          />
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -293,6 +334,30 @@ export default function RequestNew() {
     </ScrollView>
   );
 }
+
+const p = StyleSheet.create({
+  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)' },
+  sheet: {
+    backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20,
+    paddingTop: 8, paddingHorizontal: 12,
+  },
+  confirmBtn: {
+    marginHorizontal: 16, marginTop: 8, backgroundColor: '#3b82f6',
+    borderRadius: 12, height: 48, alignItems: 'center', justifyContent: 'center',
+  },
+  confirmText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  timeSheet: {
+    backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingTop: 4,
+  },
+  timeHeader: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingHorizontal: 20, paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#e5e7eb',
+  },
+  timeTitle: { fontSize: 15, fontWeight: '600', color: '#111827' },
+  timeCancel: { fontSize: 15, color: '#6b7280' },
+  timeDone: { fontSize: 15, fontWeight: '700', color: '#3b82f6' },
+});
 
 const s = StyleSheet.create({
   page: { flex: 1, backgroundColor: '#f9fafb' },
