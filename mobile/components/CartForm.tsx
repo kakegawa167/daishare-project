@@ -183,19 +183,21 @@ function LocationRow({
 }
 
 // ─── 画像アップロード ──────────────────────────
-async function uploadCartImage(uri: string, userId: string): Promise<string> {
-  // expo-image-picker は quality を指定すると必ず file:// URI を返す
-  const response = await fetch(uri);
-  const blob = await response.blob();
-  const arrayBuffer = await new Response(blob).arrayBuffer();
+async function uploadCartImage(
+  base64: string,
+  mimeType: string,
+  userId: string,
+): Promise<string> {
+  const ext = mimeType.split('/')[1]?.replace('jpeg', 'jpg') ?? 'jpg';
+  const path = `carts/${userId}/${Date.now()}.${ext}`;
 
-  const ext = uri.split('?')[0].split('.').pop()?.toLowerCase() ?? 'jpeg';
-  const safeExt = ['jpg', 'jpeg', 'png', 'webp', 'heic'].includes(ext) ? ext : 'jpeg';
-  const contentType = `image/${safeExt === 'jpg' ? 'jpeg' : safeExt}`;
-  const path = `carts/${userId}/${Date.now()}.${safeExt}`;
+  // base64 → Uint8Array（React Native では ArrayBuffer 直接生成が非対応のためこの方法を使う）
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
 
-  const { error } = await supabase.storage.from('cart-images').upload(path, arrayBuffer, {
-    contentType,
+  const { error } = await supabase.storage.from('cart-images').upload(path, bytes, {
+    contentType: mimeType,
     upsert: false,
   });
   if (error) throw error;
@@ -271,14 +273,17 @@ export default function CartForm({ initialData, onSubmit, submitLabel }: Props) 
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
         allowsMultipleSelection: true,
-        quality: 0.7,   // quality 指定で file:// URI が返る（ph:// にならない）
+        quality: 0.7,
         selectionLimit: 5,
+        base64: true,
       });
       if (result.canceled) return;
       setUploadingImage(true);
       const urls: string[] = [];
       for (const asset of result.assets) {
-        const url = await uploadCartImage(asset.uri, user.id);
+        if (!asset.base64) throw new Error('base64 の取得に失敗しました');
+        const mime = asset.mimeType ?? 'image/jpeg';
+        const url = await uploadCartImage(asset.base64, mime, user.id);
         urls.push(url);
       }
       setForm((f) => ({ ...f, image_urls: [...f.image_urls, ...urls].slice(0, 5) }));
