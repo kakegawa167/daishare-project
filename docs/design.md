@@ -82,11 +82,22 @@
 
 ```
 1. ユーザーがアプリ上で「Googleでログイン」をタップ
-2. Supabase Auth SDK が Google OAuth を処理
+2. Supabase Auth SDK が Google OAuth を処理（expo-auth-session + expo-web-browser）
 3. Supabase が JWT（access_token）を発行
 4. アプリは以降すべてのAPIリクエストに JWT を付与
 5. FastAPI は Supabase の JWT Secret で署名を検証
 6. 検証OK → ビジネスロジック処理 → レスポンス返却
+```
+
+**起動時セッション復元（`app/_layout.tsx`）:**
+```
+1. SplashScreen.preventAutoHideAsync() でスプラッシュ保持
+2. supabase.auth.getSession() を実行（タイムアウト 8秒 — ネットワーク不通でも黒画面にならないよう）
+3. セッションあり → syncUser()（POST /auth/sync）を呼び出し
+4. syncUser() は Render コールドスタート対策で最大3回リトライ（2秒・4秒間隔）
+5. session && user.is_new === true なら /profile-edit にリダイレクト
+6. supabase.auth.onAuthStateChange で以降の認証変化を監視（SIGNED_IN 時は 500ms 遅延後に syncUser）
+7. RevenueCat を initRevenueCat() で初期化
 ```
 
 ### 2.3 Realtimeフロー（メッセージ）
@@ -850,6 +861,7 @@ active → inactive / inactive → active をトグル
 | カードタップ    | → `/carts/[id]/edit`                                             |
 | 🗑 削除ボタン   | タップイベント stopPropagation → Alert「削除しますか？」→ `DELETE /carts/{id}` |
 | FAB             | 「台車を登録する」全幅ボタン（画面下部固定） → `/carts/new`       |
+| 超過警告バナー  | `user.is_over_limit === true` 時に一覧上部に黄色バナー表示。「プランを変更したため新規登録が制限されています。台車1台・地点1件以内にすると追加できます。」|
 
 ---
 
@@ -1032,6 +1044,7 @@ active → inactive / inactive → active をトグル
 | Pull-to-refresh | 下スワイプでメッセージ + リクエスト情報を再取得                                            |
 | キーボード     | `automaticallyAdjustKeyboardInsets` + KAV で入力欄が隠れない                               |
 | 借主           | キャンセルボタンなし                                                                        |
+| メッセージ送信ブロック | 貸主 かつ `user.is_over_limit === true` の場合は入力欄をブロック。「台車の登録数が制限を超えているため送信できません」Alert を表示 |
 
 **DateQtyModal（共通コンポーネント）:**
 - 貸出開始日時・返却日時（DateTimePicker）と台数（+/- カウンター）を入力
