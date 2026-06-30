@@ -216,3 +216,148 @@
 | 原因       | `syncUser()`（GET /users/me）が `is_new` フラグを返さないため、`syncUser()` 後に `user?.is_new` をチェックすると `undefined` になり `router.back()` が呼ばれる。初回登録直後はスタックに戻り先がないためエラー |
 | 対応方法   | `syncUser()` を呼ぶ前に `const wasNew = user?.is_new` で保存し、そちらで分岐する |
 | 対象ファイル | `mobile/app/profile-edit.tsx`                                                           |
+
+---
+
+## ERR-017 — アバター画像アップロード失敗（blob.arrayBuffer 未サポート）
+
+| 項目       | 内容                                                                                     |
+| ---------- | ---------------------------------------------------------------------------------------- |
+| エラーID   | ERR-017                                                                                  |
+| 発生日時   | 2026-06-30                                                                               |
+| 発生箇所   | `mobile/app/profile-edit.tsx` アバターアップロード処理                                   |
+| 症状       | アイコン変更しようとすると「アイコンのアップロードに失敗しました」エラーが表示される      |
+| 原因       | React Native 環境では `blob.arrayBuffer()` がサポートされておらず、Blob → ArrayBuffer の変換でエラーが発生する |
+| 対応方法   | `expo-image-picker` で `base64: true` オプションを有効にし、`atob()` + `Uint8Array` で手動変換してアップロードする。`blob.arrayBuffer()` は使用しない |
+| 注意点     | React Native で Blob を Supabase Storage にアップロードする際は base64 経由が必須 |
+| 対象ファイル | `mobile/app/profile-edit.tsx`                                                           |
+
+---
+
+## ERR-018 — 貸主詳細画面で台車カードが見切れる
+
+| 項目       | 内容                                                                                     |
+| ---------- | ---------------------------------------------------------------------------------------- |
+| エラーID   | ERR-018                                                                                  |
+| 発生日時   | 2026-06-30                                                                               |
+| 発生箇所   | `mobile/app/search/[lender_id].tsx`                                                     |
+| 症状       | 台車カードの下部がフッターボタンやホームインジケーターに隠れて見切れる                   |
+| 原因       | 固定値 `paddingBottom: 120` がフッター高さ + safe area インセットを正確に加味していなかった |
+| 対応方法   | `useSafeAreaInsets` を導入し `paddingBottom: 16 + 52 + 16 + insets.bottom + 24` で動的計算。フッターも `paddingBottom: insets.bottom + 16` に変更 |
+| 対象ファイル | `mobile/app/search/[lender_id].tsx`                                                     |
+
+---
+
+## ERR-019 — 貸主詳細画面に重複する戻るボタンと "search" テキスト
+
+| 項目       | 内容                                                                                     |
+| ---------- | ---------------------------------------------------------------------------------------- |
+| エラーID   | ERR-019                                                                                  |
+| 発生日時   | 2026-06-30                                                                               |
+| 発生箇所   | `mobile/app/search/[lender_id].tsx`、`mobile/app/search/_layout.tsx`、`mobile/app/_layout.tsx` |
+| 症状       | ①ナビゲーションヘッダーに "search" と表示される。②カスタム戻るボタンとヘッダーの戻るボタンが重複する |
+| 原因       | ルートの `_layout.tsx` が `search` グループのヘッダーを表示していた。グループ名（"search"）がタイトルとして表示された |
+| 対応方法   | ルート `_layout.tsx` で `<Stack.Screen name="search" options={{ headerShown: false }} />` を設定してヘッダーを非表示に。画面内のカスタム戻るボタンのみ使用する |
+| 対象ファイル | `mobile/app/_layout.tsx`、`mobile/app/search/_layout.tsx`                               |
+
+---
+
+## ERR-020 — ログアウト後にローディングスピナーが無限に回転
+
+| 項目       | 内容                                                                                     |
+| ---------- | ---------------------------------------------------------------------------------------- |
+| エラーID   | ERR-020                                                                                  |
+| 発生日時   | 2026-06-30                                                                               |
+| 発生箇所   | `mobile/store/authStore.ts` `signOut()`                                                  |
+| 症状       | ログアウト後にローディング画面のスピナーがずっと表示され続け、ログイン画面に遷移しない   |
+| 原因       | `signOut()` 内で `loading: false` に設定していなかった。`supabase.auth.signOut()` 後の `onAuthStateChange` イベント（`SIGNED_OUT`）が発火するまでの間、`loading` が `true` のままになる可能性があった |
+| 対応方法   | `signOut()` の `set()` 呼び出しに `loading: false` を追加: `set({ session: null, user: null, loading: false })` |
+| 対象ファイル | `mobile/store/authStore.ts`                                                              |
+
+---
+
+## ERR-021 — カレンダーで同じ日付を選択しても閉じない
+
+| 項目       | 内容                                                                                     |
+| ---------- | ---------------------------------------------------------------------------------------- |
+| エラーID   | ERR-021                                                                                  |
+| 発生日時   | 2026-06-30                                                                               |
+| 発生箇所   | `mobile/app/request-new.tsx` 日付選択                                                    |
+| 症状       | ①カレンダーが日付タップ時にインライン表示されず、別ボタンを押す必要があった。②同じ日付を選択してもカレンダーが閉じない |
+| 原因       | ①`display="compact"` が iOS で外部ボタン式を使用していた。②`@react-native-community/datetimepicker` の `display="inline"` モードでは同じ日付タップ時に `onChange` が発火しないため、`onChange` でモーダルを閉じる方式では閉じられない |
+| 対応方法   | `display="inline"` + `locale="ja-JP"` でカレンダーをインライン表示。Modal内に「確定」ボタンを設置して手動クローズ。`onChange` は `tempDate` のみ更新し、確定ボタン押下時に実際の値をセットしてモーダルを閉じる |
+| 対象ファイル | `mobile/app/request-new.tsx`                                                             |
+
+---
+
+## ERR-022 — 時刻ピッカーで時刻変更直後にモーダルが閉じてしまう
+
+| 項目       | 内容                                                                                     |
+| ---------- | ---------------------------------------------------------------------------------------- |
+| エラーID   | ERR-022                                                                                  |
+| 発生日時   | 2026-06-30                                                                               |
+| 発生箇所   | `mobile/app/request-new.tsx` 時刻選択                                                    |
+| 症状       | 時刻ドラムロールを回すと、変更直後にモーダルが閉じてしまいUXが悪い                       |
+| 原因       | `onChange` イベントハンドラー内で `setShowTime(false)` を呼び出していたため、スクロール中に即座にモーダルが閉じていた |
+| 対応方法   | Modal ヘッダーにキャンセル/確定ボタンを設置。`onChange` は `tempTime` のみ更新し、確定ボタン押下時にのみ値をセットしてモーダルを閉じる |
+| 対象ファイル | `mobile/app/request-new.tsx`                                                             |
+
+---
+
+## ERR-023 — staging 環境でDBパスワード変更後に500エラー
+
+| 項目       | 内容                                                                                     |
+| ---------- | ---------------------------------------------------------------------------------------- |
+| エラーID   | ERR-023                                                                                  |
+| 発生日時   | 2026-06-30                                                                               |
+| 発生箇所   | Render `daishare-api-staging`                                                            |
+| 症状       | Supabase staging DBのパスワード変更後、全エンドポイントが 500 エラー。ログに `password authentication failed` |
+| 原因       | Supabase ダッシュボードでDBパスワードを変更したが、Render の環境変数 `DATABASE_URL` が古いパスワードのままだった |
+| 対応方法   | Render ダッシュボード → `daishare-api-staging` → Environment → `DATABASE_URL` を新しいパスワードを含む Session Pooler URL に更新してデプロイ |
+| 注意点     | Supabase でパスワードをリセットした場合は必ず Render の環境変数も同時に更新すること。同様に production（`daishare-api`）も更新が必要 |
+| 対象ファイル | Render 環境変数 `DATABASE_URL`                                                           |
+
+---
+
+## ERR-024 — iPhone実機デプロイでプロビジョニングプロファイルエラー
+
+| 項目       | 内容                                                                                     |
+| ---------- | ---------------------------------------------------------------------------------------- |
+| エラーID   | ERR-024                                                                                  |
+| 発生日時   | 2026-06-30                                                                               |
+| 発生箇所   | `npx expo run:ios --device` コマンド                                                     |
+| 症状       | `npx expo run:ios --device` を実行するとプロビジョニングプロファイルエラーが発生してビルド失敗 |
+| 原因       | `npx expo run:ios` は内部で `xcodebuild` を呼び出すが、`-allowProvisioningUpdates` フラグを渡さないためプロビジョニングプロファイルの自動更新ができない |
+| 対応方法   | `xcodebuild` を直接実行してビルド: `xcodebuild -workspace mobile/ios/DaiShare.xcworkspace -scheme DaiShare -configuration Debug -destination 'id=DEVICE_UDID' -allowProvisioningUpdates CODE_SIGN_STYLE=Automatic DEVELOPMENT_TEAM=R4SN5Y96MF`。その後 `xcrun devicectl device install app --device DEVICE_UDID --path build/Debug-iphoneos/DaiShare.app` でインストール |
+| 注意点     | JS コードの変更は Metro（`npx expo start`）+ Fast Refresh で自動反映される。ネイティブコードの変更時のみ `xcodebuild` 再実行が必要 |
+| 対象ファイル | `mobile/ios/` ビルド設定                                                                 |
+
+---
+
+## ERR-025 — iOS「利用できません」エラー（開発者を信頼していない）
+
+| 項目       | 内容                                                                                     |
+| ---------- | ---------------------------------------------------------------------------------------- |
+| エラーID   | ERR-025                                                                                  |
+| 発生日時   | 2026-06-30                                                                               |
+| 発生箇所   | iPhone アプリ起動時                                                                      |
+| 症状       | Dev Build をインストールしてアプリを起動しようとすると「利用できません」と表示される      |
+| 原因       | 開発者証明書が iPhone に信頼されていない。サードパーティの開発者アプリを信頼するには手動設定が必要 |
+| 対応方法   | iPhone の設定 → 一般 → VPN とデバイス管理 → 開発者アプリ（開発者メールアドレス）→「信頼する」をタップ |
+| 注意点     | 証明書を新たにインストールするたびに信頼設定が必要になる場合がある |
+| 対象ファイル | iPhone 端末設定                                                                          |
+
+---
+
+## ERR-026 — gitleaks が .env.staging / .env.production をシークレット検知してpushをブロック
+
+| 項目       | 内容                                                                                     |
+| ---------- | ---------------------------------------------------------------------------------------- |
+| エラーID   | ERR-026                                                                                  |
+| 発生日時   | 2026-06-30                                                                               |
+| 発生箇所   | git push 時の gitleaks pre-push フック                                                   |
+| 症状       | `.env.staging` / `.env.production` に含まれる Supabase JWT トークン等がシークレットとして検知され、push がブロックされる |
+| 原因       | `.env.staging` / `.env.production` は `.gitignore` で除外済みだが、gitleaks のスキャン対象に含まれていた |
+| 対応方法   | `.gitleaks.toml` の `[allowlist]` に `'''\.env\.staging$'''` および `'''\.env\.production$'''` を追加 |
+| 注意点     | これらのファイルは `.gitignore` で除外されており git 管理外のため、allowlist 設定のみで問題ない |
+| 対象ファイル | `.gitleaks.toml`                                                                         |

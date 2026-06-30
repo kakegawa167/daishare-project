@@ -1,8 +1,8 @@
 # ダイシェア モバイルアプリ 設計書
 
-> バージョン: 2.7.0  
+> バージョン: 2.8.0  
 > 作成日: 2026-06-23  
-> 最終更新: 2026-06-28  
+> 最終更新: 2026-07-01  
 > 対象: MVP リリース
 
 ---
@@ -162,7 +162,7 @@
 | Auth / Realtime          | Supabase                                                                     |
 | バックエンドホスティング | Render（無料プラン）                                                          |
 | スリープ防止             | UptimeRobot（5分間隔 `/health` 監視、staging / production 両方）             |
-| CI/CD                    | GitHub Actions + EAS（Expo）                                                 |
+| CI/CD                    | GitHub Actions（バックエンド自動デプロイ）+ EAS（Expo・未設定）              |
 | 環境変数管理             | GitHub Secrets（CI） / Render Environment Variables（staging / production）  |
 | DB 接続（Render）        | Supabase IPv4 接続プーラー（`aws-1-ap-southeast-1.pooler.supabase.com:5432`）|
 
@@ -185,9 +185,21 @@ feature/xxx ──→ develop ──→ main
                (staging)   (production)
 
 - feature/xxx: ローカル開発
-- develop: daishare-api-staging へ自動デプロイ
-- main: daishare-api（production）へ自動デプロイ
+- develop: daishare-api-staging へ自動デプロイ（backend/** 変更時のみ）
+- main: daishare-api（production）へ自動デプロイ（backend/** 変更時のみ）
 ```
+
+**CI/CD（GitHub Actions）:**
+
+| ワークフロー             | トリガー                                   | 動作                                                                  |
+| ------------------------ | ------------------------------------------ | --------------------------------------------------------------------- |
+| `backend-deploy.yml`     | develop / main への push（backend/** 変更） | Render Deploy Hook を curl で呼び出してデプロイ起動                   |
+| `backend-ci.yml`         | PR・push                                   | pytest / ruff / mypy                                                  |
+| `mobile-build.yml`       | （無効化）                                  | EAS Build 未設定のため無効。ISS-005 解決後に再有効化                 |
+
+**Render Deploy Hook（GitHub Secrets に登録済み）:**
+- `RENDER_STAGING_DEPLOY_HOOK`: staging サービス（`daishare-api-staging`）用
+- `RENDER_PROD_DEPLOY_HOOK`: production サービス（`daishare-api`）用
 
 ### 4.3 Docker Compose 構成（ローカル）
 
@@ -293,6 +305,9 @@ users ──────┬── carts
 | base_station_id | INTEGER     | FK(stations)     | 拠点駅（将来の拡張用）                      |
 | lending_address | TEXT        |                  | 貸出場所詳細（将来の拡張用）                |
 | is_active       | BOOLEAN     | DEFAULT true     | アカウント有効フラグ                        |
+| last_seen_at    | TIMESTAMPTZ |                  | 最終ログイン日時（POST /auth/sync で毎回更新） |
+| plan            | TEXT        | DEFAULT 'normal' | 'normal' / 'pro'                            |
+| plan_expires_at | TIMESTAMPTZ |                  | Pro プラン有効期限                          |
 
 #### carts
 
@@ -412,7 +427,7 @@ users ──────┬── carts
 | reservation_id | INTEGER     | FK(reservations), NOT NULL |                      |
 | reviewer_id    | UUID        | FK(users), NOT NULL        | 評価者               |
 | reviewee_id    | UUID        | FK(users), NOT NULL        | 被評価者             |
-| rating         | INTEGER     | CHECK(1-3), NOT NULL       | 1:悪い 2:普通 3:良い |
+| rating         | INTEGER     | CHECK(1-3), NOT NULL       | 1:悪かった / 3:良かった（2は未使用）|
 | comment        | TEXT        | DEFAULT ''                 |                      |
 | created_at     | TIMESTAMPTZ | server default now()       |                      |
 
@@ -491,7 +506,7 @@ carts:
 | GET    | `/users/me`                 | 自分のプロフィール取得                                                      |
 | PUT    | `/users/me`                 | プロフィール更新（display_name / bio / user_type / avatar_url）             |
 | PUT    | `/users/me/push-token`      | Expo Push Token 登録・更新                                                  |
-| GET    | `/users/{user_id}/profile`  | 他ユーザーのパブリックプロフィール取得（認証不要）                          |
+| GET    | `/users/{user_id}/profile`  | 他ユーザーのパブリックプロフィール取得（`last_seen_at` 含む、認証不要）     |
 
 #### Stations
 
@@ -985,7 +1000,7 @@ active → inactive / inactive → active をトグル
 |                | 編集モーダル（DateQtyModal）: 日時（DateTimePicker）・台数（+/- カウンター）               |
 |                | reserved 時: 貸出開始 / キャンセル                                                         |
 |                | lent 時: 返却完了                                                                           |
-|                | returned 時: レビューを書く                                                                 |
+|                | returned 時: レビューを書く → ReviewModal（バイナリ評価 + コメント）                       |
 | チャット       | LINE 風バブル（自分: 右青・相手: 左白）。システムメッセージはグレー中央揃え                 |
 | 既読表示       | 自分が送った最後の既読メッセージに「既読」表示                                              |
 | リアルタイム   | Supabase Realtime（INSERT/UPDATE 購読）+ 5秒ポーリングフォールバック                        |
@@ -997,6 +1012,30 @@ active → inactive / inactive → active をトグル
 - 貸出開始日時・返却日時（DateTimePicker）と台数（+/- カウンター）を入力
 - `onSubmit(start, end, qty)` コールバックで呼び出し元が API 呼び出し
 - formalize と direct-reserve の両方で共用
+
+**ReviewModal（バイナリ評価）:**
+```
+┌────────────────────────────────────────┐
+│ レビューを書く                         │
+│                                        │
+│  ┌──────────────┐  ┌──────────────┐   │
+│  │  👍 良かった  │  │  👎 悪かった  │   │ ← バイナリ選択（いずれか1つ必須）
+│  │  (thumb-up)  │  │ (thumb-down) │   │   良かった: bg #f0fdf4, border #10b981
+│  └──────────────┘  └──────────────┘   │   悪かった: bg #fef2f2, border #ef4444
+│                                        │
+│  コメント（任意）                       │
+│  [テキスト入力 4行]                    │
+│                                        │
+│  [送信する]                            │
+└────────────────────────────────────────┘
+```
+
+| 要素       | 仕様                                                        |
+| ---------- | ----------------------------------------------------------- |
+| 評価選択   | 「良かった」= rating 3 / 「悪かった」= rating 1（2択必須）  |
+| アイコン   | `thumb-up`（MaterialIcons）/ `thumb-down`（MaterialIcons）  |
+| 初期値     | 「良かった」（rating=3）が選択済み状態で表示               |
+| API        | `POST /reservations/{id}/reviews` で `{ rating, comment }` |
 
 ---
 
@@ -1077,44 +1116,77 @@ active → inactive / inactive → active をトグル
 
 #### `/search/[lender_id]` 貸主詳細
 
-| 項目       | 内容                                                                   |
-| ---------- | ---------------------------------------------------------------------- |
-| URLパラメータ | `lender_id`（必須）、`cart_id`（任意 — 特定台車のみ表示）          |
-| APIコール  | `GET /users/{lender_id}/profile`、`GET /carts?owner_id={lender_id}`、`GET /users/{lender_id}/reviews` （並列） |
-| 絞込       | `cart_id` 指定時は `allCarts.filter(c => c.id === cart_id)` を表示   |
+| 項目         | 内容                                                                                                              |
+| ------------ | ----------------------------------------------------------------------------------------------------------------- |
+| URLパラメータ | `lender_id`（必須）、`cart_id`（任意 — 特定台車のみ表示）                                                       |
+| APIコール    | `GET /users/{lender_id}/profile`、`GET /carts?owner_id={lender_id}`、`GET /users/{lender_id}/reviews`（並列）   |
+| 絞込         | `cart_id` 指定時は `allCarts.filter(c => c.id === cart_id)` を表示                                              |
+| ナビヘッダー | **非表示**（`headerShown: false`）。カスタム戻るボタンを画面内に配置                                            |
 
 **レイアウト（FlatList + ListHeaderComponent）:**
-```
-┌───────────────────────────────────┐
-│  [Avatar 72px]  貸主名           │ ← プロフィールカード
-│               ⭐ 4.5（3件）      │
-│               自己紹介テキスト   │
-├───────────────────────────────────┤
-│  レビュー（最大3件表示）          │
-│  😊 良い  "コメント..."  田中さん │
-├───────────────────────────────────┤
-│  台車一覧                         │
-│  ┌─────────────────────────────┐  │
-│  │ [台車画像 160px高]          │  │ ← CartCard
-│  │ 台車タイトル                │  │
-│  │ カテゴリチップ              │  │
-│  │ 説明（2行）                 │  │
-│  │ ¥1,000/日                   │  │
-│  │ 📦 2台  折りたたみ可        │  │
-│  │ 📍 千代田区 / 神田駅        │  │
-│  └─────────────────────────────┘  │
-└───────────────────────────────────┘
 
- [💬 質問する]   [🛒 借りたい]    ← 固定フッター
+```
+┌──────────────────────────────────────────┐
+│ ← 戻る                                   │ ← カスタム戻るボタン（左矢印 + "戻る" テキスト、padding 大きめ）
+│ ─────────────────────────────────────── │ ← hairline 区切り線
+├──────────────────────────────────────────┤
+│  [Avatar 72px]  貸主名                  │ ← プロフィールカード（横並び）
+│                 ★★★★☆（N件）           │   5つ星表示（良いレビュー率 × 5）
+│                 ⏱ X分前 / X時間前 / X日前│   最終ログイン（access-time アイコン）
+│                 自己紹介テキスト         │
+├──────────────────────────────────────────┤
+│ レビュー（全件表示・0件時は空状態メッセ） │ ← レビューセクション
+│ ┌──────┐ 👍 "良かったです" — 田中さん  │   thumb-up（緑）/ thumb-down（赤）アイコン
+│ └──────┘                                 │
+├──────────────────────────────────────────┤
+│ 台車一覧（2カラムグリッド）              │
+│  ┌──────────┐  ┌──────────┐             │
+│  │ [正方形   │  │ [正方形   │            │ ← CartCard（CARD_WIDTH = (screenWidth - 48) / 2）
+│  │  サムネ]  │  │  サムネ]  │            │
+│  │ タイトル  │  │ タイトル  │            │
+│  │ ¥1,000/日 │  │ ¥2,000/日 │            │
+│  └──────────┘  └──────────┘             │
+└──────────────────────────────────────────┘
+
+ [💬 質問する]   [🛒 借りたい]    ← 固定フッター（useSafeAreaInsets で動的 paddingBottom）
 ```
 
-| 要素             | 仕様                                                                              |
-| ---------------- | --------------------------------------------------------------------------------- |
-| 平均評価         | レビューがある場合のみ表示（⭐ X.X（N件））                                       |
-| レビュー評価絵文字 | 1: 😞 悪い / 2: 😐 普通 / 3: 😊 良い                                           |
-| レビュー表示数   | 最大3件                                                                           |
-| 質問するボタン   | InquiryModal を表示（`cart_id` を渡す）                                           |
-| 借りたいボタン   | `/request-new?lender_id={id}&cart_id={id}` へ遷移（モーダル）                   |
+**カスタム戻るボタン（`backBtn` スタイル）:**
+| 要素        | 仕様                                                                             |
+| ----------- | -------------------------------------------------------------------------------- |
+| レイアウト  | `flexDirection: 'row'`, `gap: 4`, `paddingHorizontal: 16`, `paddingVertical: 14` |
+| テキスト    | "← 戻る"（fontSize 17, color `#374151`, chevron-left アイコン）                  |
+| 区切り線    | ボタン下部に `borderBottomWidth: hairlineWidth, borderBottomColor: '#e5e7eb'`     |
+
+**プロフィールカード:**
+| 要素        | 仕様                                                                                                |
+| ----------- | --------------------------------------------------------------------------------------------------- |
+| アバター    | 72px 円形。未設定時はイニシャル（bg `#dbeafe`, text `#3b82f6`）                                     |
+| 5つ星表示   | 良いレビュー（rating=3）の割合 × 5 を小数第1位で表示。全5個の ★（filled: `#fbbf24` / empty: `#d1d5db`）。レビュー0件でも表示（★☆☆☆☆） |
+| 最終ログイン | `last_seen_at` から相対時間を計算: 60秒未満→「たった今」/ 60分未満→「X分前」/ 24時間未満→「X時間前」/ それ以降→「X日前」 |
+| 自己紹介    | `bio`。null の場合は表示しない                                                                       |
+
+**レビューセクション:**
+| 要素        | 仕様                                                                     |
+| ----------- | ------------------------------------------------------------------------ |
+| 0件時       | 「まだレビューがありません」（グレー、中央揃え）                         |
+| 評価アイコン | rating=3: `thumb-up`（`#10b981` 緑）/ rating=1: `thumb-down`（`#ef4444` 赤）|
+| 表示件数    | 全件表示                                                                 |
+
+**CartCard（グリッドセル）:**
+| 要素        | 仕様                                                                           |
+| ----------- | ------------------------------------------------------------------------------ |
+| サイズ      | `CARD_WIDTH = (screenWidth - 16 * 2 - 10) / 2`（画面幅 - 左右パディング - 間隔）/ 2 |
+| 画像        | `width: '100%', aspectRatio: 1`（正方形）、`resizeMode: 'cover'`              |
+| タイトル    | fontSize 13, fontWeight 600, 最大2行                                           |
+| 価格        | daily_rate → weekly_rate → per_rental_rate の優先順（fontSize 15, bold, blue） |
+| タップ      | → `/request-new?lender_id={lender_id}&cart_id={cart.id}`（モーダル）          |
+
+| 要素           | 仕様                                                                   |
+| -------------- | ---------------------------------------------------------------------- |
+| 質問するボタン | InquiryModal を表示（`cart_id` を渡す）                               |
+| 借りたいボタン | `/request-new?lender_id={id}&cart_id={id}` へ遷移（モーダル）         |
+| safe area      | `useSafeAreaInsets` でフッター・FlatList の `paddingBottom` を動的計算 |
 
 ---
 
@@ -1149,10 +1221,16 @@ active → inactive / inactive → active をトグル
 | 要素            | 仕様                                                                        |
 | --------------- | --------------------------------------------------------------------------- |
 | 日付デフォルト  | 貸出: 翌日 00:00 / 返却: 翌々日 00:00                                       |
-| DateTimePicker  | 日付ボタン・時刻ボタンを個別タップ（iOS: compact / Android: default）       |
+| 日付ラベル表示  | 西暦を含むフル表示: `2026年6月25日（水）`（year / month / day / weekday: 'short'） |
+| 日付タップ      | Modal が開きインラインカレンダーが即表示（`display="inline"`・`locale="ja-JP"`）|
+| 日付確定        | Modal 内「確定」ボタンで選択確定 + Modal クローズ（同じ日付タップでも閉じる） |
+| 時刻タップ      | Modal が開きドラムロールピッカー表示（`display="spinner"`）                 |
+| 時刻確定        | Modal ヘッダーの「確定」ボタンで確定 + Modal クローズ（即時クローズしない）  |
+| 時刻キャンセル  | Modal ヘッダーの「キャンセル」ボタンで変更を破棄して閉じる                  |
 | 地点グループ    | `locationGroups`（cart × location の組み合わせ）で展開                     |
 | CartSelectRow   | サムネ56px + タイトル + 在庫数 + ±ステッパー（在庫上限で＋disabled）      |
 | 選択カード強調  | qty > 0 時: border `#3b82f6`、bg `#eff6ff`                                 |
+| safe area       | `useSafeAreaInsets` で Modal 内ボタン・画面下部の `paddingBottom` を動的計算 |
 | 送信バリデーション | qty = 0 → Alert / endDate ≤ startDate → Alert                          |
 
 ---
@@ -1223,6 +1301,7 @@ active → inactive / inactive → active をトグル
 | 要素             | 仕様                                                                     |
 | ---------------- | ------------------------------------------------------------------------ |
 | ヘッダー         | 全タブ共通で 🔔（未読バッジ）・👤 アイコン表示（右上、gap 8）           |
+| ヘッダーアイコン | `notifications-none` / `person-outline` アイコン（size **28**px、color `#374151`）、padding 8 |
 | 未読バッジ       | Zustand `badgeStore` で管理、30秒ポーリング ＋ AppState resume で更新  |
 | エラー状態       | `EmptyScreen` コンポーネント（icon="⚠️" + 再試行ボタン）               |
 | 空状態           | `EmptyScreen` コンポーネント（icon / message / subMessage / action）    |
@@ -1583,7 +1662,20 @@ interface User {
   user_type: UserType;
   expo_push_token: string | null;
   is_active: boolean;
-  is_new?: boolean;  // 初回登録フラグ（プロフィール設定誘導用）
+  is_new?: boolean;       // 初回登録フラグ（プロフィール設定誘導用）
+  plan: 'normal' | 'pro';
+  plan_expires_at: string | null;
+  is_over_limit: boolean;
+}
+
+// GET /users/{user_id}/profile レスポンス（公開プロフィール）
+interface PublicUser {
+  id: string;
+  display_name: string;
+  avatar_url: string | null;
+  bio: string | null;
+  user_type: UserType;
+  last_seen_at: string | null;  // ISO8601（UTC）
 }
 
 interface Notification {
@@ -1600,9 +1692,9 @@ interface Notification {
 
 ### 14.3 Zustand ストア
 
-| ストア       | ファイル           | 状態                                                         |
-| ------------ | ------------------ | ------------------------------------------------------------ |
-| `authStore`  | `store/authStore.ts` | `user: User \| null`、`setUser`、`syncUser`（`GET /users/me`） |
+| ストア       | ファイル           | 状態                                                                            |
+| ------------ | ------------------ | ------------------------------------------------------------------------------- |
+| `authStore`  | `store/authStore.ts` | `session`, `user: AppUser \| null`, `loading`, `setSession`, `syncUser`（`POST /auth/sync`）, `signOut`（`loading: false` で即リセット） |
 | `badgeStore` | `store/badgeStore.ts` | `unreadNotifications: number`、`clearNotifications`、`fetchUnread`（`GET /notifications?unread=true`）|
 
 ### 14.4 価格優先順位（全画面共通）

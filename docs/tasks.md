@@ -1,6 +1,6 @@
 # ダイシェア モバイルアプリ 開発タスク
 
-> 最終更新: 2026-06-28  
+> 最終更新: 2026-07-01  
 > ステータス凡例: `[ ]` 未着手 / `[→]` 進行中 / `[x]` 完了 / `[-]` スキップ
 
 ---
@@ -78,7 +78,7 @@
 ### 0-8. CI/CD（GitHub Actions）設定
 
 - [x] `.github/workflows/backend-ci.yml` 作成（pytest / ruff / mypy）
-- [x] `.github/workflows/backend-deploy.yml` 作成（Render 自動デプロイに切替のため無効化）
+- [x] `.github/workflows/backend-deploy.yml` 作成（develop → staging / main → production 自動デプロイ。Render Deploy Hook を GitHub Secrets に登録済み）
 - [x] `.github/workflows/mobile-build.yml` 作成（EAS 未設定のため無効化・ISS-005 解決後に再有効化）
 - [x] gitleaks の CocoaPods 誤検知を除外設定
 - [ ] GitHub Secrets に EAS Token / Supabase キー類を登録（EAS Build 設定時）
@@ -121,6 +121,7 @@
 - [x] `/profile-edit` 画面 — プロフィール編集（名前・自己紹介・タイプ・アバター）
 - [x] プロフィールアイコン画像アップロード（Supabase Storage `avatars`）
 - [x] アバターアップロードは `expo-image-picker` を動的インポート（Expo Go 対応）
+- [x] アバターアップロードを base64 方式に修正（`blob.arrayBuffer()` は React Native 未サポート。ERR-017）
 - [x] 通知設定（AsyncStorage に保存・即時反映・`useFocusEffect` で再読込）
 
 ---
@@ -187,8 +188,15 @@
 - [x] 絞り込みモーダル（台車タイプ・折りたたみ可否でフィルタ）
 - [x] アクティブフィルタをチップで表示・個別クリアボタン
 - [x] `GET /carts` に category / foldable クエリパラメータ追加（バックエンド）
-- [x] `/search/[lender_id]` 画面 — 貸主詳細・台車一覧
+- [x] `/search/[lender_id]` 画面 — 貸主詳細・台車一覧（ナビヘッダー非表示・カスタム戻るボタン・仕切り線付き）
+- [x] `/search/[lender_id]` — 台車カードを2カラムグリッドに変更（CARD_WIDTH = (screenWidth - 48) / 2・正方形サムネイル）
+- [x] `/search/[lender_id]` — 最終ログイン時刻を相対時間（X分前/X時間前/X日前）で表示（access-time アイコン）
+- [x] `/search/[lender_id]` — ヘッダー上の重複タイトル・重複戻るボタン除去（ERR-019）
+- [x] `/search/[lender_id]` — レビューなし時も「0件（まだレビューがありません）」と表示
 - [x] `/request-new` 画面 — 日時選択（日付・時刻別ボタン）/ 台車カード選択（+/- カウンター）/ メッセージ入力
+- [x] `/request-new` — カレンダー UX 改善（inline + ja-JP・タップ即表示・Modal 確定ボタン・同日タップで閉じる）（ERR-021）
+- [x] `/request-new` — 時刻ピッカーに確定ボタン追加（即時クローズ防止）（ERR-022）
+- [x] `/request-new` — 日付ラベルに西暦を追加（year: 'numeric', month: 'long', day: 'numeric', weekday: 'short'）
 - [x] `/reservations` 画面 — ユーザータイプ別3タブ表示（リクエスト / 予約中 / 履歴）
 - [x] 予約一覧カードに全情報表示（日時・場所・住所・備考）
 - [x] 予約カードタップでチャット画面に遷移（「チャット・詳細を開く」ボタン廃止）
@@ -290,7 +298,13 @@
 
 - [x] 返却完了後にレビューモーダル表示
 - [x] 評価（1〜3）+ コメント入力
-- [x] 貸主詳細画面にレビュー一覧・平均評価表示
+- [x] 貸主詳細画面にレビュー一覧表示（バイナリ評価：thumb-up/thumb-down アイコン）
+- [x] レビューをバイナリ方式に変更（良かった=3 / 悪かった=1 の2択。評価2は廃止）
+- [x] レビューボタンを絵文字から Material Icons（thumb_up / thumb_down）に変更
+- [x] プロフィールの評価表示を5つ星表示に変更（良いレビュー割合から算出: ratio × 5 stars、メルカリ方式）
+- [x] `users` テーブルに `last_seen_at` カラム追加（Alembic マイグレーション）
+- [x] `POST /auth/sync` で `last_seen_at` を現在時刻（UTC）に更新
+- [x] `GET /users/{user_id}/profile` のレスポンスに `last_seen_at` を追加（`PublicUserResponse`）
 
 ---
 
@@ -305,6 +319,10 @@
 - [x] プロフィール画面のモダンデザイン刷新
 - [x] 台車フォームのカード分割レイアウト
 - [x] 通知設定ドラムロールピッカー（iOSタイマー風）
+- [x] ヘッダー右のアイコン（通知ベル・プロフィール）サイズを 24px → 28px に拡大
+- [x] ログアウト後のローディングスピナー無限ループ修正（ERR-020）
+- [x] `gitleaks.toml` に `.env.staging` / `.env.production` の allowlist 追加（ERR-026）
+- [x] iPhone Dev Build を `xcodebuild` + `xcrun devicectl` で実機インストール（ERR-024）
 
 ### 5-2. テスト
 
@@ -414,10 +432,10 @@
 | Phase                                  | タスク数 | 完了    | 未着手  |
 | -------------------------------------- | -------- | ------- | ------- |
 | Phase 0 — 環境構築                     | 37       | 34      | 3       |
-| Phase 1 — 認証・ユーザー               | 19       | 19      | 0       |
-| Phase 2 — 台車・検索・リクエスト       | 33       | 33      | 0       |
+| Phase 1 — 認証・ユーザー               | 21       | 21      | 0       |
+| Phase 2 — 台車・検索・リクエスト       | 42       | 42      | 0       |
 | Phase 3 — メッセージ・予約管理         | 23       | 22      | 1       |
-| Phase 4 — レビュー・スケジュール・通知 | 23       | 22      | 1       |
-| Phase 5 — 仕上げ・リリース準備         | 30       | 22      | 8       |
+| Phase 4 — レビュー・スケジュール・通知 | 30       | 29      | 1       |
+| Phase 5 — 仕上げ・リリース準備         | 34       | 26      | 8       |
 | Phase 6 — 品質向上・追加機能（MVP後）  | 21       | 4       | 17      |
-| **合計**                               | **186**  | **156** | **30**  |
+| **合計**                               | **208**  | **178** | **30**  |
