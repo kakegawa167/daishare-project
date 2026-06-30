@@ -4,7 +4,7 @@ export default function SearchLayout() {
   return (
     <Stack screenOptions={{ headerBackTitle: '戻る' }}>
       <Stack.Screen name="index" options={{ title: '台車を探す' }} />
-      <Stack.Screen name="[lender_id]" options={{ title: '' }} />
+      <Stack.Screen name="[lender_id]" options={{ headerShown: false }} />
     </Stack>
   );
 }

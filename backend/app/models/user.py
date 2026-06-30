@@ -30,6 +30,7 @@ class User(Base):
         SAEnum(UserType, name="user_type"), nullable=False, default=UserType.renter
     )
     expo_push_token: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    last_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     plan: Mapped[str] = mapped_column(String(20), nullable=False, default="normal")
     plan_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
@@ -27,9 +28,11 @@ async def sync_user(
     if not user:
         user = User(id=uid, email=body.email, display_name=body.display_name)
         db.add(user)
-        await db.commit()
-        await db.refresh(user)
         is_new = True
+
+    user.last_seen_at = datetime.now(timezone.utc)
+    await db.commit()
+    await db.refresh(user)
 
     resp = UserResponse.model_validate(user)
     resp.is_new = is_new

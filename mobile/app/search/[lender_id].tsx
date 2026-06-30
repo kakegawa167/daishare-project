@@ -2,7 +2,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { api } from '@/lib/api';
 import { Cart } from '@/lib/types';
 import { requireAuth } from '@/lib/requireAuth';
-import { router, useLocalSearchParams, useNavigation } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -22,12 +22,27 @@ import {
 
 const CARD_WIDTH = (Dimensions.get('window').width - 16 * 2 - 10) / 2;
 
+function relativeTime(iso: string | null | undefined): string {
+  if (!iso) return '';
+  const diff = Date.now() - new Date(iso).getTime();
+  const min = Math.floor(diff / 60000);
+  if (min < 1) return 'たった今';
+  if (min < 60) return `${min}分前`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr}時間前`;
+  const day = Math.floor(hr / 24);
+  if (day < 30) return `${day}日前`;
+  const mo = Math.floor(day / 30);
+  return `${mo}ヶ月前`;
+}
+
 interface LenderProfile {
   id: string;
   display_name: string;
   avatar_url: string | null;
   bio: string | null;
   user_type: string;
+  last_seen_at: string | null;
 }
 
 interface Review {
@@ -138,7 +153,6 @@ function CartCard({ cart }: { cart: Cart }) {
 // ─── メイン ────────────────────────────────────────────
 export default function LenderDetail() {
   const { lender_id, cart_id } = useLocalSearchParams<{ lender_id: string; cart_id?: string }>();
-  const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const [profile, setProfile] = useState<LenderProfile | null>(null);
   const [carts, setCarts] = useState<Cart[]>([]);
@@ -155,7 +169,6 @@ export default function LenderDetail() {
           api.get<Review[]>(`/users/${lender_id}/reviews`),
         ]);
         setProfile(profileRes.data);
-        navigation.setOptions({ title: profileRes.data.display_name });
         const allCarts: Cart[] = cartsRes.data;
         setCarts(cart_id ? allCarts.filter((c) => String(c.id) === cart_id) : allCarts);
         setReviews(reviewsRes.data);
@@ -175,7 +188,11 @@ export default function LenderDetail() {
   const ListHeader = (
     <View>
       {/* プロフィール */}
-      <View style={s.profileCard}>
+      <View style={[s.profileCard, { paddingTop: insets.top + 12 }]}>
+        <Pressable style={s.backBtn} onPress={() => router.back()}>
+          <MaterialIcons name="arrow-back-ios" size={20} color="#111827" />
+        </Pressable>
+        <View style={{ flexDirection: 'row', gap: 16, marginTop: 8 }}>
         {profile?.avatar_url ? (
           <Image source={{ uri: profile.avatar_url }} style={s.avatar} />
         ) : (
@@ -191,7 +208,14 @@ export default function LenderDetail() {
             ))}
             <Text style={s.profileRatingCount}>（{reviews.length}件）</Text>
           </View>
+          {profile?.last_seen_at ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 }}>
+              <MaterialIcons name="access-time" size={12} color="#9ca3af" />
+              <Text style={s.profileLastSeen}>{relativeTime(profile.last_seen_at)}にログイン</Text>
+            </View>
+          ) : null}
           {profile?.bio ? <Text style={s.profileBio}>{profile.bio}</Text> : null}
+        </View>
         </View>
       </View>
 
@@ -276,8 +300,12 @@ const s = StyleSheet.create({
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
 
   profileCard: {
-    flexDirection: 'row', padding: 20, backgroundColor: '#fff',
-    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#e5e7eb', gap: 16,
+    padding: 20, backgroundColor: '#fff',
+    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#e5e7eb',
+  },
+  backBtn: {
+    position: 'absolute', top: 12, left: 12, width: 36, height: 36,
+    alignItems: 'center', justifyContent: 'center', zIndex: 1,
   },
   avatar: { width: 72, height: 72, borderRadius: 36 },
   avatarPlaceholder: { backgroundColor: '#3b82f6', alignItems: 'center', justifyContent: 'center' },
@@ -285,6 +313,7 @@ const s = StyleSheet.create({
   profileInfo: { flex: 1, justifyContent: 'center', gap: 4 },
   profileName: { fontSize: 20, fontWeight: '800', color: '#111827' },
   profileRatingCount: { fontSize: 12, color: '#9ca3af', marginLeft: 4 },
+  profileLastSeen: { fontSize: 12, color: '#9ca3af' },
   profileBio: { fontSize: 13, color: '#6b7280', lineHeight: 18, marginTop: 4 },
 
   section: { marginHorizontal: 16, marginTop: 16, marginBottom: 4 },

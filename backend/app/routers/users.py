@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select, update
@@ -23,6 +24,7 @@ class PublicUserResponse(BaseModel):
     avatar_url: str | None
     bio: str | None
     user_type: str
+    last_seen_at: datetime | None = None
 
     model_config = {"from_attributes": True}
 
