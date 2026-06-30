@@ -188,34 +188,35 @@ export default function LenderDetail() {
   const ListHeader = (
     <View>
       {/* プロフィール */}
-      <View style={[s.profileCard, { paddingTop: insets.top + 12 }]}>
+      <View style={[s.profileCard, { paddingTop: insets.top }]}>
         <Pressable style={s.backBtn} onPress={() => router.back()}>
-          <MaterialIcons name="arrow-back-ios" size={20} color="#111827" />
+          <MaterialIcons name="arrow-back-ios" size={18} color="#374151" />
+          <Text style={s.backBtnText}>戻る</Text>
         </Pressable>
-        <View style={{ flexDirection: 'row', gap: 16, marginTop: 8 }}>
-        {profile?.avatar_url ? (
-          <Image source={{ uri: profile.avatar_url }} style={s.avatar} />
-        ) : (
-          <View style={[s.avatar, s.avatarPlaceholder]}>
-            <Text style={s.avatarInitial}>{(profile?.display_name ?? '?').charAt(0).toUpperCase()}</Text>
-          </View>
-        )}
-        <View style={s.profileInfo}>
-          <Text style={s.profileName}>{profile?.display_name ?? '貸す人'}</Text>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2, marginTop: 2 }}>
-            {[1, 2, 3, 4, 5].map((i) => (
-              <MaterialIcons key={i} name={i <= starCount ? 'star' : 'star-border'} size={16} color="#f59e0b" />
-            ))}
-            <Text style={s.profileRatingCount}>（{reviews.length}件）</Text>
-          </View>
-          {profile?.last_seen_at ? (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 }}>
-              <MaterialIcons name="access-time" size={12} color="#9ca3af" />
-              <Text style={s.profileLastSeen}>{relativeTime(profile.last_seen_at)}にログイン</Text>
+        <View style={s.profileBody}>
+          {profile?.avatar_url ? (
+            <Image source={{ uri: profile.avatar_url }} style={s.avatar} />
+          ) : (
+            <View style={[s.avatar, s.avatarPlaceholder]}>
+              <Text style={s.avatarInitial}>{(profile?.display_name ?? '?').charAt(0).toUpperCase()}</Text>
             </View>
-          ) : null}
-          {profile?.bio ? <Text style={s.profileBio}>{profile.bio}</Text> : null}
-        </View>
+          )}
+          <View style={s.profileInfo}>
+            <Text style={s.profileName}>{profile?.display_name ?? '貸す人'}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2, marginTop: 4 }}>
+              {[1, 2, 3, 4, 5].map((i) => (
+                <MaterialIcons key={i} name={i <= starCount ? 'star' : 'star-border'} size={16} color="#f59e0b" />
+              ))}
+              <Text style={s.profileRatingCount}>（{reviews.length}件）</Text>
+            </View>
+            {profile?.last_seen_at ? (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 }}>
+                <MaterialIcons name="access-time" size={12} color="#9ca3af" />
+                <Text style={s.profileLastSeen}>{relativeTime(profile.last_seen_at)}にログイン</Text>
+              </View>
+            ) : null}
+            {profile?.bio ? <Text style={s.profileBio}>{profile.bio}</Text> : null}
+          </View>
         </View>
       </View>
 
@@ -300,13 +301,15 @@ const s = StyleSheet.create({
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
 
   profileCard: {
-    padding: 20, backgroundColor: '#fff',
+    backgroundColor: '#fff',
     borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#e5e7eb',
   },
   backBtn: {
-    position: 'absolute', top: 12, left: 12, width: 36, height: 36,
-    alignItems: 'center', justifyContent: 'center', zIndex: 1,
+    flexDirection: 'row', alignItems: 'center', gap: 2,
+    paddingHorizontal: 16, paddingVertical: 10,
   },
+  backBtnText: { fontSize: 15, color: '#374151' },
+  profileBody: { flexDirection: 'row', gap: 16, paddingHorizontal: 20, paddingBottom: 20 },
   avatar: { width: 72, height: 72, borderRadius: 36 },
   avatarPlaceholder: { backgroundColor: '#3b82f6', alignItems: 'center', justifyContent: 'center' },
   avatarInitial: { fontSize: 28, fontWeight: '700', color: '#fff' },

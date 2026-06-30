@@ -81,6 +81,7 @@ function RootLayoutNav() {
     <Stack screenOptions={{ headerBackTitle: '戻る' }}>
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+      <Stack.Screen name="search" options={{ headerShown: false }} />
       <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
       <Stack.Screen name="profile" options={{ title: 'プロフィール', presentation: 'modal' }} />
       <Stack.Screen name="profile-edit" options={{ title: 'プロフィール編集' }} />
