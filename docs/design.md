@@ -575,6 +575,12 @@ carts:
 | POST   | `/notifications/read-all`  | 全件既読 |
 | DELETE | `/notifications/{id}`      | 通知削除 |
 
+#### Webhooks
+
+| Method | Path                      | 説明                                                                       |
+| ------ | ------------------------- | -------------------------------------------------------------------------- |
+| POST   | `/webhooks/revenuecat`    | RevenueCat からの購入イベント受信。`Authorization` ヘッダーでシークレット検証。`INITIAL_PURCHASE` / `RENEWAL` → plan='pro' に昇格 / `EXPIRATION` → plan='normal' に降格 |
+
 ### 6.2 主要APIの詳細
 
 #### POST `/rental-requests`（問い合わせモード）
@@ -1396,28 +1402,39 @@ cart-rental-ios/
 │   │   │   └── login.tsx
 │   │   ├── (tabs)/
 │   │   │   ├── index.tsx          # ホーム ※ useFocusEffect
-│   │   │   ├── reservations.tsx   # 予約一覧
-│   │   │   ├── messages.tsx       # メッセージスレッド一覧
-│   │   │   ├── schedule.tsx       # スケジュール
-│   │   │   ├── carts.tsx          # 台車管理 ※ useFocusEffect
-│   │   │   └── _layout.tsx
+│   │   │   ├── reservations.tsx   # 予約一覧（LoginPrompt対応）
+│   │   │   ├── messages.tsx       # メッセージスレッド一覧（LoginPrompt対応）
+│   │   │   ├── schedule.tsx       # スケジュール（LoginPrompt対応）
+│   │   │   ├── carts.tsx          # 台車管理（LoginPrompt対応）※ useFocusEffect
+│   │   │   ├── profile.tsx        # プロフィール（href: null・タブバー非表示）
+│   │   │   └── _layout.tsx        # Tab レイアウト（ヘッダー右アイコン: 通知28px / プロフィール28px）
 │   │   ├── carts/
+│   │   │   ├── _layout.tsx        # carts グループ Stack（new / edit の headerBackTitle）
+│   │   │   ├── index.tsx          # 台車一覧（簡易版・スタックルート用）
 │   │   │   ├── new.tsx            # 台車登録
 │   │   │   └── [id]/edit.tsx      # 台車編集
 │   │   ├── requests/
 │   │   │   ├── _layout.tsx        # requests グループ Stack
+│   │   │   ├── index.tsx          # リクエスト一覧（簡易版）
 │   │   │   └── [id]/
 │   │   │       └── index.tsx      # チャット・取引詳細
 │   │   ├── search/
 │   │   │   ├── _layout.tsx        # search グループ Stack（headerShown: false）
 │   │   │   ├── index.tsx          # テキスト検索画面（市区町村名検索）
 │   │   │   └── [lender_id].tsx    # 貸主詳細・台車一覧（カスタム戻るボタン）
-│   │   ├── profile.tsx            # プロフィール表示（モーダル）
+│   │   ├── notifications/
+│   │   │   ├── _layout.tsx        # notifications グループ Stack（title: '通知'）
+│   │   │   └── index.tsx          # 通知一覧・既読管理
+│   │   ├── schedule/
+│   │   │   ├── _layout.tsx        # schedule グループ Stack（title: 'スケジュール'）
+│   │   │   └── index.tsx          # スケジュール一覧（簡易版）
+│   │   ├── profile.tsx            # プロフィール表示（ルート・モーダル presentation）
 │   │   ├── profile-edit.tsx       # プロフィール編集（スタック）
-│   │   ├── notifications.tsx      # 通知一覧
-│   │   └── _layout.tsx            # ルートレイアウト
+│   │   ├── request-new.tsx        # リクエスト送信（モーダル presentation）
+│   │   └── _layout.tsx            # ルートレイアウト（RevenueCat初期化・Supabase Auth監視）
 │   ├── components/
 │   │   ├── CartForm.tsx           # 台車登録・編集フォーム
+│   │   ├── LoginPrompt.tsx        # 未認証時の全画面プロンプト（ログインボタン付き）
 │   │   ├── StationPicker.tsx      # 駅選択モーダル（市区町村→駅の2段階）
 │   │   └── ScreenState.tsx        # LoadingScreen / ErrorScreen / EmptyScreen
 │   ├── hooks/
@@ -1439,24 +1456,41 @@ cart-rental-ios/
 │   │   ├── core/
 │   │   ├── models/
 │   │   ├── schemas/
-│   │   └── routers/
-│   │       ├── auth.py
-│   │       ├── users.py
-│   │       ├── carts.py           # PATCH /{id}/status を含む
-│   │       ├── rental_requests.py
-│   │       ├── messages.py
-│   │       ├── reservations.py
-│   │       ├── reviews.py
-│   │       └── notifications.py
+│   │   ├── routers/
+│   │   │   ├── auth.py            # POST /auth/sync（last_seen_at 更新含む）
+│   │   │   ├── users.py           # GET /users/me, PUT /users/me, GET /users/{id}/profile
+│   │   │   ├── carts.py           # CRUD + PATCH /{id}/status（公開トグル）
+│   │   │   ├── rental_requests.py # リクエスト CRUD + accept/reject/cancel/formalize/direct-reserve
+│   │   │   ├── messages.py
+│   │   │   ├── reservations.py    # lend / return / cancel
+│   │   │   ├── reviews.py
+│   │   │   ├── notifications.py
+│   │   │   ├── stations.py        # GET /stations, GET /stations/municipalities
+│   │   │   ├── webhooks.py        # POST /webhooks/revenuecat（RevenueCat Webhook受信）
+│   │   │   └── dev.py             # /dev/* 開発用エンドポイント（production で自動無効化）
+│   │   ├── schemas/
+│   │   │   ├── cart.py
+│   │   │   ├── message.py
+│   │   │   ├── station.py
+│   │   │   └── user.py
+│   │   ├── services/
+│   │   │   ├── notification_service.py  # Expo Push API 呼び出し・通知作成
+│   │   │   ├── plan_service.py          # get_effective_plan / check_cart_limit / is_over_limit
+│   │   │   └── reminder_service.py      # APScheduler バッチ（貸出60分前/返却60分前リマインド）
+│   │   └── seeds/
+│   │       ├── seed.py
+│   │       └── lines_stations.py        # 路線・駅シードデータ
 │   ├── alembic/
+│   │   └── versions/              # マイグレーションファイル（11ファイル）
 │   ├── tests/
 │   └── Dockerfile
 │
 ├── docker-compose.yml
+├── .gitleaks.toml                 # シークレットスキャン設定（.env.staging/.env.production を allowlist に追加）
 └── .github/workflows/
-    ├── backend-ci.yml
-    ├── backend-deploy.yml
-    └── mobile-build.yml
+    ├── backend-ci.yml             # pytest / ruff / mypy（PR・push）
+    ├── backend-deploy.yml         # Render 自動デプロイ（develop→staging / main→production）
+    └── mobile-build.yml           # EAS Build（未設定・無効化中）
 ```
 
 ---
