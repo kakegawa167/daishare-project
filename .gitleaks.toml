@@ -6,6 +6,8 @@ description = "gitignore済みのローカル環境変数ファイルおよびCo
 paths = [
     '''\.env$''',
     '''\.env\.local$''',
+    '''\.env\.staging$''',
+    '''\.env\.production$''',
     '''\.expo/''',
     '''mobile/ios/Pods/''',
     '''mobile/ios/Podfile\.lock$''',
