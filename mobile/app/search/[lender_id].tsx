@@ -190,7 +190,7 @@ export default function LenderDetail() {
       {/* プロフィール */}
       <View style={[s.profileCard, { paddingTop: insets.top }]}>
         <Pressable style={s.backBtn} onPress={() => router.back()}>
-          <MaterialIcons name="arrow-back-ios" size={18} color="#374151" />
+          <MaterialIcons name="arrow-back-ios" size={20} color="#374151" />
           <Text style={s.backBtnText}>戻る</Text>
         </Pressable>
         <View style={s.profileBody}>
@@ -305,10 +305,11 @@ const s = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#e5e7eb',
   },
   backBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 2,
-    paddingHorizontal: 16, paddingVertical: 10,
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    paddingHorizontal: 16, paddingVertical: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#e5e7eb',
   },
-  backBtnText: { fontSize: 15, color: '#374151' },
+  backBtnText: { fontSize: 17, color: '#374151' },
   profileBody: { flexDirection: 'row', gap: 16, paddingHorizontal: 20, paddingBottom: 20 },
   avatar: { width: 72, height: 72, borderRadius: 36 },
   avatarPlaceholder: { backgroundColor: '#3b82f6', alignItems: 'center', justifyContent: 'center' },
