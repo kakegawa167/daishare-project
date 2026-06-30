@@ -300,7 +300,7 @@ users ──────┬── carts
 | email           | VARCHAR(255)| UNIQUE, NOT NULL | メールアドレス                              |
 | bio             | TEXT        |                  | 自己紹介                                    |
 | avatar_url      | TEXT        |                  | プロフィール画像URL（Supabase Storage）     |
-| user_type       | user_type   | DEFAULT 'renter' | 'renter'（借主）/ 'lender'（貸主）/ 'both'  |
+| user_type       | user_type   | DEFAULT 'renter' | 'renter'（借主）/ 'lender'（貸主）           |
 | expo_push_token | VARCHAR(255)|                  | Expo Push Token                             |
 | base_station_id | INTEGER     | FK(stations)     | 拠点駅（将来の拡張用）                      |
 | lending_address | TEXT        |                  | 貸出場所詳細（将来の拡張用）                |
@@ -632,8 +632,17 @@ active → inactive / inactive → active をトグル
 ### 7.1 ナビゲーション構造
 
 ```
-(未認証)
-  └── /(auth)/login            Google ログイン画面
+(未認証・ゲストモード)
+  ├── /(auth)/login              Google ログイン画面
+  └── Bottom Tab 5タブ（閲覧のみ可）
+        ├── / (index)              ホーム（台車グリッド — 閲覧可）
+        ├── /reservations          → LoginPrompt（「予約・リクエストを確認するにはログインが必要です」）
+        ├── /messages              → LoginPrompt（「メッセージを確認するにはログインが必要です」）
+        ├── /schedule              → LoginPrompt（「スケジュールを確認するにはログインが必要です」）
+        └── /carts                 → LoginPrompt（「台車を登録・管理するにはログインが必要です」）
+
+        ヘッダー右アイコン（未認証時）
+        └── 🔑 ログインアイコン（login） → /(auth)/login
 
 (認証済み・Bottom Tab 5タブ)
   ├── / (index)                ホーム（台車グリッド一覧 + 検索バー）
@@ -645,7 +654,7 @@ active → inactive / inactive → active をトグル
   └── /carts                   台車管理（自分の台車一覧・登録FAB）
                                  ※ useFocusEffect で再取得
 
-  ヘッダー右アイコン（全タブ共通）
+  ヘッダー右アイコン（全タブ共通・認証済み）
   ├── 🔔 通知アイコン（未読数バッジ・9+表示・30秒ポーリング） → /notifications
   └── 👤 プロフィールアイコン → /profile（モーダル）
 
@@ -654,11 +663,18 @@ active → inactive / inactive → active をトグル
   ├── /profile-edit            プロフィール編集（スタック）
   ├── /carts/new               台車登録フォーム
   ├── /carts/[id]/edit         台車編集フォーム
-  ├── /search/[lender_id]      貸主詳細・台車一覧
+  ├── /search（グループ）       Stack ナビゲーター（headerShown: false）
+  │    ├── /search/index          テキスト検索画面（市区町村検索）
+  │    └── /search/[lender_id]    貸主詳細・台車一覧（カスタムヘッダー）
   ├── /request-new             リクエスト送信（presentation: modal）
-  ├── /requests/[id]           チャット・取引詳細
+  ├── /requests/[id]/index     チャット・取引詳細（requests グループ内 Stack）
   └── /notifications           通知一覧・既読管理
 ```
+
+**ゲストモード（未認証）の認可制御:**
+- `requireAuth(label)` ヘルパー（`lib/requireAuth.ts`）: 未ログインなら Alert + `/(auth)/login` 誘導 → `false` を返す
+- 貸主詳細フッターの「質問する」「借りたい」ボタンタップ時に呼び出す
+- `/reservations` / `/messages` / `/schedule` / `/carts` タブは `LoginPrompt` コンポーネントで全画面を置換して表示
 
 ### 7.2 画面遷移図
 
@@ -887,8 +903,11 @@ active → inactive / inactive → active をトグル
 | ---------------- | -------------------------------------------------------------------- |
 | アバターエリア   | アバター画像（未設定時はイニシャル・背景色）                         |
 |                  | 名前（display_name）、メールアドレス                                 |
-| プロフィール Card | 名前 / 自己紹介（未設定時は「未設定」）/ タイプ（借主/貸主/両方）  |
+| プロフィール Card | 名前 / 自己紹介（未設定時は「未設定」）/ タイプ（借主/貸主）       |
 | ボタン           | 「プロフィールを編集」→ `router.push('/profile-edit')` で遷移        |
+| プラン Card      | 現在のプラン（Normal / Pro）バッジ表示                              |
+|                  | （Normalの場合）「Pro プランにアップグレード ¥300/月」ボタン        |
+|                  | 「購入を復元する」ボタン                                             |
 | 通知設定 Card    | 通知 ON/OFF スイッチ                                                 |
 |                  | （ON時）リクエスト通知 / メッセージ通知 / 予約リマインド スイッチ   |
 |                  | （リマインドON時）リマインドタイミング（ドラムロールピッカー）       |
@@ -920,7 +939,7 @@ active → inactive / inactive → active をトグル
 |                  | アップロード中: ActivityIndicator 表示              |
 | プロフィール Card | 名前（テキスト入力・必須）                          |
 |                  | 自己紹介（テキスト入力・複数行・任意）              |
-| 利用タイプ Card  | 借主 / 貸主 / 両方（チップ選択）                    |
+| 利用タイプ Card  | 借りる（renter）/ 貸す（lender）の2択カード選択      |
 | 保存ボタン       | 「保存する」→ PUT /users/me → router.back()         |
 | 通知設定         | **表示しない**（プロフィール表示画面でのみ管理）    |
 
@@ -940,8 +959,8 @@ active → inactive / inactive → active をトグル
 | APIコール  | `GET /rental-requests`（自分が関係するもの全件）            |
 | 再取得     | `useFocusEffect` ＋ Pull-to-refresh                         |
 
-**ロール切り替えバー（user_type が `both` の場合のみ上部表示）:**
-- 「借りる」/ 「貸す」ボタン（ピル型）
+**ロール切り替えバー（廃止）:**
+- `user_type` は `renter` / `lender` の2択のみ。`both` は廃止済みのため切り替えバーは不要
 
 **コンテンツタブ（3本）:**
 
@@ -1111,6 +1130,32 @@ active → inactive / inactive → active をトグル
 | バッジ       | 「貸出」/ 「返却」（背景 = アクセント色 + 20%透過）         |
 | 過去カード   | `opacity: 0.75`                                            |
 | タップ       | → `/requests/[rental_request_id]`                          |
+
+---
+
+#### `/search` テキスト検索画面
+
+| 項目      | 内容                                                         |
+| --------- | ------------------------------------------------------------ |
+| ルート    | `search/index.tsx`（search グループの index）                |
+| APIコール | `GET /carts?municipality={query}`                            |
+| 入力      | テキスト入力（市区町村名・例: 渋谷区）＋「検索」ボタン      |
+
+**レイアウト:**
+```
+┌─────────────────────────────────────────┐
+│ [市区町村で検索   ][検索]               │ ← 検索バー（TextInput + Button）
+├─────────────────────────────────────────┤
+│  [台車画像]                             │ ← CartCard（縦1列）
+│  台車タイトル                           │
+│  オーナー名                             │
+│  📍 市区町村 / 駅名                     │
+│  🏠 貸出場所詳細                        │
+│  ¥1,000/日             在庫 N台 Badge  │
+└─────────────────────────────────────────┘
+```
+
+> **補足**: ホーム画面の `/(tabs)/index` はビジュアル検索（エリア選択・フィルタ）。`/search/index` はシンプルなテキスト検索（市区町村名直接入力）。両方が検索画面として機能する。
 
 ---
 
@@ -1360,9 +1405,13 @@ cart-rental-ios/
 │   │   │   ├── new.tsx            # 台車登録
 │   │   │   └── [id]/edit.tsx      # 台車編集
 │   │   ├── requests/
-│   │   │   └── [id].tsx           # チャット・取引詳細
+│   │   │   ├── _layout.tsx        # requests グループ Stack
+│   │   │   └── [id]/
+│   │   │       └── index.tsx      # チャット・取引詳細
 │   │   ├── search/
-│   │   │   └── [lender_id].tsx    # 貸主詳細・リクエスト送信
+│   │   │   ├── _layout.tsx        # search グループ Stack（headerShown: false）
+│   │   │   ├── index.tsx          # テキスト検索画面（市区町村名検索）
+│   │   │   └── [lender_id].tsx    # 貸主詳細・台車一覧（カスタム戻るボタン）
 │   │   ├── profile.tsx            # プロフィール表示（モーダル）
 │   │   ├── profile-edit.tsx       # プロフィール編集（スタック）
 │   │   ├── notifications.tsx      # 通知一覧
@@ -1379,7 +1428,9 @@ cart-rental-ios/
 │   ├── lib/
 │   │   ├── api.ts
 │   │   ├── supabase.ts
-│   │   └── types.ts
+│   │   ├── types.ts
+│   │   ├── purchases.ts           # RevenueCat SDK ラッパー（Expo Go 時はグレースフルデグレード）
+│   │   └── requireAuth.ts         # 未認証ガード（Alert + /(auth)/login 誘導）
 │   └── package.json
 │
 ├── backend/
@@ -1556,7 +1607,7 @@ type CartStatus    = 'active' | 'inactive' | 'deleted';
 type CartCategory  = 'hand_truck' | 'flat_cart' | 'hand_dolly' | 'outdoor_wagon' | 'other';
 type RequestStatus = 'inquiry' | 'pending' | 'accepted' | 'rejected' | 'cancelled';
 type ReservationStatus = 'reserved' | 'lent' | 'returned' | 'cancelled';
-type UserType      = 'renter' | 'lender' | 'both';
+type UserType      = 'renter' | 'lender';  // 'both' は廃止済み
 ```
 
 ### 14.2 主要インターフェース
