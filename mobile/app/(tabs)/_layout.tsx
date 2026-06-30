@@ -18,7 +18,7 @@ function HeaderRight() {
           onPress={() => router.push('/notifications')}
           accessibilityLabel={`通知${unread > 0 ? `、未読${unread}件` : ''}`}
         >
-          <MaterialIcons name="notifications-none" size={24} color="#374151" />
+          <MaterialIcons name="notifications-none" size={28} color="#374151" />
           {unread > 0 && (
             <View style={styles.dot}>
               <Text style={styles.dotText}>{unread > 9 ? '9+' : unread}</Text>
@@ -31,7 +31,7 @@ function HeaderRight() {
         onPress={() => session ? router.push('/profile') : router.push('/(auth)/login')}
         accessibilityLabel={session ? 'プロフィール' : 'ログイン'}
       >
-        <MaterialIcons name={session ? 'person-outline' : 'login'} size={24} color="#374151" />
+        <MaterialIcons name={session ? 'person-outline' : 'login'} size={28} color="#374151" />
       </Pressable>
     </View>
   );
@@ -139,7 +139,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: { fontSize: 20, fontWeight: '800', color: '#3b82f6' },
   headerRight: { flexDirection: 'row', alignItems: 'center', marginRight: 12, gap: 8 },
-  headerBtn: { padding: 6, position: 'relative' },
+  headerBtn: { padding: 8, position: 'relative' },
   dot: {
     position: 'absolute',
     top: 2,
