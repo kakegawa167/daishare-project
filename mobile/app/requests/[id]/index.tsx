@@ -551,10 +551,10 @@ export default function RequestChat() {
         { event: 'INSERT', schema: 'public', table: 'messages', filter: `rental_request_id=eq.${id}` },
         (payload) => {
           const msg = payload.new as Message;
+          // 自分の送信は楽観更新＋POSTレスポンスで反映済み。Realtimeでも受け取ると二重になるためスキップ
+          if (msg.sender_id === myId) return;
           setMessages((prev) => prev.some((m) => m.id === msg.id) ? prev : [...prev, msg]);
-          if (msg.sender_id !== myId) {
-            api.post(`/rental-requests/${id}/messages/read`).catch(() => {});
-          }
+          api.post(`/rental-requests/${id}/messages/read`).catch(() => {});
           setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
         }
       )
@@ -588,7 +588,13 @@ export default function RequestChat() {
     setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
     try {
       const res = await api.post<Message>(`/rental-requests/${id}/messages`, { body });
-      setMessages((prev) => prev.map((m) => m.id === optimistic.id ? res.data : m));
+      // 楽観メッセージを本物に置換。ポーリング等で既に本物が入っていれば重複させない
+      setMessages((prev) => {
+        const withoutOptimistic = prev.filter((m) => m.id !== optimistic.id);
+        return withoutOptimistic.some((m) => m.id === res.data.id)
+          ? withoutOptimistic
+          : [...withoutOptimistic, res.data];
+      });
     } catch {
       setMessages((prev) => prev.filter((m) => m.id !== optimistic.id));
       setInput(body);

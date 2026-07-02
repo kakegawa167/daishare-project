@@ -407,3 +407,18 @@
 | 対応方法   | `_send_expo_push` の HTTP 呼び出しを `try/except Exception` で囲み、失敗時は warning ログのみ出して握りつぶす。これで全通知種別（承認・拒否・メッセージ等）でプッシュ失敗が API を壊さなくなる |
 | 注意点     | 外部サービス（Expo Push 等）への呼び出しは主処理トランザクションを巻き込まないよう必ず握りつぶす（design.md §2.6）。反映には staging/production バックエンドの再デプロイが必要 |
 | 対象ファイル | `backend/app/services/notification_service.py`                                          |
+
+---
+
+## ERR-030 — チャットでメッセージが重複して表示される
+
+| 項目       | 内容                                                                                     |
+| ---------- | ---------------------------------------------------------------------------------------- |
+| エラーID   | ERR-030                                                                                  |
+| 発生日時   | 2026-07-02                                                                               |
+| 発生箇所   | `mobile/app/requests/[id]/index.tsx`（`handleSend` / Realtime INSERT 購読）             |
+| 症状       | 自分がメッセージを送ると、同じメッセージが2件表示されることがある                        |
+| 原因       | 自分の送信メッセージが2経路で入る競合: ①`handleSend` の楽観的更新（一時ID `Date.now()`）＋POSTレスポンスで本物IDに置換、②Supabase Realtime の INSERT 購読が本物ID で追加。Realtime が POST レスポンスより先に届くと、一時IDと本物IDが一致せず別物として追加され、その後 POST 置換で本物IDが2件になる |
+| 対応方法   | ①Realtime INSERT 購読で `msg.sender_id === myId` のメッセージはスキップ（自分の送信は楽観更新＋POSTで反映済み）。②POST 成功時の置換を「楽観メッセージを除去し、本物IDが既にあれば再追加しない」重複防止型に変更 |
+| 注意点     | 楽観的更新と Realtime/ポーリングなど複数経路で同じ要素が入る場合は、ID の一致だけでなく「自分発の要素は片方の経路に一本化」する。他ユーザーのメッセージは従来どおり Realtime で受信 |
+| 対象ファイル | `mobile/app/requests/[id]/index.tsx`                                                    |
