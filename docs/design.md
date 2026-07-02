@@ -1,6 +1,6 @@
 # ダイシェア モバイルアプリ 設計書
 
-> バージョン: 2.10.0  
+> バージョン: 2.10.1  
 > 作成日: 2026-06-23  
 > 最終更新: 2026-07-02  
 > 対象: MVP リリース
@@ -761,9 +761,13 @@ active → inactive / inactive → active をトグル
   │    ├── /search/index          テキスト検索画面（市区町村検索）
   │    └── /search/[lender_id]    貸主詳細・台車一覧（カスタムヘッダー）
   ├── /request-new             リクエスト送信（presentation: modal）
-  ├── /requests/[id]/index     チャット・取引詳細（requests グループ内 Stack）
-  └── /notifications           通知一覧・既読管理
+  ├── /requests（グループ）      Stack ナビゲーター（headerShown: false）
+  │    └── /requests/[id]/index   チャット・取引詳細（ヘッダーは相手ユーザー名を動的表示・LINE風）
+  └── /notifications（グループ） Stack ナビゲーター（headerShown: false）
+       └── /notifications/index   通知一覧・既読管理（ヘッダー "通知"）
 ```
+
+> **ルートグループのヘッダー方針**: ルート `_layout.tsx` では各グループ（`search` / `requests` / `notifications`）に `headerShown: false` を設定し、外側ヘッダーにグループ名が出るのを防ぐ。ヘッダーはグループ内 Stack が担う（ERR-019）。新規グループ追加時も同様に登録する。
 
 **ゲストモード（未認証）の認可制御:**
 - `requireAuth(label)` ヘルパー（`lib/requireAuth.ts`）: 未ログインなら Alert + `/(auth)/login` 誘導 → `false` を返す
