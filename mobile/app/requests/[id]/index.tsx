@@ -648,18 +648,22 @@ export default function RequestChat() {
           headerLeft: () => (
             <Pressable
               onPress={() => router.back()}
-              hitSlop={8}
-              style={{ flexDirection: 'row', alignItems: 'center', paddingRight: 12 }}
+              hitSlop={12}
+              style={{ width: 36, height: 36, alignItems: 'center', justifyContent: 'center' }}
               accessibilityLabel="戻る"
             >
-              <MaterialIcons name="arrow-back-ios" size={22} color="#3b82f6" />
+              <MaterialIcons name="chevron-left" size={30} color="#3b82f6" />
             </Pressable>
           ),
         }}
       />
 
-      {/* キーボード対応: FlatListにautomaticallyAdjustKeyboardInsets、inputはKAVで押し上げ */}
-      <View style={{ flex: 1, backgroundColor: '#e8edf2' }}>
+      {/* キーボード対応: コンテンツ全体を KAV でラップし、ヘッダー高さ分オフセット */}
+      <KeyboardAvoidingView
+        style={{ flex: 1, backgroundColor: '#e8edf2' }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + 44 : 0}
+      >
         {/* リクエスト条件カード */}
         <RequestInfoCard req={request} status={currentStatus} />
 
@@ -750,8 +754,6 @@ export default function RequestChat() {
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#3b82f6" />
           }
-          // iOS 15+: キーボード出現時にスクロールを自動調整
-          automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
           onLayout={() => listRef.current?.scrollToEnd({ animated: false })}
           onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
           ListEmptyComponent={
@@ -761,7 +763,7 @@ export default function RequestChat() {
           }
         />
 
-        {/* 入力欄: KAVでキーボードの上に固定 */}
+        {/* 入力欄: KAV（コンテナ側）でキーボードの上に固定 */}
         {canChat && (
           isMessageBlocked ? (
             <View style={[s.inputBar, s.inputBarBlocked, { paddingBottom: Math.max(insets.bottom, 8) }]}>
@@ -770,35 +772,30 @@ export default function RequestChat() {
               </Text>
             </View>
           ) : (
-            <KeyboardAvoidingView
-              behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-              keyboardVerticalOffset={0}
-            >
-              <View style={[s.inputBar, { paddingBottom: Math.max(insets.bottom, 8) }]}>
-                <TextInput
-                  style={s.input}
-                  value={input}
-                  onChangeText={setInput}
-                  placeholder="メッセージを入力..."
-                  placeholderTextColor="#9ca3af"
-                  multiline
-                  maxLength={500}
-                />
-                <Pressable
-                  style={[s.sendBtn, (!input.trim() || sending) && s.sendBtnOff]}
-                  onPress={handleSend}
-                  disabled={!input.trim() || sending}
-                >
-                  {sending
-                    ? <ActivityIndicator color="#fff" size="small" />
-                    : <Text style={s.sendBtnText}>送信</Text>
-                  }
-                </Pressable>
-              </View>
-            </KeyboardAvoidingView>
+            <View style={[s.inputBar, { paddingBottom: Math.max(insets.bottom, 8) }]}>
+              <TextInput
+                style={s.input}
+                value={input}
+                onChangeText={setInput}
+                placeholder="メッセージを入力..."
+                placeholderTextColor="#9ca3af"
+                multiline
+                maxLength={500}
+              />
+              <Pressable
+                style={[s.sendBtn, (!input.trim() || sending) && s.sendBtnOff]}
+                onPress={handleSend}
+                disabled={!input.trim() || sending}
+              >
+                {sending
+                  ? <ActivityIndicator color="#fff" size="small" />
+                  : <Text style={s.sendBtnText}>送信</Text>
+                }
+              </Pressable>
+            </View>
           )
         )}
-      </View>
+      </KeyboardAvoidingView>
 
       {res && <ReviewModal reservationId={res.id} visible={showReview} onClose={() => setShowReview(false)} />}
       {res && showEditReturn && (

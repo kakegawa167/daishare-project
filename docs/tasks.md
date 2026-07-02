@@ -329,6 +329,8 @@
 - [x] 予約一覧カードのモダン刷新（ステータス左ボーダー・頭文字アバター・ユーザー名を主見出し／台車名を副見出しに変更）
 - [x] メッセージ（チャット）画面のヘッダーに "requests" グループ名が出る二重ヘッダーを解消。ルート `_layout.tsx` で `requests` / `notifications` グループを `headerShown: false` に（ヘッダーは相手ユーザー名を表示・LINE風）（ERR-019 更新）
 - [x] チャット画面ヘッダーに LINE 風の戻るボタンを追加（`headerLeft` で `router.back()`・`headerBackVisible: false`）。横スワイプで戻るジェスチャーは従来どおり有効
+- [x] チャット戻るボタンのアイコンを `chevron-left` にし 36×36 の中央寄せボックスで整列（`arrow-back-ios` のグリフ右寄りズレを解消）
+- [x] チャット入力欄がキーボードに隠れる問題を修正（コンテンツ全体を KAV で包み `keyboardVerticalOffset = insets.top + 44`。内側 KAV・FlatList の二重補正を削除）（ERR-027 更新）
 
 ### 5-6. リファクタリング・コード整理
 

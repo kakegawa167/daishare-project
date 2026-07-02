@@ -365,18 +365,18 @@
 
 ---
 
-## ERR-027 — リクエスト送信画面でメッセージ入力欄がキーボードに隠れる
+## ERR-027 — メッセージ入力欄がキーボードに隠れる（リクエスト送信・チャット）
 
 | 項目       | 内容                                                                                     |
 | ---------- | ---------------------------------------------------------------------------------------- |
 | エラーID   | ERR-027                                                                                  |
 | 発生日時   | 2026-07-02                                                                               |
-| 発生箇所   | `mobile/app/request-new.tsx`（メッセージ入力欄）                                         |
-| 症状       | メッセージ欄をタップするとソフトキーボードが立ち上がり、入力中の文字がキーボードの下に隠れて見えない |
-| 原因       | `ScrollView` のみで、キーボード表示時に入力欄が押し上げられない。初期表示で入力欄が画面下部にあるため隠れる |
-| 対応方法   | 全体を `KeyboardAvoidingView`（iOS: `behavior="padding"`）でラップ。加えて `TextInput` の `onFocus` で `measureLayout` により入力欄の Y 座標を取得し、キーボード展開後（300ms）に `scrollRef.scrollTo` で自動スクロール |
-| 注意点     | `display="inline"` 等と異なり `KeyboardAvoidingView` 単体では複数行 TextInput の初期位置までは補正されないため、`onFocus` スクロールと併用する |
-| 対象ファイル | `mobile/app/request-new.tsx`                                                             |
+| 発生箇所   | `mobile/app/request-new.tsx`（メッセージ入力欄）、`mobile/app/requests/[id]/index.tsx`（チャット入力欄） |
+| 症状       | 入力欄をタップするとソフトキーボードが立ち上がり、入力中の文字がキーボードの下に隠れて見えない |
+| 原因       | ① request-new: `ScrollView` のみで入力欄が押し上げられない。② チャット: `KeyboardAvoidingView` が入力バーだけを包み、かつヘッダー高さ分の `keyboardVerticalOffset` がないため `behavior="padding"` が正しく効かず入力欄がキーボード裏に残る |
+| 対応方法   | ① request-new: 全体を `KeyboardAvoidingView`（iOS `padding`）でラップ ＋ `TextInput` の `onFocus` で `measureLayout`→`scrollTo` 自動スクロール。② チャット: **コンテンツ全体**（FlatList＋入力バー）を 1 つの `KeyboardAvoidingView` で包み、`keyboardVerticalOffset={insets.top + 44}`（iOSヘッダー高）を渡す。入力バー側の内側 KAV と FlatList の `automaticallyAdjustKeyboardInsets` は二重補正になるため削除 |
+| 注意点     | ナビゲーションヘッダーがある画面で KAV を使う場合、`keyboardVerticalOffset` にヘッダー高さ（iOS: SafeArea top + 44）を必ず加える。KAV は入力欄だけでなくスクロール領域ごと包む |
+| 対象ファイル | `mobile/app/request-new.tsx`、`mobile/app/requests/[id]/index.tsx`                       |
 
 ---
 
