@@ -180,7 +180,7 @@ function PlanSection({ isPro, onUpgrade, onRestore }: {
 
 // ─── プロフィール表示画面 ──────────────────────
 export default function ProfileScreen() {
-  const { user, signOut, syncUser } = useAuthStore();
+  const { user, session, signOut, syncUser } = useAuthStore();
   const [notif, setNotif] = useState<NotifSettings>(DEFAULT_NOTIF);
   const [packages, setPackages] = useState<PackageInfo[]>([]);
   const [purchasing, setPurchasing] = useState(false);
@@ -247,6 +247,7 @@ export default function ProfileScreen() {
 
   const { h: remH, m: remM } = minutesToParts(notif.reminderMinutes);
 
+  if (!session) return null;
   if (!user) return <ActivityIndicator style={{ flex: 1 }} color="#3b82f6" />;
 
   return (

@@ -2,13 +2,16 @@ import { MaterialIcons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { api } from '@/lib/api';
 import { Cart } from '@/lib/types';
+import { formatRate } from '@/lib/format';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   Image,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -24,9 +27,6 @@ interface LenderProfile {
   avatar_url: string | null;
   bio: string | null;
 }
-
-const fmt = (d: Date) =>
-  d.toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 
 // ─── 日時ピッカー ──────────────────────────────────────
 function DateTimeField({
@@ -113,9 +113,7 @@ function DateTimeField({
 function CartSelectRow({
   cart, qty, onChange,
 }: { cart: Cart; qty: number; onChange: (v: number) => void }) {
-  const rate = cart.daily_rate != null ? `¥${cart.daily_rate.toLocaleString()}/日`
-    : cart.weekly_rate != null ? `¥${cart.weekly_rate.toLocaleString()}/週`
-    : `¥${(cart.per_rental_rate ?? 0).toLocaleString()}/回`;
+  const rate = formatRate(cart);
 
   return (
     <View style={[s.cartRow, qty > 0 && s.cartRowSelected]}>
@@ -167,6 +165,8 @@ export default function RequestNew() {
   const [endDate, setEndDate] = useState(dayAfter);
   const [quantities, setQuantities] = useState<Record<number, number>>({});
   const [message, setMessage] = useState('');
+  const scrollRef = useRef<ScrollView>(null);
+  const messageRef = useRef<View>(null);
 
   // 台車 × 場所 のグループ（複数地点対応）
   const locationGroups = useMemo(() => {
@@ -243,7 +243,8 @@ export default function RequestNew() {
   if (loading) return <View style={s.center}><ActivityIndicator size="large" color="#3b82f6" /></View>;
 
   return (
-    <ScrollView style={s.page} contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+    <ScrollView ref={scrollRef} style={s.page} contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
 
       {/* 貸す人 */}
       <View style={s.lenderRow}>
@@ -306,17 +307,28 @@ export default function RequestNew() {
       ))}
 
       {/* メッセージ */}
-      <Text style={s.fieldLabel}>メッセージ（任意）</Text>
-      <TextInput
-        style={[s.input, s.textarea]}
-        value={message}
-        onChangeText={setMessage}
-        multiline
-        numberOfLines={4}
-        placeholder="貸す人さんへのメッセージがあれば入力してください"
-        placeholderTextColor="#c4c4c4"
-        textAlignVertical="top"
-      />
+      <View ref={messageRef}>
+        <Text style={s.fieldLabel}>メッセージ（任意）</Text>
+        <TextInput
+          style={[s.input, s.textarea]}
+          value={message}
+          onChangeText={setMessage}
+          multiline
+          numberOfLines={4}
+          placeholder="貸す人さんへのメッセージがあれば入力してください"
+          placeholderTextColor="#c4c4c4"
+          textAlignVertical="top"
+          onFocus={() => {
+            setTimeout(() => {
+              messageRef.current?.measureLayout(
+                scrollRef.current as any,
+                (_, y) => { scrollRef.current?.scrollTo({ y: y - 16, animated: true }); },
+                () => { scrollRef.current?.scrollToEnd({ animated: true }); }
+              );
+            }, 300);
+          }}
+        />
+      </View>
 
       {/* 送信 */}
       <Pressable
@@ -332,6 +344,7 @@ export default function RequestNew() {
         }
       </Pressable>
     </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 

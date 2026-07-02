@@ -1,6 +1,7 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { api } from '@/lib/api';
 import { Cart } from '@/lib/types';
+import { formatRate } from '@/lib/format';
 import { requireAuth } from '@/lib/requireAuth';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -117,11 +118,7 @@ function InquiryModal({
 
 // ─── 台車カード ────────────────────────────────────────
 function CartCard({ cart }: { cart: Cart }) {
-  const rate = cart.daily_rate != null
-    ? `¥${cart.daily_rate.toLocaleString()}/日`
-    : cart.weekly_rate != null
-    ? `¥${cart.weekly_rate.toLocaleString()}/週`
-    : `¥${(cart.per_rental_rate ?? 0).toLocaleString()}/回`;
+  const rate = formatRate(cart);
 
   return (
     <View style={s.cartCard}>
@@ -310,7 +307,7 @@ const s = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#e5e7eb',
   },
   backBtnText: { fontSize: 17, color: '#374151' },
-  profileBody: { flexDirection: 'row', gap: 16, paddingHorizontal: 20, paddingBottom: 20 },
+  profileBody: { flexDirection: 'row', gap: 16, paddingHorizontal: 20, paddingTop: 20, paddingBottom: 20 },
   avatar: { width: 72, height: 72, borderRadius: 36 },
   avatarPlaceholder: { backgroundColor: '#3b82f6', alignItems: 'center', justifyContent: 'center' },
   avatarInitial: { fontSize: 28, fontWeight: '700', color: '#fff' },

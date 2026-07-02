@@ -126,7 +126,7 @@ const USER_TYPE_LABELS: Record<string, string> = { renter: '借りる人', lende
 
 // ─── プロフィール表示画面 ──────────────────────
 export default function ProfileScreen() {
-  const { user, signOut } = useAuthStore();
+  const { user, session, signOut } = useAuthStore();
   const [notif, setNotif] = useState<NotifSettings>(DEFAULT_NOTIF);
 
   // フォーカス時に通知設定を再読み込み（編集画面から戻った後も反映）
@@ -144,6 +144,7 @@ export default function ProfileScreen() {
 
   const { h: remH, m: remM } = minutesToParts(notif.reminderMinutes);
 
+  if (!session) return null;
   if (!user) return <ActivityIndicator style={{ flex: 1 }} color="#3b82f6" />;
 
   return (

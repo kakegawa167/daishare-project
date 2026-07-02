@@ -1,6 +1,7 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { api } from '@/lib/api';
 import { Cart, Message, RentalRequest, Reservation } from '@/lib/types';
+import { fmtDateTime, formatRate } from '@/lib/format';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/authStore';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -43,9 +44,6 @@ const STATUS_COLOR: Record<string, string> = {
   lent: '#8b5cf6',
   returned: '#6b7280',
 };
-
-const fmtDT = (d: string) =>
-  new Date(d).toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 
 // ─── レビューモーダル ──────────────────────────────────
 function ReviewModal({ reservationId, visible, onClose }: { reservationId: number; visible: boolean; onClose: () => void }) {
@@ -107,9 +105,7 @@ function ReviewModal({ reservationId, visible, onClose }: { reservationId: numbe
 
 // ─── 台車カード + カウンター ───────────────────────────
 function CartEditRow({ cart, qty, onChange }: { cart: Cart; qty: number; onChange: (v: number) => void }) {
-  const rate = cart.daily_rate != null ? `¥${cart.daily_rate.toLocaleString()}/日`
-    : cart.weekly_rate != null ? `¥${cart.weekly_rate.toLocaleString()}/週`
-    : `¥${(cart.per_rental_rate ?? 0).toLocaleString()}/回`;
+  const rate = formatRate(cart);
 
   return (
     <View style={[s.cartRow, qty > 0 && s.cartRowSelected]}>
@@ -152,9 +148,6 @@ function EditReturnDateModal({
   const [showPicker, setShowPicker] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  const fmtD = (d: Date) =>
-    d.toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-
   const handleSave = async () => {
     setSubmitting(true);
     try {
@@ -177,7 +170,7 @@ function EditReturnDateModal({
         <Pressable style={s.editDtBtn} onPress={() => setShowPicker(true)}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             <MaterialIcons name="calendar-today" size={15} color="#3b82f6" />
-            <Text style={s.editDtBtnText}>{fmtD(endDate)}</Text>
+            <Text style={s.editDtBtnText}>{fmtDateTime(endDate)}</Text>
           </View>
         </Pressable>
         {showPicker && (
@@ -241,9 +234,6 @@ function EditRequestModal({
     }
   };
 
-  const fmtD = (d: Date) =>
-    d.toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose} accessibilityViewIsModal>
       <ScrollView style={s.editModal} contentContainerStyle={{ paddingBottom: 40 }}>
@@ -253,7 +243,7 @@ function EditRequestModal({
         <Pressable style={s.editDtBtn} onPress={() => setShowStart(true)}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             <MaterialIcons name="calendar-today" size={15} color="#3b82f6" />
-            <Text style={s.editDtBtnText}>{fmtD(startDate)}</Text>
+            <Text style={s.editDtBtnText}>{fmtDateTime(startDate)}</Text>
           </View>
         </Pressable>
         {showStart && (
@@ -267,7 +257,7 @@ function EditRequestModal({
         <Pressable style={s.editDtBtn} onPress={() => setShowEnd(true)}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             <MaterialIcons name="calendar-today" size={15} color="#3b82f6" />
-            <Text style={s.editDtBtnText}>{fmtD(endDate)}</Text>
+            <Text style={s.editDtBtnText}>{fmtDateTime(endDate)}</Text>
           </View>
         </Pressable>
         {showEnd && (
@@ -323,9 +313,6 @@ function DateQtyModal({
     api.get<Cart>(`/carts/${cartId}`).then((r) => { setCart(r.data); setQty(1); }).catch(() => {});
   }, [visible, cartId]);
 
-  const fmtD = (d: Date) =>
-    d.toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-
   const handleSubmit = async () => {
     if (endDate <= startDate) { Alert.alert('エラー', '返却日は貸出日より後にしてください'); return; }
     setSubmitting(true);
@@ -348,7 +335,7 @@ function DateQtyModal({
         <Pressable style={s.editDtBtn} onPress={() => setShowStart(true)}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             <MaterialIcons name="calendar-today" size={15} color="#3b82f6" />
-            <Text style={s.editDtBtnText}>{fmtD(startDate)}</Text>
+            <Text style={s.editDtBtnText}>{fmtDateTime(startDate)}</Text>
           </View>
         </Pressable>
         {showStart && (
@@ -360,7 +347,7 @@ function DateQtyModal({
         <Pressable style={s.editDtBtn} onPress={() => setShowEnd(true)}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             <MaterialIcons name="calendar-today" size={15} color="#3b82f6" />
-            <Text style={s.editDtBtnText}>{fmtD(endDate)}</Text>
+            <Text style={s.editDtBtnText}>{fmtDateTime(endDate)}</Text>
           </View>
         </Pressable>
         {showEnd && (
@@ -406,13 +393,13 @@ function RequestInfoCard({ req, status }: { req: RentalRequest; status: string }
         {req.start_date ? (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
             <MaterialIcons name="access-time" size={13} color="#6b7280" />
-            <Text style={s.infoRow}>貸出希望: {fmtDT(req.start_date)}</Text>
+            <Text style={s.infoRow}>貸出希望: {fmtDateTime(req.start_date)}</Text>
           </View>
         ) : null}
         {req.end_date ? (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
             <MaterialIcons name="access-time" size={13} color="#6b7280" />
-            <Text style={s.infoRow}>返却希望: {fmtDT(req.end_date)}</Text>
+            <Text style={s.infoRow}>返却希望: {fmtDateTime(req.end_date)}</Text>
           </View>
         ) : null}
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>

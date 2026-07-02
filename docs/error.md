@@ -361,3 +361,33 @@
 | 対応方法   | `.gitleaks.toml` の `[allowlist]` に `'''\.env\.staging$'''` および `'''\.env\.production$'''` を追加 |
 | 注意点     | これらのファイルは `.gitignore` で除外されており git 管理外のため、allowlist 設定のみで問題ない |
 | 対象ファイル | `.gitleaks.toml`                                                                         |
+
+---
+
+## ERR-027 — リクエスト送信画面でメッセージ入力欄がキーボードに隠れる
+
+| 項目       | 内容                                                                                     |
+| ---------- | ---------------------------------------------------------------------------------------- |
+| エラーID   | ERR-027                                                                                  |
+| 発生日時   | 2026-07-02                                                                               |
+| 発生箇所   | `mobile/app/request-new.tsx`（メッセージ入力欄）                                         |
+| 症状       | メッセージ欄をタップするとソフトキーボードが立ち上がり、入力中の文字がキーボードの下に隠れて見えない |
+| 原因       | `ScrollView` のみで、キーボード表示時に入力欄が押し上げられない。初期表示で入力欄が画面下部にあるため隠れる |
+| 対応方法   | 全体を `KeyboardAvoidingView`（iOS: `behavior="padding"`）でラップ。加えて `TextInput` の `onFocus` で `measureLayout` により入力欄の Y 座標を取得し、キーボード展開後（300ms）に `scrollRef.scrollTo` で自動スクロール |
+| 注意点     | `display="inline"` 等と異なり `KeyboardAvoidingView` 単体では複数行 TextInput の初期位置までは補正されないため、`onFocus` スクロールと併用する |
+| 対象ファイル | `mobile/app/request-new.tsx`                                                             |
+
+---
+
+## ERR-028 — ログアウト後もローディングスピナーが回り続ける（ERR-020 の残存）
+
+| 項目       | 内容                                                                                     |
+| ---------- | ---------------------------------------------------------------------------------------- |
+| エラーID   | ERR-028                                                                                  |
+| 発生日時   | 2026-07-02                                                                               |
+| 発生箇所   | `mobile/app/profile.tsx` / `mobile/app/(tabs)/profile.tsx`                               |
+| 症状       | ERR-020（authStore の `loading` 修正）後も、ログアウト直後にプロフィール画面でスピナーが無限に回る |
+| 原因       | 各プロフィール画面が `if (!user) return <ActivityIndicator/>` としており、ログアウトで `user` が `null` になると（`session` も null なのに）スピナー表示のままになっていた |
+| 対応方法   | `session` もストアから取得し、`if (!session) return null;` を `!user` チェックの前に追加。未ログイン時は即座に描画を止め、ルートレイアウトのログイン誘導に委ねる |
+| 注意点     | 「認証情報の読み込み中（session あり・user 未取得）」と「ログアウト済み（session なし）」を区別すること。前者のみスピナー、後者は `null` |
+| 対象ファイル | `mobile/app/profile.tsx`, `mobile/app/(tabs)/profile.tsx`                                |

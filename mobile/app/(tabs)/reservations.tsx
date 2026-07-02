@@ -1,6 +1,7 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { api } from '@/lib/api';
-import { RentalRequest, RequestStatus } from '@/lib/types';
+import { RentalRequest } from '@/lib/types';
+import { fmtDateTime } from '@/lib/format';
 import { EmptyScreen, LoadingScreen } from '@/components/ScreenState';
 import { useAuthStore } from '@/store/authStore';
 import { LoginPrompt } from '@/components/LoginPrompt';
@@ -60,9 +61,6 @@ function RequestCard({
   isLenderView: boolean;
   onAction: () => void;
 }) {
-  const fmtDT = (d: string) =>
-    new Date(d).toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-
   const handleAccept = async () => {
     try { await api.post(`/rental-requests/${req.id}/accept`); onAction(); }
     catch { Alert.alert('エラー', '承認に失敗しました'); }
@@ -73,34 +71,48 @@ function RequestCard({
   };
 
 
+  const statusKey = req.reservation_status ?? req.status;
+  const statusColor = STATUS_COLOR[statusKey];
+
   return (
     <Pressable style={c.card} onPress={() => router.push(`/requests/${req.id}` as any)}>
-      <View style={c.cardTop}>
-        <Text style={c.cartTitle} numberOfLines={1}>{req.cart_title ?? '台車'}</Text>
-        <View style={[c.badge, { backgroundColor: STATUS_COLOR[req.reservation_status ?? req.status] + '20' }]}>
-          <Text style={[c.badgeText, { color: STATUS_COLOR[req.reservation_status ?? req.status] }]}>
-            {STATUS_LABEL[req.reservation_status ?? req.status]}
-          </Text>
-        </View>
-      </View>
+      {/* ステータス左ボーダー */}
+      <View style={[c.statusBar, { backgroundColor: statusColor }]} />
 
-      {isLenderView && req.renter_name && (
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 2 }}>
-          <MaterialIcons name="person-outline" size={13} color="#6b7280" />
-          <Text style={c.meta}>借りる人: {req.renter_name}</Text>
+      <View style={c.cardInner}>
+        {/* ヘッダー: ユーザー名 or 自分 + ステータスバッジ */}
+        <View style={c.cardTop}>
+          <View style={[c.avatarCircle, { backgroundColor: statusColor + '22' }]}>
+            <Text style={[c.avatarInitial, { color: statusColor }]}>
+              {isLenderView ? (req.renter_name ?? '?').charAt(0) : '自'}
+            </Text>
+          </View>
+          <Text style={c.personName} numberOfLines={1}>
+            {isLenderView ? (req.renter_name ?? '借りる人') : '自分のリクエスト'}
+          </Text>
+          <View style={[c.badge, { backgroundColor: statusColor + '20' }]}>
+            <Text style={[c.badgeText, { color: statusColor }]}>
+              {STATUS_LABEL[statusKey]}
+            </Text>
+          </View>
         </View>
-      )}
+
+        {/* 台車名 */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 6 }}>
+          <MaterialIcons name="shopping-cart" size={13} color="#9ca3af" />
+          <Text style={c.cartTitle} numberOfLines={1}>{req.cart_title ?? '台車'}</Text>
+        </View>
 
       {req.start_date ? (
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 2 }}>
           <MaterialIcons name="access-time" size={13} color="#6b7280" />
-          <Text style={c.meta}>貸出希望: {fmtDT(req.start_date)}</Text>
+          <Text style={c.meta}>貸出希望: {fmtDateTime(req.start_date)}</Text>
         </View>
       ) : null}
       {req.end_date ? (
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 2 }}>
           <MaterialIcons name="access-time" size={13} color="#6b7280" />
-          <Text style={c.meta}>返却希望: {fmtDT(req.end_date)}</Text>
+          <Text style={c.meta}>返却希望: {fmtDateTime(req.end_date)}</Text>
         </View>
       ) : null}
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 2 }}>
@@ -139,6 +151,7 @@ function RequestCard({
           </Pressable>
         </View>
       )}
+      </View>
     </Pressable>
   );
 }
@@ -371,11 +384,20 @@ const s = StyleSheet.create({
 
 const c = StyleSheet.create({
   card: {
-    backgroundColor: '#fff', borderRadius: 14, padding: 16, marginBottom: 10,
+    backgroundColor: '#fff', borderRadius: 14, marginBottom: 10,
     shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 6, elevation: 2,
+    flexDirection: 'row', overflow: 'hidden',
   },
-  cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-  cartTitle: { fontSize: 16, fontWeight: '700', flex: 1, marginRight: 8, color: '#1a1a1a' },
+  statusBar: { width: 4 },
+  cardInner: { flex: 1, padding: 14 },
+  cardTop: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
+  avatarCircle: {
+    width: 28, height: 28, borderRadius: 14,
+    alignItems: 'center', justifyContent: 'center', marginRight: 8,
+  },
+  avatarInitial: { fontSize: 13, fontWeight: '800' },
+  personName: { flex: 1, fontSize: 16, fontWeight: '700', color: '#111827', marginRight: 8 },
+  cartTitle: { flex: 1, fontSize: 13, color: '#6b7280', fontWeight: '500' },
   badge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 12 },
   badgeText: { fontSize: 12, fontWeight: '700' },
   meta: { fontSize: 13, color: '#6b7280', marginBottom: 2 },

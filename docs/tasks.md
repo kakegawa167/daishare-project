@@ -323,6 +323,17 @@
 - [x] ログアウト後のローディングスピナー無限ループ修正（ERR-020）
 - [x] `gitleaks.toml` に `.env.staging` / `.env.production` の allowlist 追加（ERR-026）
 - [x] iPhone Dev Build を `xcodebuild` + `xcrun devicectl` で実機インストール（ERR-024）
+- [x] 貸主詳細画面: プロフィール名と区切り線の余白調整（paddingTop 追加）
+- [x] リクエスト送信画面: メッセージ入力時にキーボードで隠れない対応（KeyboardAvoidingView + onFocus 自動スクロール）
+- [x] ログアウト後スピナー無限ループの残存修正（profile 系画面で `!session` 時は即 return）
+- [x] 予約一覧カードのモダン刷新（ステータス左ボーダー・頭文字アバター・ユーザー名を主見出し／台車名を副見出しに変更）
+
+### 5-6. リファクタリング・コード整理
+
+- [x] 死んだ重複ルートを削除（`app/requests/index.tsx` / `app/schedule/` ＝どこからも遷移されない孤立画面。実体は `(tabs)` 側）
+- [x] 共通フォーマッタを `lib/format.ts` に集約（`fmtDateTime` / `formatRate`）— 6ファイルの重複定義を解消
+- [x] 未使用インポート・未使用ローカル関数（`RequestStatus` / `fmt`）を除去
+- [ ] Expo テンプレート残骸の掃除（`(tabs)/two.tsx` / `modal.tsx` / `EditScreenInfo` / `ExternalLink` — TSエラー1件の発生源）
 
 ### 5-2. テスト
 
