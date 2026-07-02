@@ -618,8 +618,12 @@ export default function RequestChat() {
 
   const handleReservationAction = async (action: 'lend' | 'return' | 'cancel') => {
     if (!reservation) return;
-    const labels = { lend: '貸出開始', return: '返却完了', cancel: 'キャンセル' };
-    Alert.alert(`${labels[action]}`, `${labels[action]}を記録しますか？`, [
+    const confirm = {
+      lend:   { title: '貸出開始', message: '貸出を開始しますか？' },
+      return: { title: '返却完了', message: '返却を完了しますか？' },
+      cancel: { title: '予約キャンセル', message: '予約をキャンセルしますか？' },
+    }[action];
+    Alert.alert(confirm.title, confirm.message, [
       { text: 'いいえ', style: 'cancel' },
       { text: 'はい', onPress: async () => { try { await api.post(`/reservations/${reservation.id}/${action}`); fetchAll(); } catch { Alert.alert('エラー', '操作に失敗しました'); } } },
     ]);
