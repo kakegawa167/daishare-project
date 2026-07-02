@@ -1,6 +1,6 @@
 # ダイシェア モバイルアプリ 設計書
 
-> バージョン: 2.10.1  
+> バージョン: 2.10.2  
 > 作成日: 2026-06-23  
 > 最終更新: 2026-07-02  
 > 対象: MVP リリース
@@ -762,7 +762,7 @@ active → inactive / inactive → active をトグル
   │    └── /search/[lender_id]    貸主詳細・台車一覧（カスタムヘッダー）
   ├── /request-new             リクエスト送信（presentation: modal）
   ├── /requests（グループ）      Stack ナビゲーター（headerShown: false）
-  │    └── /requests/[id]/index   チャット・取引詳細（ヘッダーは相手ユーザー名を動的表示・LINE風）
+  │    └── /requests/[id]/index   チャット・取引詳細（ヘッダー: 相手ユーザー名 + LINE風の戻るボタン。横スワイプでも戻れる）
   └── /notifications（グループ） Stack ナビゲーター（headerShown: false）
        └── /notifications/index   通知一覧・既読管理（ヘッダー "通知"）
 ```

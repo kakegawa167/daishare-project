@@ -328,6 +328,7 @@
 - [x] ログアウト後スピナー無限ループの残存修正（profile 系画面で `!session` 時は即 return）
 - [x] 予約一覧カードのモダン刷新（ステータス左ボーダー・頭文字アバター・ユーザー名を主見出し／台車名を副見出しに変更）
 - [x] メッセージ（チャット）画面のヘッダーに "requests" グループ名が出る二重ヘッダーを解消。ルート `_layout.tsx` で `requests` / `notifications` グループを `headerShown: false` に（ヘッダーは相手ユーザー名を表示・LINE風）（ERR-019 更新）
+- [x] チャット画面ヘッダーに LINE 風の戻るボタンを追加（`headerLeft` で `router.back()`・`headerBackVisible: false`）。横スワイプで戻るジェスチャーは従来どおり有効
 
 ### 5-6. リファクタリング・コード整理
 

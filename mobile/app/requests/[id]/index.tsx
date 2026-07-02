@@ -5,7 +5,7 @@ import { fmtDateTime, formatRate } from '@/lib/format';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/authStore';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { Stack, useLocalSearchParams } from 'expo-router';
+import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -641,7 +641,22 @@ export default function RequestChat() {
 
   return (
     <>
-      <Stack.Screen options={{ title: otherName }} />
+      <Stack.Screen
+        options={{
+          title: otherName,
+          headerBackVisible: false,
+          headerLeft: () => (
+            <Pressable
+              onPress={() => router.back()}
+              hitSlop={8}
+              style={{ flexDirection: 'row', alignItems: 'center', paddingRight: 12 }}
+              accessibilityLabel="戻る"
+            >
+              <MaterialIcons name="arrow-back-ios" size={22} color="#3b82f6" />
+            </Pressable>
+          ),
+        }}
+      />
 
       {/* キーボード対応: FlatListにautomaticallyAdjustKeyboardInsets、inputはKAVで押し上げ */}
       <View style={{ flex: 1, backgroundColor: '#e8edf2' }}>
