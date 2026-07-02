@@ -333,6 +333,8 @@
 - [x] 死んだ重複ルートを削除（`app/requests/index.tsx` / `app/schedule/` ＝どこからも遷移されない孤立画面。実体は `(tabs)` 側）
 - [x] 共通フォーマッタを `lib/format.ts` に集約（`fmtDateTime` / `formatRate`）— 6ファイルの重複定義を解消
 - [x] 未使用インポート・未使用ローカル関数（`RequestStatus` / `fmt`）を除去
+- [x] `design.md` に「2. 設計方針・原則（Design Principles）」を新設。実装指針を明文化（既存セクションは 3〜15 に繰り上げ）
+- [x] `CLAUDE.md` に「実装方針（無駄を作らない）」を追記（design.md §2 参照・事前チェック・YAGNI）
 - [ ] Expo テンプレート残骸の掃除（`(tabs)/two.tsx` / `modal.tsx` / `EditScreenInfo` / `ExternalLink` — TSエラー1件の発生源）
 
 ### 5-2. テスト
