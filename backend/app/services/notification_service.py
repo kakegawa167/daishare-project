@@ -3,6 +3,7 @@
 各APIエンドポイントから呼び出す。
 """
 
+import logging
 import uuid
 from typing import Any
 
@@ -13,6 +14,8 @@ from app.models.notification import Notification, NotificationType
 from app.models.user import User
 from sqlalchemy import select
 
+logger = logging.getLogger(__name__)
+
 EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send"
 
 
@@ -22,8 +25,13 @@ async def _send_expo_push(token: str, title: str, body: str, data: dict[str, Any
     payload = {"to": token, "title": title, "body": body, "sound": "default"}
     if data:
         payload["data"] = data
-    async with httpx.AsyncClient() as client:
-        await client.post(EXPO_PUSH_URL, json=payload, timeout=5.0)
+    # プッシュ送信は副次処理。Expo API のタイムアウト・エラーが
+    # 呼び出し元の主処理（承認・メッセージ送信等）を巻き込まないよう必ず握りつぶす
+    try:
+        async with httpx.AsyncClient() as client:
+            await client.post(EXPO_PUSH_URL, json=payload, timeout=5.0)
+    except Exception as e:
+        logger.warning("Expo push send failed (ignored): %s", e)
 
 
 async def _create_notification(

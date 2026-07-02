@@ -392,3 +392,18 @@
 | 対応方法   | ①`session` もストアから取得し `if (!session) return null;` を `!user` の前に追加。②ログアウトを `handleLogout = async () => { await signOut(); router.replace('/(tabs)'); }` にして、サインアウト後にモーダルを閉じてホーム（tabs 初期タブ）へ遷移させる |
 | 注意点     | 「読み込み中（session あり・user 未取得）＝スピナー」と「ログアウト済み（session なし）＝ null」を区別する。モーダル画面のサインアウトは必ず `router.replace('/(tabs)')` で明示的に遷移させる（`null` 返しだけではモーダルが残る） |
 | 対象ファイル | `mobile/app/profile.tsx`, `mobile/app/(tabs)/profile.tsx`                                |
+
+---
+
+## ERR-029 — 承認ボタンで一瞬エラーが出る（Expo プッシュ送信が主処理を巻き込む）
+
+| 項目       | 内容                                                                                     |
+| ---------- | ---------------------------------------------------------------------------------------- |
+| エラーID   | ERR-029                                                                                  |
+| 発生日時   | 2026-07-02                                                                               |
+| 発生箇所   | `backend/app/services/notification_service.py`（`_send_expo_push`）、`backend/app/routers/rental_requests.py`（`accept_request` 他） |
+| 症状       | リクエスト承認（承認ボタン）時に一瞬「操作に失敗しました」エラーが表示される。承認自体は成功する場合も失敗する場合もある（不安定） |
+| 原因       | `_create_notification` → `_send_expo_push` の Expo Push API 呼び出し（`httpx`・timeout 5秒）が **try/except なし** かつ **`db.commit()` の前**に同期実行されていた。相手が push token を持つ場合、Expo API が遅延・タイムアウト・失敗すると例外が承認エンドポイントに伝播し 500 → 承認がロールバックされフロントにエラーが出る。プッシュ（副次処理）の失敗が承認（主処理）を巻き込んでいた |
+| 対応方法   | `_send_expo_push` の HTTP 呼び出しを `try/except Exception` で囲み、失敗時は warning ログのみ出して握りつぶす。これで全通知種別（承認・拒否・メッセージ等）でプッシュ失敗が API を壊さなくなる |
+| 注意点     | 外部サービス（Expo Push 等）への呼び出しは主処理トランザクションを巻き込まないよう必ず握りつぶす（design.md §2.6）。反映には staging/production バックエンドの再デプロイが必要 |
+| 対象ファイル | `backend/app/services/notification_service.py`                                          |
