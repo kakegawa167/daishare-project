@@ -1,6 +1,6 @@
 # ダイシェア モバイルアプリ 設計書
 
-> バージョン: 2.12.0  
+> バージョン: 2.13.0  
 > 作成日: 2026-06-23  
 > 最終更新: 2026-07-02  
 > 対象: MVP リリース
@@ -1531,6 +1531,7 @@ cart-rental-ios/
 │   │   └── _layout.tsx            # ルートレイアウト（RevenueCat初期化・Supabase Auth監視）
 │   ├── components/
 │   │   ├── CartForm.tsx           # 台車登録・編集フォーム
+│   │   ├── DateTimeField.tsx      # 共通日時ピッカー（日付=inlineカレンダー+確定 / 時刻=spinner+確定）
 │   │   ├── LoginPrompt.tsx        # 未認証時の全画面プロンプト（ログインボタン付き）
 │   │   ├── StationPicker.tsx      # 駅選択モーダル（市区町村→駅の2段階）
 │   │   └── ScreenState.tsx        # LoadingScreen / ErrorScreen / EmptyScreen

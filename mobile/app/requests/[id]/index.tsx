@@ -2,6 +2,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { api } from '@/lib/api';
 import { Cart, Message, RentalRequest, Reservation } from '@/lib/types';
 import { fmtDateTime, formatRate } from '@/lib/format';
+import { DateTimeField } from '@/components/DateTimeField';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/authStore';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -145,7 +146,6 @@ function EditReturnDateModal({
   visible, reservation, onClose, onSaved,
 }: { visible: boolean; reservation: Reservation; onClose: () => void; onSaved: () => void }) {
   const [endDate, setEndDate] = useState(new Date(reservation.end_date));
-  const [showPicker, setShowPicker] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   const handleSave = async () => {
@@ -166,20 +166,12 @@ function EditReturnDateModal({
       <View style={s.editModal}>
         <Text style={s.editTitle}>返却日時を変更</Text>
 
-        <Text style={s.editLabel}>新しい返却日時</Text>
-        <Pressable style={s.editDtBtn} onPress={() => setShowPicker(true)}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <MaterialIcons name="calendar-today" size={15} color="#3b82f6" />
-            <Text style={s.editDtBtnText}>{fmtDateTime(endDate)}</Text>
-          </View>
-        </Pressable>
-        {showPicker && (
-          <DateTimePicker
-            value={endDate} mode="datetime" display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-            minimumDate={new Date()}
-            onChange={(_, d) => { setShowPicker(false); if (d) setEndDate(d); }}
-          />
-        )}
+        <DateTimeField
+          label="新しい返却日時"
+          value={endDate}
+          onChange={setEndDate}
+          minimumDate={new Date()}
+        />
 
         <Pressable style={[s.editSaveBtn, submitting && { opacity: 0.6 }]} onPress={handleSave} disabled={submitting}>
           {submitting ? <ActivityIndicator color="#fff" /> : <Text style={s.editSaveBtnText}>変更する</Text>}
