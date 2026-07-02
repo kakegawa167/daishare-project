@@ -335,6 +335,7 @@
 - [x] 日付表示を `fmtDateSmart`（`lib/format.ts`）に集約し、今年と異なる年のみ年を付与。メッセージ一覧の最終メッセージ日付・予約日程の年跨ぎ曖昧さを解消
 - [x] ログアウト後にプロフィールモーダルの空背景が残る問題を修正。`handleLogout` で `await signOut()` 後に `router.replace('/(tabs)')` でホームへ遷移（ERR-028 更新）
 - [x] 承認/拒否/通知時の一瞬エラーを修正。`_send_expo_push` の HTTP 呼び出しを try/except で握りつぶし、Expo Push 失敗が主処理（承認等）を巻き込まないよう修正（ERR-029・要バックエンド再デプロイ）
+- [x] 通知画面を `(tabs)` 内の隠しタブ（`href: null`）に移設し、ボトムタブバーを表示。戻り導線が分かりにくい問題を解消（`app/notifications/` グループ → `app/(tabs)/notifications.tsx`）
 
 ### 5-6. リファクタリング・コード整理
 

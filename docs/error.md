@@ -254,12 +254,12 @@
 | ---------- | ---------------------------------------------------------------------------------------- |
 | エラーID   | ERR-019                                                                                  |
 | 発生日時   | 2026-06-30                                                                               |
-| 発生箇所   | `mobile/app/_layout.tsx`、および各グループ（`search` / `requests` / `notifications`）の `_layout.tsx` |
-| 症状       | ①ナビゲーションヘッダーにグループ名（"search" / "requests" / "notifications"）がそのまま表示される。②グループが独自のヘッダーを持つ場合、外側と二重にヘッダーが出る（例: メッセージ画面で上に "requests"、その下に相手名） |
+| 発生箇所   | `mobile/app/_layout.tsx`、および各グループ（`search` / `requests`）の `_layout.tsx` |
+| 症状       | ①ナビゲーションヘッダーにグループ名（"search" / "requests" 等）がそのまま表示される。②グループが独自のヘッダーを持つ場合、外側と二重にヘッダーが出る（例: メッセージ画面で上に "requests"、その下に相手名） |
 | 原因       | ルートの `_layout.tsx` がグループ画面のヘッダーを表示していた。グループ名がタイトルとして表示され、かつグループ内 Stack のヘッダーと二重になる |
-| 対応方法   | ルート `_layout.tsx` で各グループに `<Stack.Screen name="<group>" options={{ headerShown: false }} />` を設定し外側ヘッダーを非表示に。ヘッダーはグループ内 Stack（`search` はカスタム戻るボタン、`requests` は相手ユーザー名、`notifications` は "通知"）に一任する |
+| 対応方法   | ルート `_layout.tsx` で各グループに `<Stack.Screen name="<group>" options={{ headerShown: false }} />` を設定し外側ヘッダーを非表示に。ヘッダーはグループ内 Stack（`search` はカスタム戻るボタン、`requests` は相手ユーザー名）に一任する。※ 通知画面はその後 `(tabs)` 内の隠しタブに移設（タブバー表示のため。§8.1 参照） |
 | 注意点     | 新しいルートグループを追加したら、ルート `_layout.tsx` に `headerShown: false` の `<Stack.Screen>` を必ず登録する（design.md §8.1 参照） |
-| 対象ファイル | `mobile/app/_layout.tsx`、`mobile/app/search/_layout.tsx`、`mobile/app/requests/_layout.tsx`、`mobile/app/notifications/_layout.tsx` |
+| 対象ファイル | `mobile/app/_layout.tsx`、`mobile/app/search/_layout.tsx`、`mobile/app/requests/_layout.tsx` |
 
 ---
 

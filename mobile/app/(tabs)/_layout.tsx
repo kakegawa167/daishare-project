@@ -114,6 +114,8 @@ export default function TabLayout() {
           ),
         }}
       />
+      {/* 通知: タブバーには出さない（ヘッダーのベルから遷移）が、タブ画面にすることでタブバーを表示し戻れるようにする */}
+      <Tabs.Screen name="notifications" options={{ href: null, title: '通知' }} />
       <Tabs.Screen name="profile" options={{ href: null }} />
       <Tabs.Screen name="two" options={{ href: null }} />
     </Tabs>

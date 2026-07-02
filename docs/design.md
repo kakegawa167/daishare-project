@@ -1,6 +1,6 @@
 # ダイシェア モバイルアプリ 設計書
 
-> バージョン: 2.11.1  
+> バージョン: 2.12.0  
 > 作成日: 2026-06-23  
 > 最終更新: 2026-07-02  
 > 対象: MVP リリース
@@ -745,8 +745,10 @@ active → inactive / inactive → active をトグル
   ├── /messages                メッセージ（スレッド一覧）
   ├── /schedule                スケジュール（今日 / 明日以降 / 履歴 セクション）
   │                              ※ useFocusEffect で再取得
-  └── /carts                   台車管理（自分の台車一覧・登録FAB）
-                                 ※ useFocusEffect で再取得
+  ├── /carts                   台車管理（自分の台車一覧・登録FAB）
+  │                              ※ useFocusEffect で再取得
+  └── /notifications           通知一覧・既読管理（タブバーには出さない href:null 隠しタブ。
+                                 ヘッダーのベルから遷移。タブ画面なのでタブバーが表示され戻れる）
 
   ヘッダー右アイコン（全タブ共通・認証済み）
   ├── 🔔 通知アイコン（未読数バッジ・9+表示・30秒ポーリング） → /notifications
@@ -761,13 +763,13 @@ active → inactive / inactive → active をトグル
   │    ├── /search/index          テキスト検索画面（市区町村検索）
   │    └── /search/[lender_id]    貸主詳細・台車一覧（カスタムヘッダー）
   ├── /request-new             リクエスト送信（presentation: modal）
-  ├── /requests（グループ）      Stack ナビゲーター（headerShown: false）
-  │    └── /requests/[id]/index   チャット・取引詳細（ヘッダー: 相手ユーザー名 + LINE風の戻るボタン。横スワイプでも戻れる）
-  └── /notifications（グループ） Stack ナビゲーター（headerShown: false）
-       └── /notifications/index   通知一覧・既読管理（ヘッダー "通知"）
+  └── /requests（グループ）      Stack ナビゲーター（headerShown: false）
+       └── /requests/[id]/index   チャット・取引詳細（ヘッダー: 相手ユーザー名 + LINE風の戻るボタン。横スワイプでも戻れる）
 ```
 
-> **ルートグループのヘッダー方針**: ルート `_layout.tsx` では各グループ（`search` / `requests` / `notifications`）に `headerShown: false` を設定し、外側ヘッダーにグループ名が出るのを防ぐ。ヘッダーはグループ内 Stack が担う（ERR-019）。新規グループ追加時も同様に登録する。
+> **ルートグループのヘッダー方針**: ルート `_layout.tsx` では各グループ（`search` / `requests`）に `headerShown: false` を設定し、外側ヘッダーにグループ名が出るのを防ぐ。ヘッダーはグループ内 Stack が担う（ERR-019）。新規グループ追加時も同様に登録する。
+>
+> **通知画面は `(tabs)` 内の隠しタブ**（`href: null`）: 独立グループにするとタブバーが出ず戻り導線が分かりにくいため、`app/(tabs)/notifications.tsx` に置きタブ画面化。タブバーには表示しない（ヘッダーのベルから遷移）が、タブ画面なのでボトムタブバーが出て他タブへ戻れる。
 
 **ゲストモード（未認証）の認可制御:**
 - `requireAuth(label)` ヘルパー（`lib/requireAuth.ts`）: 未ログインなら Alert + `/(auth)/login` 誘導 → `false` を返す
@@ -1507,6 +1509,7 @@ cart-rental-ios/
 │   │   │   ├── messages.tsx       # メッセージスレッド一覧（LoginPrompt対応）
 │   │   │   ├── schedule.tsx       # スケジュール（LoginPrompt対応）
 │   │   │   ├── carts.tsx          # 台車管理（LoginPrompt対応）※ useFocusEffect
+│   │   │   ├── notifications.tsx  # 通知一覧・既読管理（href: null 隠しタブ・ベルから遷移）
 │   │   │   ├── profile.tsx        # プロフィール（href: null・タブバー非表示）
 │   │   │   └── _layout.tsx        # Tab レイアウト（ヘッダー右アイコン: 通知28px / プロフィール28px）
 │   │   ├── carts/
@@ -1522,9 +1525,6 @@ cart-rental-ios/
 │   │   │   ├── _layout.tsx        # search グループ Stack（headerShown: false）
 │   │   │   ├── index.tsx          # テキスト検索画面（市区町村名検索）
 │   │   │   └── [lender_id].tsx    # 貸主詳細・台車一覧（カスタム戻るボタン）
-│   │   ├── notifications/
-│   │   │   ├── _layout.tsx        # notifications グループ Stack（title: '通知'）
-│   │   │   └── index.tsx          # 通知一覧・既読管理
 │   │   ├── profile.tsx            # プロフィール表示（ルート・モーダル presentation）
 │   │   ├── profile-edit.tsx       # プロフィール編集（スタック）
 │   │   ├── request-new.tsx        # リクエスト送信（モーダル presentation）
