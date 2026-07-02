@@ -247,6 +247,12 @@ export default function ProfileScreen() {
 
   const { h: remH, m: remM } = minutesToParts(notif.reminderMinutes);
 
+  // ログアウト → ホームへ（空のプロフィール背景が残らないように）
+  const handleLogout = async () => {
+    await signOut();
+    router.replace('/(tabs)');
+  };
+
   if (!session) return null;
   if (!user) return <ActivityIndicator style={{ flex: 1 }} color="#3b82f6" />;
 
@@ -355,7 +361,7 @@ export default function ProfileScreen() {
       <Pressable style={s.logoutBtn} onPress={() =>
         Alert.alert('ログアウト', 'ログアウトしますか？', [
           { text: 'キャンセル', style: 'cancel' },
-          { text: 'ログアウト', style: 'destructive', onPress: signOut },
+          { text: 'ログアウト', style: 'destructive', onPress: handleLogout },
         ])}>
         <Text style={s.logoutText}>ログアウト</Text>
       </Pressable>

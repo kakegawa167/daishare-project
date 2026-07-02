@@ -387,8 +387,8 @@
 | エラーID   | ERR-028                                                                                  |
 | 発生日時   | 2026-07-02                                                                               |
 | 発生箇所   | `mobile/app/profile.tsx` / `mobile/app/(tabs)/profile.tsx`                               |
-| 症状       | ERR-020（authStore の `loading` 修正）後も、ログアウト直後にプロフィール画面でスピナーが無限に回る |
-| 原因       | 各プロフィール画面が `if (!user) return <ActivityIndicator/>` としており、ログアウトで `user` が `null` になると（`session` も null なのに）スピナー表示のままになっていた |
-| 対応方法   | `session` もストアから取得し、`if (!session) return null;` を `!user` チェックの前に追加。未ログイン時は即座に描画を止め、ルートレイアウトのログイン誘導に委ねる |
-| 注意点     | 「認証情報の読み込み中（session あり・user 未取得）」と「ログアウト済み（session なし）」を区別すること。前者のみスピナー、後者は `null` |
+| 症状       | ①ERR-020（authStore の `loading` 修正）後も、ログアウト直後にプロフィール画面でスピナーが無限に回る。②`if (!session) return null` 追加後は、プロフィールがモーダル表示のため空の背景だけが残り、ホームに戻らない |
+| 原因       | ①各プロフィール画面が `if (!user) return <ActivityIndicator/>` としており、ログアウトで `user=null`（`session` も null）になるとスピナー表示のままになっていた。②`profile.tsx` は `presentation: 'modal'` で、`signOut` を直接 onPress に渡していたため、ログアウト後もモーダルが開いたまま（中身は `null`）で背景のみ表示になった |
+| 対応方法   | ①`session` もストアから取得し `if (!session) return null;` を `!user` の前に追加。②ログアウトを `handleLogout = async () => { await signOut(); router.replace('/(tabs)'); }` にして、サインアウト後にモーダルを閉じてホーム（tabs 初期タブ）へ遷移させる |
+| 注意点     | 「読み込み中（session あり・user 未取得）＝スピナー」と「ログアウト済み（session なし）＝ null」を区別する。モーダル画面のサインアウトは必ず `router.replace('/(tabs)')` で明示的に遷移させる（`null` 返しだけではモーダルが残る） |
 | 対象ファイル | `mobile/app/profile.tsx`, `mobile/app/(tabs)/profile.tsx`                                |
