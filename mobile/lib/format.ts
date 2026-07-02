@@ -6,6 +6,21 @@ export const fmtDateTime = (d: string | Date) =>
     month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit',
   });
 
+/**
+ * 日付を「M/D」で整形。ただし今年と異なる年のときだけ「YYYY/M/D」にする。
+ * 一覧のように簡潔さが要る箇所で、年跨ぎ・翌年予約の曖昧さを防ぐ。
+ */
+export const fmtDateSmart = (d: string | Date) => {
+  const date = new Date(d);
+  const sameYear = date.getFullYear() === new Date().getFullYear();
+  return date.toLocaleDateString(
+    'ja-JP',
+    sameYear
+      ? { month: 'numeric', day: 'numeric' }
+      : { year: 'numeric', month: 'numeric', day: 'numeric' },
+  );
+};
+
 /** 台車の料金を「¥X/日（or 週 / 回）」形式に整形。日額 > 週額 > 回額 の優先で表示 */
 export const formatRate = (cart: Pick<Cart, 'daily_rate' | 'weekly_rate' | 'per_rental_rate'>) =>
   cart.daily_rate != null

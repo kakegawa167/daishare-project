@@ -1,6 +1,7 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { api } from '@/lib/api';
 import { RentalRequest } from '@/lib/types';
+import { fmtDateSmart } from '@/lib/format';
 import { EmptyScreen, LoadingScreen } from '@/components/ScreenState';
 import { useAuthStore } from '@/store/authStore';
 import { LoginPrompt } from '@/components/LoginPrompt';
@@ -35,7 +36,7 @@ function ThreadCard({ req, userId }: { req: RentalRequest; userId: string }) {
 
   const location = [req.municipality, req.station_name].filter(Boolean).join(' / ');
 
-  // 最終メッセージの時刻表示（LINEスタイル）
+  // 最終メッセージの時刻表示（LINEスタイル）: 当日=時刻 / 7日以内=N日前 / それ以上=日付（年跨ぎのみ年付き）
   const lastAt = req.last_message_at ? new Date(req.last_message_at) : new Date(req.created_at);
   const now = new Date();
   const diffDays = Math.floor((now.getTime() - lastAt.getTime()) / 86400000);
@@ -43,11 +44,12 @@ function ThreadCard({ req, userId }: { req: RentalRequest; userId: string }) {
     ? lastAt.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })
     : diffDays < 7
     ? `${diffDays}日前`
-    : lastAt.toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric' });
+    : fmtDateSmart(lastAt);
 
-  // 日程（M/D のみ・一覧では時刻を省いて簡潔に）＋場所を 1 行のメタに集約
-  const fmtMD = (iso: string) => new Date(iso).toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric' });
-  const dateShort = req.start_date && req.end_date ? `${fmtMD(req.start_date)}〜${fmtMD(req.end_date)}` : null;
+  // 日程（時刻は省き簡潔に。今年と異なる年のみ年を付ける）＋場所を 1 行のメタに集約
+  const dateShort = req.start_date && req.end_date
+    ? `${fmtDateSmart(req.start_date)}〜${fmtDateSmart(req.end_date)}`
+    : null;
   const metaLine = [dateShort, location].filter(Boolean).join('  ·  ');
 
   const hasMessage = !!req.last_message_body;

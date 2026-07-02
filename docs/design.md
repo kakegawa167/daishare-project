@@ -1,6 +1,6 @@
 # ダイシェア モバイルアプリ 設計書
 
-> バージョン: 2.11.0  
+> バージョン: 2.11.1  
 > 作成日: 2026-06-23  
 > 最終更新: 2026-07-02  
 > 対象: MVP リリース
@@ -1185,11 +1185,11 @@ active → inactive / inactive → active をトグル
 | 要素             | 仕様                                                                            |
 | ---------------- | ------------------------------------------------------------------------------- |
 | Avatar           | 相手の名前の頭文字（bg `#dbeafe`, text `#3b82f6`）                              |
-| 時刻表示         | 当日 → HH:MM / 7日以内 → N日前 / それ以上 → M/D                                 |
+| 時刻表示         | 当日 → HH:MM / 7日以内 → N日前 / それ以上 → 日付（`fmtDateSmart`: 今年は M/D・他年は YYYY/M/D） |
 | ステータスバッジ | `reservation_status ?? status` で判定（予約一覧と同じ色）                       |
 | 予約識別         | 🛒 台車名 × 台数（`#1d4ed8`）— 予約を見分けるための主キー情報                  |
 | 最終メッセージ   | 14px。未読=濃色(`#111827`)太字 / 既読=`#4b5563` / メッセージ未送信=グレー斜体（「リクエスト送信済み」等） |
-| 日程・場所       | 11px グレー。日付は M/D のみ（時刻省略）＋場所を「 · 」で 1 行に集約             |
+| 日程・場所       | 11px グレー。日付は `fmtDateSmart`（時刻省略・今年は M/D、年跨ぎ/翌年は年付き）＋場所を「 · 」で 1 行に集約 |
 | 未読バッジ       | 緑（`#22c55e`）・99超は「99+」                                                   |
 | タップ           | → `/requests/[id]`                                                              |
 
@@ -1543,7 +1543,7 @@ cart-rental-ios/
 │   │   ├── api.ts
 │   │   ├── supabase.ts
 │   │   ├── types.ts
-│   │   ├── format.ts              # 共通フォーマッタ（fmtDateTime / formatRate）
+│   │   ├── format.ts              # 共通フォーマッタ（fmtDateTime / fmtDateSmart / formatRate）
 │   │   ├── purchases.ts           # RevenueCat SDK ラッパー（Expo Go 時はグレースフルデグレード）
 │   │   └── requireAuth.ts         # 未認証ガード（Alert + /(auth)/login 誘導）
 │   └── package.json
