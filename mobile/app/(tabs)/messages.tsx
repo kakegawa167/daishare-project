@@ -1,7 +1,6 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { api } from '@/lib/api';
 import { RentalRequest } from '@/lib/types';
-import { fmtDateTime } from '@/lib/format';
 import { EmptyScreen, LoadingScreen } from '@/components/ScreenState';
 import { useAuthStore } from '@/store/authStore';
 import { LoginPrompt } from '@/components/LoginPrompt';
@@ -39,19 +38,31 @@ function ThreadCard({ req, userId }: { req: RentalRequest; userId: string }) {
   // 最終メッセージの時刻表示（LINEスタイル）
   const lastAt = req.last_message_at ? new Date(req.last_message_at) : new Date(req.created_at);
   const now = new Date();
-  const diffMs = now.getTime() - lastAt.getTime();
-  const diffDays = Math.floor(diffMs / 86400000);
+  const diffDays = Math.floor((now.getTime() - lastAt.getTime()) / 86400000);
   const timeStr = diffDays === 0
     ? lastAt.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })
     : diffDays < 7
     ? `${diffDays}日前`
     : lastAt.toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric' });
 
-  const previewText = req.last_message_body ?? (req.start_date ? `リクエスト: ${fmtDateTime(req.start_date)}` : '問い合わせ中');
+  // 日程（M/D のみ・一覧では時刻を省いて簡潔に）＋場所を 1 行のメタに集約
+  const fmtMD = (iso: string) => new Date(iso).toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric' });
+  const dateShort = req.start_date && req.end_date ? `${fmtMD(req.start_date)}〜${fmtMD(req.end_date)}` : null;
+  const metaLine = [dateShort, location].filter(Boolean).join('  ·  ');
+
+  const hasMessage = !!req.last_message_body;
+  const previewText = req.last_message_body ?? (req.start_date ? 'リクエスト送信済み' : '問い合わせ中');
   const hasUnread = req.unread_count > 0;
 
+  const st = req.reservation_status ?? req.status;
+  const stColor = STATUS_COLOR[st] ?? '#9ca3af';
+  const stLabel = STATUS_LABEL[st] ?? st;
+
   return (
-    <Pressable style={s.card} onPress={() => router.push(`/requests/${req.id}` as any)}>
+    <Pressable
+      style={({ pressed }) => [s.card, pressed && { backgroundColor: '#f9fafb' }]}
+      onPress={() => router.push(`/requests/${req.id}` as any)}
+    >
       {/* アバター */}
       <View style={s.avatar}>
         <Text style={s.avatarText}>{otherName.charAt(0)}</Text>
@@ -62,51 +73,37 @@ function ThreadCard({ req, userId }: { req: RentalRequest; userId: string }) {
         {/* 1行目: 名前 + ステータスバッジ + 時刻 */}
         <View style={s.row}>
           <Text style={s.name} numberOfLines={1}>{otherName}</Text>
-          {(() => {
-            const st = req.reservation_status ?? req.status;
-            const color = STATUS_COLOR[st] ?? '#9ca3af';
-            const label = STATUS_LABEL[st] ?? st;
-            return (
-              <View style={[s.statusBadge, { backgroundColor: color + '22' }]}>
-                <Text style={[s.statusBadgeText, { color }]}>{label}</Text>
-              </View>
-            );
-          })()}
+          <View style={[s.statusBadge, { backgroundColor: stColor + '22' }]}>
+            <Text style={[s.statusBadgeText, { color: stColor }]}>{stLabel}</Text>
+          </View>
           <Text style={s.time}>{timeStr}</Text>
         </View>
 
-        {/* 2行目: 台車名 + 台数 */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 1 }}>
+        {/* 2行目: 予約識別（台車名 × 台数） */}
+        <View style={s.cartRow}>
           <MaterialIcons name="shopping-cart" size={13} color="#1d4ed8" />
           <Text style={s.cartLine} numberOfLines={1}>{req.cart_title ?? '台車'} × {req.quantity}台</Text>
         </View>
 
-        {/* 3行目: 貸出〜返却時間 */}
-        <Text style={s.dateLine} numberOfLines={1}>
-          {req.start_date && req.end_date ? `${fmtDateTime(req.start_date)} 〜 ${fmtDateTime(req.end_date)}` : '（日程未定）'}
-        </Text>
-
-        {/* 4行目: 場所 */}
-        {location ? (
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, marginBottom: 3 }}>
-            <MaterialIcons name="place" size={12} color="#6b7280" />
-            <Text style={[s.locationLine, { marginBottom: 0 }]} numberOfLines={1}>{location}</Text>
-          </View>
-        ) : null}
-
-        {/* 5行目: 最後のメッセージ + 未読バッジ */}
+        {/* 3行目: 最終メッセージ（主役）＋ 未読バッジ */}
         <View style={s.previewRow}>
-          <Text style={[s.preview, hasUnread && s.previewUnread]} numberOfLines={1}>
+          <Text
+            style={[s.preview, !hasMessage && s.previewMuted, hasUnread && s.previewUnread]}
+            numberOfLines={1}
+          >
             {previewText}
           </Text>
           {hasUnread && (
             <View style={s.badge}>
-              <Text style={s.badgeText}>
-                {req.unread_count > 99 ? '99+' : req.unread_count}
-              </Text>
+              <Text style={s.badgeText}>{req.unread_count > 99 ? '99+' : req.unread_count}</Text>
             </View>
           )}
         </View>
+
+        {/* 4行目: 日程・場所（補足・小さく1行に集約） */}
+        {metaLine ? (
+          <Text style={s.metaLine} numberOfLines={1}>{metaLine}</Text>
+        ) : null}
       </View>
     </Pressable>
   );
@@ -200,20 +197,24 @@ const s = StyleSheet.create({
   },
   avatarText: { fontSize: 18, fontWeight: '700', color: '#3b82f6' },
 
-  body: { flex: 1 },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 3 },
-  name: { fontSize: 15, fontWeight: '700', color: '#1a1a1a', flex: 1 },
+  body: { flex: 1, gap: 3 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  name: { fontSize: 15, fontWeight: '700', color: '#111827', flex: 1 },
   time: { fontSize: 12, color: '#9ca3af', flexShrink: 0 },
-  statusBadge: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8, flexShrink: 0 },
+  statusBadge: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 8, flexShrink: 0 },
   statusBadgeText: { fontSize: 10, fontWeight: '700' },
 
-  cartLine: { fontSize: 13, color: '#1d4ed8', fontWeight: '600', marginBottom: 1 },
-  dateLine: { fontSize: 12, color: '#6b7280', marginBottom: 1 },
-  locationLine: { fontSize: 12, color: '#6b7280', marginBottom: 3 },
+  cartRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  cartLine: { flex: 1, fontSize: 12, color: '#1d4ed8', fontWeight: '600' },
 
-  previewRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  preview: { fontSize: 13, color: '#9ca3af', flex: 1 },
-  previewUnread: { color: '#374151', fontWeight: '500' },
+  // 最終メッセージ = 主役（大きく・濃く）
+  previewRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 1 },
+  preview: { flex: 1, fontSize: 14, color: '#4b5563', lineHeight: 19 },
+  previewUnread: { color: '#111827', fontWeight: '700' },
+  previewMuted: { color: '#9ca3af', fontStyle: 'italic' },
+
+  // 日程・場所 = 補足（小さく・薄く）
+  metaLine: { fontSize: 11, color: '#9ca3af' },
 
   badge: {
     minWidth: 20,
