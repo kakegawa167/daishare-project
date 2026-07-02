@@ -790,10 +790,11 @@ export default function RequestChat() {
                 style={[s.sendBtn, (!input.trim() || sending) && s.sendBtnOff]}
                 onPress={handleSend}
                 disabled={!input.trim() || sending}
+                accessibilityLabel="送信"
               >
                 {sending
                   ? <ActivityIndicator color="#fff" size="small" />
-                  : <Text style={s.sendBtnText}>送信</Text>
+                  : <MaterialIcons name="send" size={20} color="#fff" />
                 }
               </Pressable>
             </View>
@@ -925,7 +926,6 @@ const s = StyleSheet.create({
     backgroundColor: '#3b82f6', alignItems: 'center', justifyContent: 'center',
   },
   sendBtnOff: { backgroundColor: '#93c5fd' },
-  sendBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
   inputBarBlocked: { flexDirection: 'column', alignItems: 'stretch', backgroundColor: '#fff7ed', borderTopColor: '#fed7aa' },
   inputBlockedText: { fontSize: 13, color: '#92400e', lineHeight: 18, paddingVertical: 4 },
 
